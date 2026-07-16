@@ -275,7 +275,7 @@ function deduce(puzzle, depth) {
   }
   if (!stComplete(st)) return { solved: false, hard, rounds: out.rounds };
   const board = st.map((row) => row.map((v) => (v === 1 ? 1 : 0)));
-  return { solved: checkWin(puzzle, board), hard, rounds: out.rounds };
+  return { solved: checkWin(puzzle, board), hard, rounds: out.rounds, board };
 }
 
 /* ---- 難易度設定 ----
@@ -318,6 +318,102 @@ function generateSolvablePuzzle(n, diffKey) {
     }
   }
   return best || fallback;
+}
+
+/* ---- 理由つきヒント ----
+   現在の盤面(パンダ=確定、草マーク=検証済みなら信用)に人間の推理ルールを
+   1手だけ適用し、確定できるマスとその理由を返す */
+function computeHint(P, board) {
+  const { n, bambooSet, rowClues, colClues } = P;
+  const inB = (r, c) => r >= 0 && r < n && c >= 0 && c < n;
+  const res = deduce(P, 1);
+  const sol = res.solved ? res.board : null;
+
+  // 1) 間違ったパンダ / 2) 間違った草マーク
+  if (sol) {
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (board[r][c] === 1 && sol[r][c] !== 1)
+        return { r, c, val: 0, msg: `${r + 1}行${c + 1}列のパンダは間違いのようです。いったん消したよ。` };
+      if (board[r][c] === 2 && sol[r][c] === 1)
+        return { r, c, val: 0, msg: `${r + 1}行${c + 1}列の草マークは間違いのようです。ここには本当はパンダが入るよ。` };
+    }
+  }
+
+  // 現在の見えている情報から状態を構築
+  // 0:不明 1:パンダ 2:草(ユーザーのマーク+自明な草) 3:竹
+  const st = Array.from({ length: n }, (_, r) =>
+    Array.from({ length: n }, (_, c) =>
+      bambooSet.has(`${r},${c}`) ? 3 : board[r][c] === 1 ? 1 : board[r][c] === 2 ? 2 : 0
+    )
+  );
+  // R3: パンダの周囲8マスは草
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (st[r][c] === 1)
+    for (const [dr, dc] of DIRS8) {
+      const rr = r + dr, cc = c + dc;
+      if (inB(rr, cc) && st[rr][cc] === 0) st[rr][cc] = 2;
+    }
+  // R1: 竹に隣接しないマスは草
+  const nearBamboo = (r, c) => DIRS4.some(([dr, dc]) => inB(r + dr, c + dc) && bambooSet.has(`${r + dr},${c + dc}`));
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
+    if (st[r][c] === 0 && !nearBamboo(r, c)) st[r][c] = 2;
+
+  const lines = [];
+  for (let r = 0; r < n; r++) lines.push({ clue: rowClues[r], label: `${r + 1}行目`, cells: Array.from({ length: n }, (_, c) => [r, c]) });
+  for (let c = 0; c < n; c++) lines.push({ clue: colClues[c], label: `${c + 1}列目`, cells: Array.from({ length: n }, (_, r) => [r, c]) });
+  const lineStat = ({ cells }) => {
+    let p = 0; const unk = [];
+    for (const [r, c] of cells) {
+      if (st[r][c] === 1) p++;
+      else if (st[r][c] === 0) unk.push([r, c]);
+    }
+    return { p, unk };
+  };
+
+  // 3) 残りマス数 = 足りないパンダ数 → すべてパンダ
+  for (const line of lines) {
+    const { p, unk } = lineStat(line);
+    if (unk.length > 0 && p + unk.length === line.clue) {
+      const [r, c] = unk[0];
+      return { r, c, val: 1, msg: `${r + 1}行${c + 1}列はパンダ。${line.label}は、置けないマスを除くと残り${unk.length}マスで、足りないパンダもちょうど${unk.length}匹だから。` };
+    }
+  }
+  // 4) 相棒を置ける場所が1つしかない竹
+  for (const key of bambooSet) {
+    const [br, bc] = key.split(",").map(Number);
+    const nbs = DIRS4.map(([dr, dc]) => [br + dr, bc + dc]).filter(([r, c]) => inB(r, c) && st[r][c] !== 3);
+    if (nbs.some(([r, c]) => st[r][c] === 1)) continue;
+    const cand = nbs.filter(([r, c]) => st[r][c] === 0);
+    if (cand.length === 1) {
+      const [r, c] = cand[0];
+      return { r, c, val: 1, msg: `${r + 1}行${c + 1}列はパンダ。${br + 1}行${bc + 1}列の竹の相棒を置ける場所が、もうここしか残っていないから。` };
+    }
+  }
+  // 5) パンダが揃った行・列の残りは草
+  for (const line of lines) {
+    const { p, unk } = lineStat(line);
+    if (unk.length > 0 && p === line.clue) {
+      const [r, c] = unk[0];
+      return { r, c, val: 2, msg: `${r + 1}行${c + 1}列は草。${line.label}はもうパンダが${line.clue}匹そろっているから。` };
+    }
+  }
+  // 6) パンダのとなりは草 / 7) 竹に隣接しないマスは草
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (board[r][c] !== 0 || bambooSet.has(`${r},${c}`)) continue;
+    if (DIRS8.some(([dr, dc]) => inB(r + dr, c + dc) && board[r + dr][c + dc] === 1))
+      return { r, c, val: 2, msg: `${r + 1}行${c + 1}列は草。パンダの周囲8マス(ななめ含む)に他のパンダは置けないから。` };
+    if (!nearBamboo(r, c))
+      return { r, c, val: 2, msg: `${r + 1}行${c + 1}列は草。上下左右に竹がないマスにパンダは置けないから。` };
+  }
+  // 8) 背理法(激ムズ・鬼ムズ): 演繹解から1マス
+  if (sol) {
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (board[r][c] === 0 && !bambooSet.has(`${r},${c}`)) {
+        const v = sol[r][c] === 1 ? 1 : 2;
+        return { r, c, val: v, msg: `${r + 1}行${c + 1}列は${v === 1 ? "パンダ" : "草"}。ここから先は仮置きが必要な場面 — 逆を置くと必ずどこかで矛盾してしまうから(背理法)。` };
+      }
+    }
+  }
+  return null;
 }
 
 /* ============ 効果音 (Web Audio / ゼルダ風チップチューン) ============ */
@@ -444,7 +540,10 @@ function PandaPuzzle() {
   const [seconds, setSeconds] = useState(0);
   const [showRules, setShowRules] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const [hintMsg, setHintMsg] = useState(null);
+  const [hintCell, setHintCell] = useState(null);
   const timerRef = useRef(null);
+  const hintTimerRef = useRef(null);
 
   const newGame = useCallback((n, d) => {
     const { p, s } = seededPuzzle(n, d, null);
@@ -454,6 +553,8 @@ function PandaPuzzle() {
     setWon(false);
     setCelebrate(false);
     setSeconds(0);
+    setHintMsg(null);
+    setHintCell(null);
   }, []);
 
   const leaveChallenge = useCallback(() => {
@@ -518,6 +619,28 @@ function PandaPuzzle() {
       SFX.row();
     }
     setBoard(next);
+  };
+
+  const hint = () => {
+    if (won || celebrate) return;
+    ensureAudio();
+    const h = computeHint(puzzle, board);
+    if (!h) {
+      setHintMsg("いまの盤面からは確定するマスが見つからないよ。置いたパンダや草マークを見直してみて。");
+    } else {
+      const next = board.map((row) => [...row]);
+      next[h.r][h.c] = h.val;
+      if (checkWin(puzzle, next)) {
+        SFX.win();
+        setCelebrate(true);
+        setTimeout(() => { setCelebrate(false); setWon(true); }, 1700);
+      }
+      setBoard(next);
+      setHintMsg(h.msg);
+      setHintCell(`${h.r},${h.c}`);
+    }
+    clearTimeout(hintTimerRef.current);
+    hintTimerRef.current = setTimeout(() => { setHintMsg(null); setHintCell(null); }, 8000);
   };
 
   // エラー検出:隣接パンダ
@@ -601,6 +724,8 @@ function PandaPuzzle() {
         .cell.error { background: #f0a294; animation: shake .3s; }
         .cell.mark { background: #68955a; }
         @keyframes shake { 25% { transform: translateX(-2px);} 75% { transform: translateX(2px);} }
+        .cell.hintflash { animation: hintpulse .6s ease 3; }
+        @keyframes hintpulse { 50% { box-shadow: inset 0 0 0 3px #f0b429; transform: scale(1.07); } }
         .grid.celebrate .cell { animation: sparkle .9s ease both; }
         .grid.celebrate .cell.panda { animation: dance 1.5s ease both; }
         @keyframes sparkle {
@@ -624,6 +749,11 @@ function PandaPuzzle() {
           background: rgba(240,180,41,.16); border: 2px solid rgba(240,180,41,.55);
           border-radius: 14px; padding: 10px 14px; font-size: .85rem; font-weight: 700;
           line-height: 1.7;
+        }
+        .hint-msg {
+          max-width: 560px; margin-top: 10px;
+          background: rgba(243,239,226,.1); border: 2px solid rgba(168,207,90,.5);
+          border-radius: 14px; padding: 10px 14px; font-size: .85rem; line-height: 1.8;
         }
         .verdict { font-size: 1.25rem; font-weight: 800; margin: 4px 0; }
         .vs { font-size: .95rem; margin-top: 4px; }
@@ -723,6 +853,7 @@ function PandaPuzzle() {
                   v === 1 ? "panda" : "",
                   v === 2 ? "mark" : "",
                   showErrors && errorSet.has(key) ? "error" : "",
+                  hintCell === key ? "hintflash" : "",
                 ].join(" ");
                 return (
                   <div
@@ -744,9 +875,13 @@ function PandaPuzzle() {
         パンダ <b>{placed}</b> / {total} 頭　·　タップで 草マーク → 🐼 → 消去
       </div>
 
-      <button className="btn" style={{ marginTop: 10 }} onClick={() => setShowRules(!showRules)}>
-        {showRules ? "ルールを閉じる" : "ルールを見る"}
-      </button>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button className="btn" onClick={hint}>💡 ヒント</button>
+        <button className="btn" onClick={() => setShowRules(!showRules)}>
+          {showRules ? "ルールを閉じる" : "ルールを見る"}
+        </button>
+      </div>
+      {hintMsg && <div className="hint-msg">{hintMsg}</div>}
       {showRules && (
         <div className="rules">
           🎋 竹1本につきパンダ1頭を、竹の<b>上下左右</b>いずれかのマスに置きます(1対1のペア)。<br />
