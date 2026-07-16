@@ -357,7 +357,7 @@ function PandaPuzzle() {
         .cell.bamboo { background: #3e6b3a; cursor: default; border-bottom-color: rgba(0,0,0,.3); }
         .cell.panda { background: #e7f0d8; }
         .cell.error { background: #f0a294; animation: shake .3s; }
-        .cell.mark { background: #557f4c; color: rgba(240,245,225,.75); font-size: clamp(.9rem, 3.5vw, 1.2rem); }
+        .cell.mark { background: #7ba56c; }
         @keyframes shake { 25% { transform: translateX(-2px);} 75% { transform: translateX(2px);} }
         .status { margin-top: 14px; font-size: .85rem; opacity: .8; font-weight: 500; }
         .status b { color: #f0b429; }
@@ -439,7 +439,7 @@ function PandaPuzzle() {
                 ].join(" ");
                 return (
                   <div key={key} className={cls} onClick={() => tap(r, c)}>
-                    {isBamboo ? "🎋" : v === 1 ? "🐼" : v === 2 ? "🌿" : ""}
+                    {isBamboo ? "🎋" : v === 1 ? "🐼" : ""}
                   </div>
                 );
               }),
@@ -449,7 +449,7 @@ function PandaPuzzle() {
       </div>
 
       <div className="status">
-        パンダ <b>{placed}</b> / {total} 頭　·　タップで 🌿(草マーク) → 🐼 → 消去
+        パンダ <b>{placed}</b> / {total} 頭　·　タップで 草マーク → 🐼 → 消去
       </div>
 
       <button className="btn" style={{ marginTop: 10 }} onClick={() => setShowRules(!showRules)}>
@@ -460,7 +460,7 @@ function PandaPuzzle() {
           🎋 竹1本につきパンダ1頭を、竹の<b>上下左右</b>いずれかのマスに置きます(1対1のペア)。<br />
           🐼 パンダ同士は<b>縦・横・斜め</b>に隣り合ってはいけません。<br />
           🔢 行と列の数字は、その行・列にいるパンダの数です。<br />
-          🌿 パンダがいないと分かったマスは草マークでメモできます。
+          🌿 パンダがいないと分かったマスは草マーク(濃いめの緑)でメモできます。
         </div>
       )}
 
