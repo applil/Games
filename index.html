@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>パズルゲーム</title>
+<style>
+:root{
+  --ink:#22304a;
+  --ink-soft:#6b7a99;
+  --paper:#f4f6fb;
+  --card:#ffffff;
+  --line:#dfe6f2;
+  --radius:22px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:'Hiragino Maru Gothic ProN','Zen Maru Gothic','Hiragino Kaku Gothic ProN','Yu Gothic',system-ui,sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(110% 80% at -10% -10%, rgba(255,107,53,.08), transparent 55%),
+    radial-gradient(110% 80% at 110% 0%, rgba(61,155,255,.09), transparent 55%),
+    radial-gradient(110% 80% at 50% 115%, rgba(62,107,58,.10), transparent 60%),
+    var(--paper);
+  min-height:100%;
+  display:flex;
+  justify-content:center;
+}
+.app{width:100%;max-width:480px;padding:36px 20px 48px}
+
+header{text-align:center;margin-bottom:26px}
+h1{font-size:26px;font-weight:800;letter-spacing:.08em}
+.tagline{font-size:12px;color:var(--ink-soft);margin-top:8px;letter-spacing:.05em;line-height:1.7}
+
+.games{display:flex;flex-direction:column;gap:16px}
+a.game{
+  display:flex;align-items:center;gap:16px;text-decoration:none;color:inherit;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;
+  box-shadow:0 6px 24px rgba(34,48,74,.06);
+  transition:transform .12s, box-shadow .12s;
+}
+a.game:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(34,48,74,.10)}
+a.game:active{transform:scale(.98)}
+.emoji{
+  font-size:34px;line-height:1;flex-shrink:0;
+  width:64px;height:64px;border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+}
+.game.fire-ice .emoji{background:linear-gradient(135deg,#ffe9df 0%,#e3f1ff 100%)}
+.game.panda .emoji{background:linear-gradient(135deg,#e7f0d8 0%,#cfe3c2 100%)}
+.info{flex:1;min-width:0}
+.name{font-size:17px;font-weight:800;margin-bottom:3px}
+.desc{font-size:12px;color:var(--ink-soft);line-height:1.7}
+.arrow{color:var(--ink-soft);font-size:18px;flex-shrink:0}
+
+footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🧩 パズルゲーム</h1>
+    <div class="tagline">開くたびに新しい問題<br>どれも推測なしの論理だけで解けます</div>
+  </header>
+
+  <nav class="games" aria-label="ゲーム一覧">
+    <a class="game fire-ice" href="fire-ice/">
+      <span class="emoji">🔥🧊</span>
+      <span class="info">
+        <span class="name">炎と氷</span>
+        <span class="desc">各行・列に🔥と🧊を同じ数ずつ。3連続禁止のバイナリーパズル(6×6 / 8×8)</span>
+      </span>
+      <span class="arrow">›</span>
+    </a>
+    <a class="game panda" href="panda/">
+      <span class="emoji">🐼🎋</span>
+      <span class="info">
+        <span class="name">パンダと竹</span>
+        <span class="desc">竹1本にパンダ1頭を隣接配置。パンダ同士は隣接禁止のテントと木パズル(5×5〜9×9)</span>
+      </span>
+      <span class="arrow">›</span>
+    </a>
+  </nav>
+
+  <footer>すべての問題は生成時に「論理的に解けること」を検証済み</footer>
+</div>
+</body>
+</html>

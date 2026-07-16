@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>炎と氷 — ロジックパズル</title>
+<style>
+:root{
+  --ink:#1c2b46;
+  --ink-soft:#5a6b8c;
+  --paper:#f6f8fc;
+  --card:#ffffff;
+  --fire:#ff6b35;
+  --fire-soft:#ffe9df;
+  --ice:#3d9bff;
+  --ice-soft:#e3f1ff;
+  --line:#dce5f2;
+  --given:#eef3fa;
+  --error:#e5484d;
+  --ok:#2fa46a;
+  --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:'Hiragino Maru Gothic ProN','Zen Maru Gothic','Hiragino Kaku Gothic ProN','Yu Gothic',system-ui,sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(120% 90% at -10% -10%, rgba(255,107,53,.10), transparent 55%),
+    radial-gradient(120% 90% at 110% 110%, rgba(61,155,255,.12), transparent 55%),
+    var(--paper);
+  min-height:100%;
+  display:flex;
+  justify-content:center;
+}
+.app{width:100%;max-width:430px;padding:20px 16px 40px}
+
+header{text-align:center;margin-bottom:14px}
+h1{
+  font-size:28px;font-weight:800;letter-spacing:.06em;line-height:1;
+  display:inline-flex;align-items:baseline;gap:2px;
+}
+h1 .fire{color:var(--fire)}
+h1 .ice{color:var(--ice)}
+h1 .to{font-size:18px;color:var(--ink-soft);margin:0 2px}
+.tagline{font-size:12px;color:var(--ink-soft);margin-top:6px;letter-spacing:.04em}
+
+.stats{display:flex;gap:8px;margin-bottom:12px}
+.stat{
+  flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:8px 6px;text-align:center;
+}
+.stat .label{font-size:10px;color:var(--ink-soft);letter-spacing:.08em}
+.stat .value{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+
+.controls{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{
+  flex:1;border:0;background:transparent;border-radius:999px;
+  font:inherit;font-size:12px;font-weight:700;color:var(--ink-soft);
+  padding:7px 0;cursor:pointer;transition:background .15s,color .15s;
+}
+.seg button.active{background:var(--ink);color:#fff}
+.btn{
+  border:0;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;
+  padding:9px 16px;font-size:13px;transition:transform .1s,filter .15s;
+}
+.btn:active{transform:scale(.96)}
+.btn-new{background:var(--ink);color:#fff}
+.btn-hint{background:var(--card);border:1px solid var(--line);color:var(--ink)}
+.btn-row{display:flex;gap:8px;margin-bottom:16px}
+.btn-row .btn{flex:1}
+
+.board-wrap{
+  background:var(--card);border:1px solid var(--line);border-radius:20px;
+  padding:12px;box-shadow:0 8px 30px rgba(28,43,70,.07);
+}
+.board{
+  display:grid;gap:5px;position:relative;
+}
+.board.n8{gap:4px}
+.cell{
+  aspect-ratio:1;border-radius:12px;border:0;cursor:pointer;
+  background:var(--paper);
+  font-size:clamp(22px,7.5vw,32px);line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s, box-shadow .12s, transform .08s;
+  user-select:none;
+}
+.board.n8 .cell{font-size:clamp(16px,5.4vw,24px);border-radius:9px}
+.cell:active{transform:scale(.93)}
+.cell:focus-visible{outline:3px solid var(--ice);outline-offset:2px}
+.cell.given{background:var(--given);cursor:default;box-shadow:inset 0 0 0 1.5px var(--line)}
+.cell.given:active{transform:none}
+.cell.v0{background:var(--ice-soft)}
+.cell.v1{background:var(--fire-soft)}
+.cell.err{box-shadow:inset 0 0 0 2.5px var(--error)}
+.cell.pulse{animation:pulse .5s ease 2}
+@keyframes pulse{50%{box-shadow:inset 0 0 0 3px var(--ok);transform:scale(1.06)}}
+
+.cons{
+  position:absolute;width:20px;height:20px;border-radius:50%;
+  background:#fff;border:1.5px solid var(--line);
+  color:var(--ink-soft);font-size:13px;font-weight:800;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  transform:translate(-50%,-50%);
+  pointer-events:none;z-index:2;
+  box-shadow:0 1px 3px rgba(28,43,70,.12);
+}
+.board.n8 .cons{width:17px;height:17px;font-size:11px}
+.cons.err{border-color:var(--error);color:var(--error)}
+
+details{
+  margin-top:16px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--ink-soft);
+}
+summary{cursor:pointer;font-weight:700;color:var(--ink);font-size:13px}
+details p{margin-top:8px;line-height:1.8}
+
+.overlay{
+  position:fixed;inset:0;background:rgba(28,43,70,.45);
+  display:flex;align-items:center;justify-content:center;z-index:10;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.overlay.show{opacity:1;pointer-events:auto}
+.win-card{
+  background:var(--card);border-radius:24px;padding:32px 28px;text-align:center;
+  width:min(320px,86vw);transform:translateY(12px);transition:transform .25s;
+}
+.overlay.show .win-card{transform:translateY(0)}
+.win-emoji{font-size:44px;margin-bottom:8px}
+.win-title{font-size:20px;font-weight:800;margin-bottom:4px}
+.win-time{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin:8px 0 2px}
+.win-sub{font-size:12px;color:var(--ink-soft);margin-bottom:18px}
+.win-card .btn{width:100%}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1><span class="fire">炎</span><span class="to">と</span><span class="ice">氷</span></h1>
+    <div class="tagline">開くたびに新しい問題 — すべて論理だけで解けます</div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="label">タイム</div><div class="value" id="timer">0:00</div></div>
+    <div class="stat"><div class="label">連続クリア</div><div class="value" id="streak">0</div></div>
+    <div class="stat"><div class="label">ベスト</div><div class="value" id="best">--</div></div>
+  </div>
+
+  <div class="controls">
+    <div class="seg" id="sizeSeg" role="group" aria-label="盤面サイズ">
+      <button data-n="6" class="active">6×6（3つずつ）</button>
+      <button data-n="8">8×8（4つずつ）</button>
+    </div>
+    <div class="seg" id="diffSeg" role="group" aria-label="難易度">
+      <button data-d="easy">やさしい</button>
+      <button data-d="normal" class="active">ふつう</button>
+      <button data-d="hard">むずかしい</button>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-new" id="btnNew">新しい問題</button>
+    <button class="btn btn-hint" id="btnHint">ヒント</button>
+    <button class="btn btn-hint" id="btnClear">リセット</button>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board" id="board" role="grid" aria-label="パズル盤面"></div>
+  </div>
+
+  <details>
+    <summary>ルール</summary>
+    <p>・マスをタップすると 空 → 🔥 → 🧊 → 空 と切り替わります<br>
+    ・各行・各列に 🔥 と 🧊 を <b>同じ数ずつ</b> 入れます（6×6なら3つ、8×8なら4つ）<br>
+    ・同じマークを縦・横に <b>3つ以上連続</b> させてはいけません<br>
+    ・<b>同じ並びの行</b> や <b>同じ並びの列</b> を作ってはいけません<br>
+    ・<b>＝</b> でつながれた隣り合うマスは <b>同じマーク</b>、<b>×</b> は <b>違うマーク</b> になります<br>
+    ・薄いグレーのマスは最初から固定されたヒントです<br>
+    ・どの問題も推測なしの論理だけで解けることが生成時に検証済みです</p>
+  </details>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="win-card">
+    <div class="win-emoji">🔥🎉🧊</div>
+    <div class="win-title">クリア！</div>
+    <div class="win-time" id="winTime">0:00</div>
+    <div class="win-sub" id="winSub"></div>
+    <button class="btn btn-new" id="btnNext">次の問題へ</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// board size is configurable: N x N with N/2 of each symbol per line
+let N = 6, HALF = 3;
+// values: 1 = fire, 0 = ice, null = empty
+const SYM = {1:'🔥', 0:'🧊'};
+
+/* ================= puzzle engine ================= */
+
+const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
+
+let constraints=[], consMap=[];
+function setConstraints(list){
+  constraints = list;
+  consMap = Array.from({length:N*N},()=>[]);
+  for(const cn of list){
+    consMap[cn.a].push({other:cn.b,type:cn.type});
+    consMap[cn.b].push({other:cn.a,type:cn.type});
+  }
+}
+
+function placementValid(g, r, c, v){
+  const i = r*N+c;
+  g[i] = v;
+  const ok = lineValid(g,r,true) && lineValid(g,c,false) && consValid(g,i) && uniqueValid(g,r,c);
+  g[i] = null;
+  return ok;
+}
+function lineValid(g, idx, isRow){
+  let c0=0, c1=0, run=1, prev=null;
+  for(let k=0;k<N;k++){
+    const v = isRow ? g[idx*N+k] : g[k*N+idx];
+    if(v===1) c1++; else if(v===0) c0++;
+    if(v!==null && v===prev){ run++; if(run>=3) return false; }
+    else run=1;
+    prev = v===null ? Symbol() : v;
+  }
+  return c0<=HALF && c1<=HALF;
+}
+function consValid(g, i){
+  for(const {other,type} of consMap[i]){
+    const ov = g[other];
+    if(ov===null) continue;
+    if(type==='eq' && ov!==g[i]) return false;
+    if(type==='ne' && ov===g[i]) return false;
+  }
+  return true;
+}
+function lineComplete(g, idx, isRow){
+  for(let k=0;k<N;k++) if((isRow?g[idx*N+k]:g[k*N+idx])===null) return false;
+  return true;
+}
+function linesEqual(g, a, b, isRow){
+  for(let k=0;k<N;k++){
+    if((isRow?g[a*N+k]:g[k*N+a]) !== (isRow?g[b*N+k]:g[k*N+b])) return false;
+  }
+  return true;
+}
+function uniqueValid(g, r, c){
+  if(lineComplete(g,r,true)){
+    for(let r2=0;r2<N;r2++)
+      if(r2!==r && lineComplete(g,r2,true) && linesEqual(g,r,r2,true)) return false;
+  }
+  if(lineComplete(g,c,false)){
+    for(let c2=0;c2<N;c2++)
+      if(c2!==c && lineComplete(g,c2,false) && linesEqual(g,c,c2,false)) return false;
+  }
+  return true;
+}
+
+function generateSolution(){
+  setConstraints([]);
+  const g = new Array(N*N).fill(null);
+  function fill(i){
+    if(i===N*N) return true;
+    const r=i/N|0, c=i%N;
+    for(const v of shuffle([0,1])){
+      if(placementValid(g,r,c,v)){
+        g[r*N+c]=v;
+        if(fill(i+1)) return true;
+        g[r*N+c]=null;
+      }
+    }
+    return false;
+  }
+  fill(0);
+  return g;
+}
+
+// Pure-deduction solver: fill a cell only when exactly one value is consistent.
+function logicSolve(puzzle){
+  const g = puzzle.slice();
+  let progress = true;
+  while(progress){
+    progress = false;
+    for(let i=0;i<N*N;i++){
+      if(g[i]!==null) continue;
+      const r=i/N|0, c=i%N;
+      const can0 = placementValid(g,r,c,0);
+      const can1 = placementValid(g,r,c,1);
+      if(!can0 && !can1) return null;
+      if(can0 !== can1){ g[i] = can1 ? 1 : 0; progress = true; }
+    }
+  }
+  return g.every(v=>v!==null) ? g : null;
+}
+
+function allEdges(){
+  const e=[];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    if(c<N-1) e.push({a:r*N+c, b:r*N+c+1, horiz:true});
+    if(r<N-1) e.push({a:r*N+c, b:(r+1)*N+c, horiz:false});
+  }
+  return e;
+}
+
+function makePuzzle(minClues, numCons){
+  const solution = generateSolution();
+  const edges = shuffle(allEdges()).slice(0, numCons);
+  const consList = edges.map(e=>({
+    a:e.a, b:e.b, horiz:e.horiz,
+    type: solution[e.a]===solution[e.b] ? 'eq' : 'ne'
+  }));
+  setConstraints(consList);
+
+  const puzzle = solution.slice();
+  let clues = N*N;
+  for(const i of shuffle([...Array(N*N).keys()])){
+    if(clues <= minClues) break;
+    const backup = puzzle[i];
+    puzzle[i] = null;
+    if(logicSolve(puzzle)) clues--;
+    else puzzle[i] = backup;
+  }
+  return {puzzle, solution, consList};
+}
+
+// per-size difficulty settings: min remaining clues + number of =/× marks
+const DIFF = {
+  6:{ easy:{min:18,cons:5},  normal:{min:11,cons:6},  hard:{min:0,cons:7}  },
+  8:{ easy:{min:32,cons:8},  normal:{min:20,cons:10}, hard:{min:0,cons:12} }
+};
+const DIFF_LABEL={easy:'やさしい',normal:'ふつう',hard:'むずかしい'};
+
+/* ================= game state / UI ================= */
+
+let difficulty='normal', puzzle=[], solution=[], user=[], given=[];
+let startTime=0, timerId=null, finished=false;
+
+// persistence — localStorage may be unavailable (private mode etc.)
+const store={
+  get(k){ try{ return localStorage.getItem('fireice-'+k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem('fireice-'+k,v); }catch(e){} }
+};
+let streak=+store.get('streak')||0;
+
+const $=id=>document.getElementById(id);
+const boardEl=$('board');
+let consEls=[];
+
+function fmt(ms){
+  const s=Math.floor(ms/1000);
+  return (s/60|0)+':'+String(s%60).padStart(2,'0');
+}
+const bestKey=()=>N+'-'+difficulty;
+const getBest=()=>{ const v=store.get('best-'+bestKey()); return v==null?null:+v; };
+
+function newGame(){
+  const d=DIFF[N][difficulty];
+  const {puzzle:p, solution:s, consList} = makePuzzle(d.min, d.cons);
+  puzzle=p; solution=s; user=p.slice(); given=p.map(v=>v!==null);
+  setConstraints(consList);
+  finished=false;
+  $('overlay').classList.remove('show');
+  $('best').textContent = getBest()!=null ? fmt(getBest()) : '--';
+  buildBoard();
+  startTime=Date.now();
+  clearInterval(timerId);
+  timerId=setInterval(()=>{ if(!finished) $('timer').textContent=fmt(Date.now()-startTime); },250);
+  $('timer').textContent='0:00';
+}
+
+function buildBoard(){
+  boardEl.innerHTML='';
+  boardEl.style.gridTemplateColumns=`repeat(${N},1fr)`;
+  boardEl.classList.toggle('n8', N===8);
+  for(let i=0;i<N*N;i++){
+    const b=document.createElement('button');
+    b.className='cell';
+    b.dataset.i=i;
+    b.setAttribute('role','gridcell');
+    if(given[i]) b.classList.add('given');
+    b.addEventListener('click',()=>tap(i));
+    boardEl.appendChild(b);
+  }
+  consEls=[];
+  for(const cn of constraints){
+    const m=document.createElement('div');
+    m.className='cons';
+    m.textContent = cn.type==='eq' ? '=' : '×';
+    const ar=cn.a/N|0, ac=cn.a%N;
+    if(cn.horiz){
+      m.style.left = ((ac+1)/N*100)+'%';
+      m.style.top  = ((ar+0.5)/N*100)+'%';
+    }else{
+      m.style.left = ((ac+0.5)/N*100)+'%';
+      m.style.top  = ((ar+1)/N*100)+'%';
+    }
+    m.setAttribute('aria-hidden','true');
+    boardEl.appendChild(m);
+    consEls.push(m);
+  }
+  paint();
+}
+
+function tap(i){
+  if(finished||given[i]) return;
+  user[i] = user[i]===null ? 1 : user[i]===1 ? 0 : null;
+  paint();
+  checkWin();
+}
+
+function paint(){
+  const {cells:errCells, cons:errCons}=violations();
+  const btns=boardEl.querySelectorAll('.cell');
+  btns.forEach((b,i)=>{
+    const v=user[i];
+    b.textContent = v===null ? '' : SYM[v];
+    b.classList.toggle('v1',v===1&&!given[i]);
+    b.classList.toggle('v0',v===0&&!given[i]);
+    b.classList.toggle('err',errCells.has(i));
+    b.setAttribute('aria-label',`${(i/N|0)+1}行${i%N+1}列 ${v===null?'空':v===1?'炎':'氷'}`);
+  });
+  consEls.forEach((m,k)=>m.classList.toggle('err',errCons.has(k)));
+}
+
+function violations(){
+  const cells=new Set(), cons=new Set();
+  for(let line=0;line<N;line++){
+    for(const isRow of [true,false]){
+      const idx=k=>isRow?line*N+k:k*N+line;
+      for(let k=0;k<N-2;k++){
+        const a=user[idx(k)],b=user[idx(k+1)],c=user[idx(k+2)];
+        if(a!==null&&a===b&&b===c){cells.add(idx(k));cells.add(idx(k+1));cells.add(idx(k+2));}
+      }
+      for(const v of [0,1]){
+        let n=0; for(let k=0;k<N;k++) if(user[idx(k)]===v) n++;
+        if(n>HALF) for(let k=0;k<N;k++) if(user[idx(k)]===v) cells.add(idx(k));
+      }
+    }
+  }
+  for(const isRow of [true,false]){
+    for(let a=0;a<N;a++)for(let b=a+1;b<N;b++){
+      if(lineComplete(user,a,isRow)&&lineComplete(user,b,isRow)&&linesEqual(user,a,b,isRow)){
+        for(let k=0;k<N;k++){
+          cells.add(isRow?a*N+k:k*N+a);
+          cells.add(isRow?b*N+k:k*N+b);
+        }
+      }
+    }
+  }
+  constraints.forEach((cn,k)=>{
+    const va=user[cn.a], vb=user[cn.b];
+    if(va===null||vb===null) return;
+    if((cn.type==='eq'&&va!==vb)||(cn.type==='ne'&&va===vb)){
+      cells.add(cn.a); cells.add(cn.b); cons.add(k);
+    }
+  });
+  return {cells, cons};
+}
+
+function checkWin(){
+  if(user.some(v=>v===null)) return;
+  if(user.some((v,i)=>v!==solution[i])) return;
+  finished=true;
+  clearInterval(timerId);
+  const ms=Date.now()-startTime;
+  streak++;
+  $('streak').textContent=streak;
+  store.set('streak',streak);
+  const b=getBest();
+  if(b==null||ms<b) store.set('best-'+bestKey(),ms);
+  $('best').textContent=fmt(getBest());
+  $('winTime').textContent=fmt(ms);
+  $('winSub').textContent=`${N}×${N} ／ ${DIFF_LABEL[difficulty]} ／ 連続クリア ${streak}`;
+  setTimeout(()=>$('overlay').classList.add('show'),300);
+}
+
+function hint(){
+  if(finished) return;
+  for(let i=0;i<N*N;i++){
+    if(!given[i]&&user[i]!==null&&user[i]!==solution[i]){
+      user[i]=null; paint(); flash(i); return;
+    }
+  }
+  const g=user.slice();
+  for(let i=0;i<N*N;i++){
+    if(g[i]!==null) continue;
+    const r=i/N|0,c=i%N;
+    const can0=placementValid(g,r,c,0), can1=placementValid(g,r,c,1);
+    if(can0!==can1){
+      user[i]=can1?1:0; paint(); flash(i); checkWin(); return;
+    }
+  }
+}
+function flash(i){
+  const b=boardEl.querySelectorAll('.cell')[i];
+  b.classList.add('pulse');
+  setTimeout(()=>b.classList.remove('pulse'),1100);
+}
+
+/* ---- wiring ---- */
+$('btnNew').addEventListener('click',()=>{streakGuard();newGame();});
+$('btnNext').addEventListener('click',newGame);
+$('btnHint').addEventListener('click',hint);
+$('btnClear').addEventListener('click',()=>{
+  if(finished) return;
+  user=puzzle.slice(); paint();
+});
+function streakGuard(){ if(!finished){streak=0;$('streak').textContent=0;store.set('streak',0);} }
+
+document.querySelectorAll('#diffSeg button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    difficulty=b.dataset.d;
+    streakGuard();
+    newGame();
+  });
+});
+document.querySelectorAll('#sizeSeg button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#sizeSeg button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    N=+b.dataset.n; HALF=N/2;
+    streakGuard();
+    newGame();
+  });
+});
+
+$('streak').textContent=streak;
+newGame();
+</script>
+</body>
+</html>

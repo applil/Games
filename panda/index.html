@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>パンダと竹 — テントと木パズル</title>
+<style>body{margin:0;background:#17301f}</style>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.4/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ============ パズル生成・判定ロジック ============ */
+
+const DIRS4 = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+const DIRS8 = [
+  [-1, -1], [-1, 0], [-1, 1],
+  [0, -1], [0, 1],
+  [1, -1], [1, 0], [1, 1],
+];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// パンダ配置 → 各パンダに専用の竹マスを二部マッチングで割当
+function generatePuzzle(n) {
+  const target = Math.max(3, Math.floor((n * n) / 4.2));
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const pandaSet = new Set();
+    const cells = shuffle(
+      Array.from({ length: n * n }, (_, i) => [Math.floor(i / n), i % n])
+    );
+    for (const [r, c] of cells) {
+      if (pandaSet.size >= target) break;
+      let ok = true;
+      for (const [dr, dc] of DIRS8) {
+        if (pandaSet.has(`${r + dr},${c + dc}`)) { ok = false; break; }
+      }
+      // 竹を置ける隣接マスが最低1つ必要
+      if (ok) {
+        const free = DIRS4.some(([dr, dc]) => {
+          const rr = r + dr, cc = c + dc;
+          return rr >= 0 && rr < n && cc >= 0 && cc < n && !pandaSet.has(`${rr},${cc}`);
+        });
+        if (free) pandaSet.add(`${r},${c}`);
+      }
+    }
+    if (pandaSet.size < target) continue;
+
+    const pandas = [...pandaSet].map((s) => s.split(",").map(Number));
+    // 各パンダの候補竹マス
+    const adj = pandas.map(([r, c]) =>
+      shuffle(
+        DIRS4
+          .map(([dr, dc]) => [r + dr, c + dc])
+          .filter(
+            ([rr, cc]) =>
+              rr >= 0 && rr < n && cc >= 0 && cc < n && !pandaSet.has(`${rr},${cc}`)
+          )
+          .map(([rr, cc]) => `${rr},${cc}`)
+      )
+    );
+    // Kuhn法で完全マッチング
+    const matchCell = new Map();
+    const tryAssign = (i, seen) => {
+      for (const cell of adj[i]) {
+        if (seen.has(cell)) continue;
+        seen.add(cell);
+        if (!matchCell.has(cell) || tryAssign(matchCell.get(cell), seen)) {
+          matchCell.set(cell, i);
+          return true;
+        }
+      }
+      return false;
+    };
+    let full = true;
+    for (let i = 0; i < pandas.length; i++) {
+      if (!tryAssign(i, new Set())) { full = false; break; }
+    }
+    if (!full) continue;
+
+    const bambooSet = new Set(matchCell.keys());
+    const rowClues = Array(n).fill(0);
+    const colClues = Array(n).fill(0);
+    for (const [r, c] of pandas) { rowClues[r]++; colClues[c]++; }
+    return { n, bambooSet, rowClues, colClues, total: pandas.length };
+  }
+  return null;
+}
+
+// 現在の盤面が正解条件を満たすか(別解も許容)
+function checkWin(puzzle, board) {
+  const { n, bambooSet, rowClues, colClues, total } = puzzle;
+  const pandas = [];
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (board[r][c] === 1) pandas.push([r, c]);
+  if (pandas.length !== total) return false;
+
+  const pandaSet = new Set(pandas.map(([r, c]) => `${r},${c}`));
+  for (const [r, c] of pandas)
+    for (const [dr, dc] of DIRS8)
+      if (pandaSet.has(`${r + dr},${c + dc}`)) return false;
+
+  const rc = Array(n).fill(0), cc = Array(n).fill(0);
+  for (const [r, c] of pandas) { rc[r]++; cc[c]++; }
+  for (let i = 0; i < n; i++)
+    if (rc[i] !== rowClues[i] || cc[i] !== colClues[i]) return false;
+
+  // パンダ⇄竹の完全マッチング
+  const adj = pandas.map(([r, c]) =>
+    DIRS4
+      .map(([dr, dc]) => `${r + dr},${c + dc}`)
+      .filter((k) => bambooSet.has(k))
+  );
+  const matchCell = new Map();
+  const tryAssign = (i, seen) => {
+    for (const cell of adj[i]) {
+      if (seen.has(cell)) continue;
+      seen.add(cell);
+      if (!matchCell.has(cell) || tryAssign(matchCell.get(cell), seen)) {
+        matchCell.set(cell, i);
+        return true;
+      }
+    }
+    return false;
+  };
+  for (let i = 0; i < pandas.length; i++)
+    if (!tryAssign(i, new Set())) return false;
+  return true;
+}
+
+// 人間の推理ルールのみで完全に解けるか検証する演繹ソルバー
+// R1: 竹に隣接しないマスは草 / R2: 行・列の数え上げ(達成→残り草、残り=不足数→全てパンダ)
+// R3: パンダの周囲8マスは草 / R4: 未確定の隣接マスが1つだけの未充足の竹→そこはパンダ
+function deduceSolvable(puzzle) {
+  const { n, bambooSet, rowClues, colClues } = puzzle;
+  const inB = (r, c) => r >= 0 && r < n && c >= 0 && c < n;
+  const isBamboo = (r, c) => bambooSet.has(`${r},${c}`);
+  // 0:不明 1:パンダ 2:草 3:竹
+  const st = Array.from({ length: n }, (_, r) =>
+    Array.from({ length: n }, (_, c) => (isBamboo(r, c) ? 3 : 0))
+  );
+  let bad = false;
+  const setPanda = (r, c) => {
+    if (st[r][c] === 1) return false;
+    if (st[r][c] !== 0) { bad = true; return false; }
+    st[r][c] = 1;
+    for (const [dr, dc] of DIRS8) {
+      const rr = r + dr, cc = c + dc;
+      if (!inB(rr, cc)) continue;
+      if (st[rr][cc] === 1) bad = true;
+      else if (st[rr][cc] === 0) st[rr][cc] = 2;
+    }
+    return true;
+  };
+  const setGrass = (r, c) => {
+    if (st[r][c] === 2) return false;
+    if (st[r][c] !== 0) { bad = true; return false; }
+    st[r][c] = 2;
+    return true;
+  };
+  // R1
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (st[r][c] === 0 && !DIRS4.some(([dr, dc]) => inB(r + dr, c + dc) && isBamboo(r + dr, c + dc)))
+        st[r][c] = 2;
+
+  let changed = true;
+  while (changed && !bad) {
+    changed = false;
+    // R2: 行・列
+    const lines = [];
+    for (let r = 0; r < n; r++) lines.push({ clue: rowClues[r], cells: Array.from({ length: n }, (_, c) => [r, c]) });
+    for (let c = 0; c < n; c++) lines.push({ clue: colClues[c], cells: Array.from({ length: n }, (_, r) => [r, c]) });
+    for (const { clue, cells } of lines) {
+      let p = 0; const unk = [];
+      for (const [r, c] of cells) {
+        if (st[r][c] === 1) p++;
+        else if (st[r][c] === 0) unk.push([r, c]);
+      }
+      if (p > clue || p + unk.length < clue) { bad = true; break; }
+      if (p === clue) unk.forEach(([r, c]) => { if (setGrass(r, c)) changed = true; });
+      else if (p + unk.length === clue) unk.forEach(([r, c]) => { if (setPanda(r, c)) changed = true; });
+    }
+    if (bad) break;
+    // R4: 竹の残り候補が1つ
+    for (const key of bambooSet) {
+      const [r, c] = key.split(",").map(Number);
+      const nbs = DIRS4
+        .map(([dr, dc]) => [r + dr, c + dc])
+        .filter(([rr, cc]) => inB(rr, cc) && st[rr][cc] !== 3);
+      const hasPanda = nbs.some(([rr, cc]) => st[rr][cc] === 1);
+      if (hasPanda) continue;
+      const unk = nbs.filter(([rr, cc]) => st[rr][cc] === 0);
+      if (unk.length === 0) { bad = true; break; }
+      if (unk.length === 1) { if (setPanda(unk[0][0], unk[0][1])) changed = true; }
+    }
+  }
+  if (bad) return false;
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (st[r][c] === 0) return false; // 推理だけでは確定しきれない
+  const board = st.map((row) => row.map((v) => (v === 1 ? 1 : 0)));
+  return checkWin(puzzle, board); // 導いた盤面が真の解であることを最終確認
+}
+
+// 論理的に解ける問題が出るまで生成をリトライ
+function generateSolvablePuzzle(n) {
+  let fallback = null;
+  for (let i = 0; i < 400; i++) {
+    const p = generatePuzzle(n);
+    if (!p) continue;
+    fallback = fallback || p;
+    if (deduceSolvable(p)) return p;
+  }
+  return fallback;
+}
+
+/* ============ コンポーネント ============ */
+
+const SIZES = [
+  { n: 5, label: "5×5 かんたん" },
+  { n: 7, label: "7×7 ふつう" },
+  { n: 9, label: "9×9 むずかしい" },
+];
+
+function fmt(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function PandaPuzzle() {
+  const [size, setSize] = useState(7);
+  const [puzzle, setPuzzle] = useState(() => generateSolvablePuzzle(7));
+  const [board, setBoard] = useState(() =>
+    Array.from({ length: 7 }, () => Array(7).fill(0))
+  );
+  const [won, setWon] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [showRules, setShowRules] = useState(false);
+  const timerRef = useRef(null);
+
+  const newGame = useCallback((n) => {
+    const p = generateSolvablePuzzle(n);
+    setPuzzle(p);
+    setBoard(Array.from({ length: n }, () => Array(n).fill(0)));
+    setWon(false);
+    setSeconds(0);
+  }, []);
+
+  useEffect(() => {
+    if (won) return;
+    timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timerRef.current);
+  }, [won, puzzle]);
+
+  if (!puzzle) return <div>生成に失敗しました。再読み込みしてください。</div>;
+  const { n, bambooSet, rowClues, colClues, total } = puzzle;
+
+  const tap = (r, c) => {
+    if (won || bambooSet.has(`${r},${c}`)) return;
+    setBoard((prev) => {
+      const next = prev.map((row) => [...row]);
+      next[r][c] = { 0: 2, 2: 1, 1: 0 }[next[r][c]]; // 空 → 草マーク → パンダ → 消去
+      if (checkWin(puzzle, next)) setWon(true);
+      return next;
+    });
+  };
+
+  // エラー検出:隣接パンダ
+  const pandaSetNow = new Set();
+  board.forEach((row, r) =>
+    row.forEach((v, c) => v === 1 && pandaSetNow.add(`${r},${c}`))
+  );
+  const errorSet = new Set();
+  for (const key of pandaSetNow) {
+    const [r, c] = key.split(",").map(Number);
+    for (const [dr, dc] of DIRS8)
+      if (pandaSetNow.has(`${r + dr},${c + dc}`)) errorSet.add(key);
+  }
+  const rowCount = Array(n).fill(0), colCount = Array(n).fill(0);
+  for (const key of pandaSetNow) {
+    const [r, c] = key.split(",").map(Number);
+    rowCount[r]++; colCount[c]++;
+  }
+  const placed = pandaSetNow.size;
+
+  const clueClass = (count, clue) =>
+    count > clue ? "clue over" : count === clue ? "clue done" : "clue";
+
+  return (
+    <div className="app">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        .app {
+          min-height: 100vh;
+          font-family: 'M PLUS Rounded 1c', sans-serif;
+          background:
+            radial-gradient(1200px 500px at 50% -10%, #2e5b3f 0%, transparent 60%),
+            linear-gradient(180deg, #1d3d2b 0%, #17301f 100%);
+          color: #f3efe2;
+          display: flex; flex-direction: column; align-items: center;
+          padding: 20px 12px 40px;
+        }
+        .header { width: 100%; max-width: 560px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .title { font-weight: 800; font-size: 1.35rem; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; }
+        .title .sub { font-size: .7rem; font-weight: 500; opacity: .65; display: block; letter-spacing: .12em; }
+        .timer {
+          background: #f3efe2; color: #1d3d2b; font-weight: 800;
+          border-radius: 999px; padding: 6px 16px; font-size: 1rem;
+          font-variant-numeric: tabular-nums; box-shadow: 0 3px 0 rgba(0,0,0,.25);
+        }
+        .toolbar { width: 100%; max-width: 560px; display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .btn {
+          font-family: inherit; font-weight: 800; font-size: .85rem;
+          border: none; border-radius: 12px; padding: 9px 14px; cursor: pointer;
+          background: rgba(243,239,226,.12); color: #f3efe2;
+          border: 2px solid rgba(243,239,226,.25); transition: all .15s;
+        }
+        .btn:hover { background: rgba(243,239,226,.2); }
+        .btn.active { background: #a8cf5a; color: #1d3d2b; border-color: #a8cf5a; }
+        .btn.primary { background: #f0b429; color: #4a3208; border-color: #f0b429; margin-left: auto; }
+        .btn.primary:hover { background: #ffc94a; }
+        .board-wrap {
+          background: #f3efe2; border-radius: 20px; padding: 14px;
+          box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 0 0 4px #d9d2bb;
+        }
+        .grid { display: grid; gap: 4px; }
+        .cell, .clue, .corner {
+          width: min(11vw, 52px); height: min(11vw, 52px);
+          display: flex; align-items: center; justify-content: center;
+          border-radius: 10px; user-select: none;
+        }
+        .clue { color: #4c7a4a; font-weight: 800; font-size: clamp(.9rem, 3.4vw, 1.2rem); transition: color .2s; }
+        .clue.done { color: #b8b19a; }
+        .clue.over { color: #d33f2e; }
+        .cell {
+          cursor: pointer; font-size: clamp(1.2rem, 5.2vw, 1.8rem);
+          background: #9ec48a; transition: transform .08s, background .15s;
+          border-bottom: 3px solid rgba(0,0,0,.12);
+        }
+        .cell:active { transform: scale(.93); }
+        .cell.alt { background: #91ba7c; }
+        .cell.bamboo { background: #3e6b3a; cursor: default; border-bottom-color: rgba(0,0,0,.3); }
+        .cell.panda { background: #e7f0d8; }
+        .cell.error { background: #f0a294; animation: shake .3s; }
+        .cell.mark { background: #557f4c; color: rgba(240,245,225,.75); font-size: clamp(.9rem, 3.5vw, 1.2rem); }
+        @keyframes shake { 25% { transform: translateX(-2px);} 75% { transform: translateX(2px);} }
+        .status { margin-top: 14px; font-size: .85rem; opacity: .8; font-weight: 500; }
+        .status b { color: #f0b429; }
+        .rules {
+          max-width: 560px; margin-top: 14px; background: rgba(243,239,226,.08);
+          border: 2px solid rgba(243,239,226,.15); border-radius: 14px;
+          padding: 14px 16px; font-size: .85rem; line-height: 1.9;
+        }
+        .overlay {
+          position: fixed; inset: 0; background: rgba(20,40,28,.75);
+          display: flex; align-items: center; justify-content: center; z-index: 10;
+          backdrop-filter: blur(3px);
+        }
+        .card {
+          background: #f3efe2; color: #1d3d2b; border-radius: 22px;
+          padding: 30px 36px; text-align: center;
+          box-shadow: 0 20px 60px rgba(0,0,0,.4);
+          animation: pop .35s cubic-bezier(.2,1.6,.4,1);
+        }
+        @keyframes pop { from { transform: scale(.7); opacity: 0; } }
+        .card h2 { font-weight: 800; font-size: 1.5rem; margin: 8px 0 4px; }
+        .card .time { font-size: 2.2rem; font-weight: 800; color: #3e6b3a; font-variant-numeric: tabular-nums; }
+        .card button {
+          margin-top: 18px; font-family: inherit; font-weight: 800; font-size: 1rem;
+          background: #3e6b3a; color: #fff; border: none; border-radius: 999px;
+          padding: 12px 30px; cursor: pointer; box-shadow: 0 4px 0 #2a4d28;
+        }
+        .card button:active { transform: translateY(2px); box-shadow: 0 2px 0 #2a4d28; }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+      `}</style>
+
+      <div className="header">
+        <div className="title">
+          🐼 パンダと竹
+          <span className="sub">TENTS &amp; TREES PUZZLE</span>
+        </div>
+        <div className="timer">{fmt(seconds)}</div>
+      </div>
+
+      <div className="toolbar">
+        {SIZES.map(({ n: sn, label }) => (
+          <button
+            key={sn}
+            className={`btn ${size === sn ? "active" : ""}`}
+            onClick={() => { setSize(sn); newGame(sn); }}
+          >
+            {label}
+          </button>
+        ))}
+        <button className="btn primary" onClick={() => newGame(size)}>
+          新しいパズル
+        </button>
+      </div>
+
+      <div className="board-wrap">
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${n + 1}, auto)` }}
+        >
+          <div className="corner" />
+          {colClues.map((clue, c) => (
+            <div key={`c${c}`} className={clueClass(colCount[c], clue)}>{clue}</div>
+          ))}
+          {board.map((row, r) => (
+            [
+              <div key={`r${r}`} className={clueClass(rowCount[r], rowClues[r])}>
+                {rowClues[r]}
+              </div>,
+              ...row.map((v, c) => {
+                const key = `${r},${c}`;
+                const isBamboo = bambooSet.has(key);
+                const cls = [
+                  "cell",
+                  (r + c) % 2 ? "alt" : "",
+                  isBamboo ? "bamboo" : "",
+                  v === 1 ? "panda" : "",
+                  v === 2 ? "mark" : "",
+                  errorSet.has(key) ? "error" : "",
+                ].join(" ");
+                return (
+                  <div key={key} className={cls} onClick={() => tap(r, c)}>
+                    {isBamboo ? "🎋" : v === 1 ? "🐼" : v === 2 ? "🌿" : ""}
+                  </div>
+                );
+              }),
+            ]
+          ))}
+        </div>
+      </div>
+
+      <div className="status">
+        パンダ <b>{placed}</b> / {total} 頭　·　タップで 🌿(草マーク) → 🐼 → 消去
+      </div>
+
+      <button className="btn" style={{ marginTop: 10 }} onClick={() => setShowRules(!showRules)}>
+        {showRules ? "ルールを閉じる" : "ルールを見る"}
+      </button>
+      {showRules && (
+        <div className="rules">
+          🎋 竹1本につきパンダ1頭を、竹の<b>上下左右</b>いずれかのマスに置きます(1対1のペア)。<br />
+          🐼 パンダ同士は<b>縦・横・斜め</b>に隣り合ってはいけません。<br />
+          🔢 行と列の数字は、その行・列にいるパンダの数です。<br />
+          🌿 パンダがいないと分かったマスは草マークでメモできます。
+        </div>
+      )}
+
+      {won && (
+        <div className="overlay">
+          <div className="card">
+            <div style={{ fontSize: "3rem" }}>🐼🎋</div>
+            <h2>クリア！</h2>
+            <div>あなたの時間</div>
+            <div className="time">{fmt(seconds)}</div>
+            <button onClick={() => newGame(size)}>もう一度あそぶ</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<PandaPuzzle />);
+</script>
+</body>
+</html>
