@@ -250,6 +250,7 @@ function PandaPuzzle() {
   const [won, setWon] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [showRules, setShowRules] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   const timerRef = useRef(null);
 
   const newGame = useCallback((n) => {
@@ -265,6 +266,13 @@ function PandaPuzzle() {
     timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(timerRef.current);
   }, [won, puzzle]);
+
+  // タップ直後はエラーを出さず、操作が止まってから表示する
+  useEffect(() => {
+    setShowErrors(false);
+    const t = setTimeout(() => setShowErrors(true), 800);
+    return () => clearTimeout(t);
+  }, [board]);
 
   if (!puzzle) return <div>生成に失敗しました。再読み込みしてください。</div>;
   const { n, bambooSet, rowClues, colClues, total } = puzzle;
@@ -357,7 +365,7 @@ function PandaPuzzle() {
         .cell.bamboo { background: #3e6b3a; cursor: default; border-bottom-color: rgba(0,0,0,.3); }
         .cell.panda { background: #e7f0d8; }
         .cell.error { background: #f0a294; animation: shake .3s; }
-        .cell.mark { background: #7ba56c; }
+        .cell.mark { background: #68955a; }
         @keyframes shake { 25% { transform: translateX(-2px);} 75% { transform: translateX(2px);} }
         .status { margin-top: 14px; font-size: .85rem; opacity: .8; font-weight: 500; }
         .status b { color: #f0b429; }
@@ -435,7 +443,7 @@ function PandaPuzzle() {
                   isBamboo ? "bamboo" : "",
                   v === 1 ? "panda" : "",
                   v === 2 ? "mark" : "",
-                  errorSet.has(key) ? "error" : "",
+                  showErrors && errorSet.has(key) ? "error" : "",
                 ].join(" ");
                 return (
                   <div key={key} className={cls} onClick={() => tap(r, c)}>
