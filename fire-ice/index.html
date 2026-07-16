@@ -90,13 +90,13 @@ h1 .to{font-size:18px;color:var(--ink-soft);margin:0 2px}
 .board.n8 .cell{font-size:clamp(16px,5.4vw,24px);border-radius:9px}
 .cell:active{transform:scale(.93)}
 .cell:focus-visible{outline:3px solid var(--ice);outline-offset:2px}
-.cell.given{background:var(--given);cursor:default;box-shadow:inset 0 0 0 1.5px var(--line)}
+.cell.given{cursor:default;box-shadow:inset 0 0 0 1.5px var(--line)}
 .cell.given:active{transform:none}
-.cell.v0{background:var(--ice-soft)}
-.cell.v1{background:var(--fire-soft)}
 .cell.err{box-shadow:inset 0 0 0 2.5px var(--error)}
 .cell.pulse{animation:pulse .5s ease 2}
 @keyframes pulse{50%{box-shadow:inset 0 0 0 3px var(--ok);transform:scale(1.06)}}
+.board.celebrate .cell{animation:winwave .9s ease both}
+@keyframes winwave{35%{transform:scale(1.14) rotate(6deg);filter:brightness(1.35)}}
 
 .cons{
   position:absolute;width:20px;height:20px;border-radius:50%;
@@ -161,6 +161,8 @@ details p{margin-top:8px;line-height:1.8}
       <button data-d="easy">やさしい</button>
       <button data-d="normal" class="active">ふつう</button>
       <button data-d="hard">むずかしい</button>
+      <button data-d="expert">激ムズ</button>
+      <button data-d="oni">鬼ムズ</button>
     </div>
   </div>
 
@@ -181,7 +183,7 @@ details p{margin-top:8px;line-height:1.8}
     ・同じマークを縦・横に <b>3つ以上連続</b> させてはいけません<br>
     ・<b>同じ並びの行</b> や <b>同じ並びの列</b> を作ってはいけません<br>
     ・<b>＝</b> でつながれた隣り合うマスは <b>同じマーク</b>、<b>×</b> は <b>違うマーク</b> になります<br>
-    ・薄いグレーのマスは最初から固定されたヒントです<br>
+    ・薄い枠線で囲まれたマスは最初から固定されたヒントです<br>
     ・どの問題も推測なしの論理だけで解けることが生成時に検証済みです</p>
   </details>
 </div>
@@ -202,6 +204,36 @@ details p{margin-top:8px;line-height:1.8}
 let N = 6, HALF = 3;
 // values: 1 = fire, 0 = ice, null = empty
 const SYM = {1:'🔥', 0:'🧊'};
+
+/* ================= 効果音 (Web Audio / ゼルダ風チップチューン) ================= */
+
+const AC = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+function ensureAudio(){
+  if(!AC) return;
+  if(!actx) actx = new AC();
+  if(actx.state === 'suspended') actx.resume();
+}
+function beep(freq, dur, delay, type, vol){
+  if(!actx) return;
+  const t = actx.currentTime + (delay||0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'square';
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(vol||0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t); o.stop(t + dur);
+}
+const SFX = {
+  tap(){ beep(880, 0.05, 0, 'square', 0.04); },
+  row(){ beep(659.25, 0.09, 0, 'square', 0.07); beep(987.77, 0.14, 0.08, 'square', 0.07); },
+  error(){ beep(196, 0.12, 0, 'square', 0.06); beep(185, 0.2, 0.1, 'square', 0.06); },
+  win(){
+    [523.25, 659.25, 739.99, 783.99, 987.77, 1318.51].forEach((f, i) =>
+      beep(f, i === 5 ? 0.34 : 0.14, i * 0.11, 'square', 0.08));
+  },
+};
 
 /* ================= puzzle engine ================= */
 
@@ -288,6 +320,11 @@ function generateSolution(){
 // Pure-deduction solver: fill a cell only when exactly one value is consistent.
 function logicSolve(puzzle){
   const g = puzzle.slice();
+  return propagate(g) && g.every(v=>v!==null) ? g : null;
+}
+
+// 単純な確定伝播(1マスずつ、置ける値が一意なら確定)。矛盾なら false
+function propagate(g){
   let progress = true;
   while(progress){
     progress = false;
@@ -296,11 +333,36 @@ function logicSolve(puzzle){
       const r=i/N|0, c=i%N;
       const can0 = placementValid(g,r,c,0);
       const can1 = placementValid(g,r,c,1);
-      if(!can0 && !can1) return null;
+      if(!can0 && !can1) return false;
       if(can0 !== can1){ g[i] = can1 ? 1 : 0; progress = true; }
     }
   }
-  return g.every(v=>v!==null) ? g : null;
+  return true;
+}
+
+// 背理法つきソルバー: 伝播で行き詰まったら仮置き→矛盾→逆確定(深さ1)
+function solveWithContradiction(puzzle){
+  const g = puzzle.slice();
+  if(!propagate(g)) return {ok:false};
+  let stuck = false;
+  while(!stuck && g.some(v=>v===null)){
+    stuck = true;
+    outer:
+    for(let i=0;i<N*N;i++){
+      if(g[i]!==null) continue;
+      for(const v of [0,1]){
+        const t = g.slice();
+        t[i] = v;
+        if(!propagate(t)){
+          g[i] = 1-v;
+          if(!propagate(g)) return {ok:false};
+          stuck = false;
+          break outer;
+        }
+      }
+    }
+  }
+  return {ok: g.every(v=>v!==null)};
 }
 
 function allEdges(){
@@ -312,7 +374,7 @@ function allEdges(){
   return e;
 }
 
-function makePuzzle(minClues, numCons){
+function makePuzzle(minClues, numCons, extra){
   const solution = generateSolution();
   const edges = shuffle(allEdges()).slice(0, numCons);
   const consList = edges.map(e=>({
@@ -330,15 +392,33 @@ function makePuzzle(minClues, numCons){
     if(logicSolve(puzzle)) clues--;
     else puzzle[i] = backup;
   }
+  // 激ムズ以上: 単純伝播では解けなくなるまで、背理法ソルバーで解ける範囲でさらにヒントを削る
+  if(extra){
+    let removed = 0, attempts = 0;
+    for(const i of shuffle([...Array(N*N).keys()])){
+      if(removed >= extra.removals || attempts >= extra.tries) break;
+      if(puzzle[i] === null) continue;
+      attempts++;
+      const backup = puzzle[i];
+      puzzle[i] = null;
+      if(solveWithContradiction(puzzle).ok) removed++;
+      else puzzle[i] = backup;
+    }
+  }
   return {puzzle, solution, consList};
 }
 
 // per-size difficulty settings: min remaining clues + number of =/× marks
+// extra = 背理法が必要になるまで削る追加パス(激ムズ・鬼ムズ)
 const DIFF = {
-  6:{ easy:{min:18,cons:5},  normal:{min:11,cons:6},  hard:{min:0,cons:7}  },
-  8:{ easy:{min:32,cons:8},  normal:{min:20,cons:10}, hard:{min:0,cons:12} }
+  6:{ easy:{min:18,cons:5},  normal:{min:11,cons:6},  hard:{min:0,cons:7},
+      expert:{min:0,cons:4,extra:{tries:12,removals:4}},
+      oni:{min:0,cons:2,extra:{tries:24,removals:9}} },
+  8:{ easy:{min:32,cons:8},  normal:{min:20,cons:10}, hard:{min:0,cons:12},
+      expert:{min:0,cons:6,extra:{tries:12,removals:4}},
+      oni:{min:0,cons:3,extra:{tries:24,removals:9}} }
 };
-const DIFF_LABEL={easy:'やさしい',normal:'ふつう',hard:'むずかしい'};
+const DIFF_LABEL={easy:'やさしい',normal:'ふつう',hard:'むずかしい',expert:'激ムズ',oni:'鬼ムズ'};
 
 /* ================= game state / UI ================= */
 
@@ -365,7 +445,7 @@ const getBest=()=>{ const v=store.get('best-'+bestKey()); return v==null?null:+v
 
 function newGame(){
   const d=DIFF[N][difficulty];
-  const {puzzle:p, solution:s, consList} = makePuzzle(d.min, d.cons);
+  const {puzzle:p, solution:s, consList} = makePuzzle(d.min, d.cons, d.extra);
   puzzle=p; solution=s; user=p.slice(); given=p.map(v=>v!==null);
   setConstraints(consList);
   finished=false;
@@ -411,17 +491,39 @@ function buildBoard(){
   paint();
 }
 
+// 完成していて数・連続の条件を満たした行/列か
+function lineCleared(g, idx, isRow){
+  let c0=0, c1=0, run=1, prev=null;
+  for(let k=0;k<N;k++){
+    const v = isRow ? g[idx*N+k] : g[k*N+idx];
+    if(v===null) return false;
+    if(v===1) c1++; else c0++;
+    if(v===prev){ run++; if(run>=3) return false; } else run=1;
+    prev=v;
+  }
+  return c0===HALF && c1===HALF;
+}
+
 // タップ直後はエラーを出さず、操作が止まってから表示する
 let errVisible=true, errTimer=null;
 
 function tap(i){
   if(finished||given[i]) return;
+  ensureAudio();
+  const r=i/N|0, c=i%N;
+  const wasR=lineCleared(user,r,true), wasC=lineCleared(user,c,false);
   user[i] = user[i]===null ? 1 : user[i]===1 ? 0 : null;
   errVisible=false;
   clearTimeout(errTimer);
-  errTimer=setTimeout(()=>{errVisible=true;paint();},800);
+  errTimer=setTimeout(()=>{
+    errVisible=true;
+    paint();
+    if(violations().cells.size) SFX.error();
+  },800);
+  SFX.tap();
   paint();
   checkWin();
+  if(!finished && ((!wasR&&lineCleared(user,r,true))||(!wasC&&lineCleared(user,c,false)))) SFX.row();
 }
 
 function paint(){
@@ -430,8 +532,6 @@ function paint(){
   btns.forEach((b,i)=>{
     const v=user[i];
     b.textContent = v===null ? '' : SYM[v];
-    b.classList.toggle('v1',v===1&&!given[i]);
-    b.classList.toggle('v0',v===0&&!given[i]);
     b.classList.toggle('err',errCells.has(i));
     b.setAttribute('aria-label',`${(i/N|0)+1}行${i%N+1}列 ${v===null?'空':v===1?'炎':'氷'}`);
   });
@@ -477,6 +577,7 @@ function checkWin(){
   if(user.some(v=>v===null)) return;
   if(user.some((v,i)=>v!==solution[i])) return;
   finished=true;
+  SFX.win();
   clearInterval(timerId);
   const ms=Date.now()-startTime;
   streak++;
@@ -487,7 +588,16 @@ function checkWin(){
   $('best').textContent=fmt(getBest());
   $('winTime').textContent=fmt(ms);
   $('winSub').textContent=`${N}×${N} ／ ${DIFF_LABEL[difficulty]} ／ 連続クリア ${streak}`;
-  setTimeout(()=>$('overlay').classList.add('show'),300);
+  // 盤面のお祝いアニメーション(斜めの波)を見せてからクリア画面へ
+  boardEl.classList.add('celebrate');
+  boardEl.querySelectorAll('.cell').forEach((b,i)=>{
+    b.style.animationDelay=((i/N|0)+(i%N))*50+'ms';
+  });
+  setTimeout(()=>{
+    boardEl.classList.remove('celebrate');
+    boardEl.querySelectorAll('.cell').forEach(b=>{ b.style.animationDelay=''; });
+    $('overlay').classList.add('show');
+  },1700);
 }
 
 function hint(){
@@ -504,6 +614,23 @@ function hint(){
     const can0=placementValid(g,r,c,0), can1=placementValid(g,r,c,1);
     if(can0!==can1){
       user[i]=can1?1:0; paint(); flash(i); checkWin(); return;
+    }
+  }
+  // 単純推理で確定するマスがない(激ムズ・鬼ムズ) → 背理法で確定するマスを探す
+  for(let i=0;i<N*N;i++){
+    if(g[i]!==null) continue;
+    for(const v of [0,1]){
+      const t=g.slice();
+      t[i]=v;
+      if(!propagate(t)){
+        user[i]=1-v; paint(); flash(i); checkWin(); return;
+      }
+    }
+  }
+  // それでもなければ正解を1マス開示
+  for(let i=0;i<N*N;i++){
+    if(user[i]===null){
+      user[i]=solution[i]; paint(); flash(i); checkWin(); return;
     }
   }
 }
@@ -523,20 +650,30 @@ $('btnClear').addEventListener('click',()=>{
 });
 function streakGuard(){ if(!finished){streak=0;$('streak').textContent=0;store.set('streak',0);} }
 
+// 前回の選択を復元
+const savedN=+store.get('size');
+if(savedN===6||savedN===8){ N=savedN; HALF=N/2; }
+const savedD=store.get('diff');
+if(DIFF[N][savedD]) difficulty=savedD;
+
 document.querySelectorAll('#diffSeg button').forEach(b=>{
+  b.classList.toggle('active', b.dataset.d===difficulty);
   b.addEventListener('click',()=>{
     document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     difficulty=b.dataset.d;
+    store.set('diff',difficulty);
     streakGuard();
     newGame();
   });
 });
 document.querySelectorAll('#sizeSeg button').forEach(b=>{
+  b.classList.toggle('active', +b.dataset.n===N);
   b.addEventListener('click',()=>{
     document.querySelectorAll('#sizeSeg button').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     N=+b.dataset.n; HALF=N/2;
+    store.set('size',N);
     streakGuard();
     newGame();
   });

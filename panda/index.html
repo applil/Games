@@ -33,8 +33,8 @@ function shuffle(arr) {
 }
 
 // パンダ配置 → 各パンダに専用の竹マスを二部マッチングで割当
-function generatePuzzle(n) {
-  const target = Math.max(3, Math.floor((n * n) / 4.2));
+function generatePuzzle(n, div) {
+  const target = Math.max(3, Math.floor((n * n) / div));
   for (let attempt = 0; attempt < 300; attempt++) {
     const pandaSet = new Set();
     const cells = shuffle(
@@ -140,46 +140,53 @@ function checkWin(puzzle, board) {
   return true;
 }
 
-// 人間の推理ルールのみで完全に解けるか検証する演繹ソルバー
-// R1: 竹に隣接しないマスは草 / R2: 行・列の数え上げ(達成→残り草、残り=不足数→全てパンダ)
-// R3: パンダの周囲8マスは草 / R4: 未確定の隣接マスが1つだけの未充足の竹→そこはパンダ
-function deduceSolvable(puzzle) {
-  const { n, bambooSet, rowClues, colClues } = puzzle;
-  const inB = (r, c) => r >= 0 && r < n && c >= 0 && c < n;
+/* ---- 演繹ソルバー ----
+   状態: 0:不明 1:パンダ 2:草 3:竹
+   R1: 竹に隣接しないマスは草
+   R2: 行・列の数え上げ(達成→残り草、残り=不足数→全てパンダ)
+   R3: パンダの周囲8マスは草
+   R4: 未確定の隣接マスが1つだけの未充足の竹→そこはパンダ
+   depth=1 では、行き詰まったら背理法(仮置き→矛盾→逆確定)を使う */
+
+function initState(puzzle) {
+  const { n, bambooSet } = puzzle;
   const isBamboo = (r, c) => bambooSet.has(`${r},${c}`);
-  // 0:不明 1:パンダ 2:草 3:竹
   const st = Array.from({ length: n }, (_, r) =>
     Array.from({ length: n }, (_, c) => (isBamboo(r, c) ? 3 : 0))
   );
-  let bad = false;
-  const setPanda = (r, c) => {
-    if (st[r][c] === 1) return false;
-    if (st[r][c] !== 0) { bad = true; return false; }
-    st[r][c] = 1;
-    for (const [dr, dc] of DIRS8) {
-      const rr = r + dr, cc = c + dc;
-      if (!inB(rr, cc)) continue;
-      if (st[rr][cc] === 1) bad = true;
-      else if (st[rr][cc] === 0) st[rr][cc] = 2;
-    }
-    return true;
-  };
-  const setGrass = (r, c) => {
-    if (st[r][c] === 2) return false;
-    if (st[r][c] !== 0) { bad = true; return false; }
-    st[r][c] = 2;
-    return true;
-  };
   // R1
   for (let r = 0; r < n; r++)
     for (let c = 0; c < n; c++)
-      if (st[r][c] === 0 && !DIRS4.some(([dr, dc]) => inB(r + dr, c + dc) && isBamboo(r + dr, c + dc)))
+      if (st[r][c] === 0 && !DIRS4.some(([dr, dc]) =>
+        r + dr >= 0 && r + dr < n && c + dc >= 0 && c + dc < n && isBamboo(r + dr, c + dc)))
         st[r][c] = 2;
+  return st;
+}
 
+// パンダ確定 + R3 の周囲草化。矛盾なら false
+function applyPanda(puzzle, st, r, c) {
+  const n = puzzle.n;
+  if (st[r][c] === 2 || st[r][c] === 3) return false;
+  st[r][c] = 1;
+  for (const [dr, dc] of DIRS8) {
+    const rr = r + dr, cc = c + dc;
+    if (rr < 0 || rr >= n || cc < 0 || cc >= n) continue;
+    if (st[rr][cc] === 1) return false;
+    if (st[rr][cc] === 0) st[rr][cc] = 2;
+  }
+  return true;
+}
+
+// R2/R4 を変化がなくなるまで反復。矛盾なら false。out.rounds に反復回数
+function propagateState(puzzle, st, out) {
+  const { n, bambooSet, rowClues, colClues } = puzzle;
+  const inB = (r, c) => r >= 0 && r < n && c >= 0 && c < n;
+  let rounds = 0;
   let changed = true;
-  while (changed && !bad) {
+  while (changed) {
     changed = false;
-    // R2: 行・列
+    rounds++;
+    // R2
     const lines = [];
     for (let r = 0; r < n; r++) lines.push({ clue: rowClues[r], cells: Array.from({ length: n }, (_, c) => [r, c]) });
     for (let c = 0; c < n; c++) lines.push({ clue: colClues[c], cells: Array.from({ length: n }, (_, r) => [r, c]) });
@@ -189,51 +196,183 @@ function deduceSolvable(puzzle) {
         if (st[r][c] === 1) p++;
         else if (st[r][c] === 0) unk.push([r, c]);
       }
-      if (p > clue || p + unk.length < clue) { bad = true; break; }
-      if (p === clue) unk.forEach(([r, c]) => { if (setGrass(r, c)) changed = true; });
-      else if (p + unk.length === clue) unk.forEach(([r, c]) => { if (setPanda(r, c)) changed = true; });
+      if (p > clue || p + unk.length < clue) return false;
+      if (p === clue && unk.length) {
+        for (const [r, c] of unk) if (st[r][c] === 0) st[r][c] = 2;
+        changed = true;
+      } else if (p + unk.length === clue && unk.length) {
+        for (const [r, c] of unk) {
+          if (st[r][c] === 2) return false; // パンダが必要なマスが草になった
+          if (st[r][c] === 0 && !applyPanda(puzzle, st, r, c)) return false;
+        }
+        changed = true;
+      }
     }
-    if (bad) break;
-    // R4: 竹の残り候補が1つ
+    // R4
     for (const key of bambooSet) {
       const [r, c] = key.split(",").map(Number);
       const nbs = DIRS4
         .map(([dr, dc]) => [r + dr, c + dc])
         .filter(([rr, cc]) => inB(rr, cc) && st[rr][cc] !== 3);
-      const hasPanda = nbs.some(([rr, cc]) => st[rr][cc] === 1);
-      if (hasPanda) continue;
+      if (nbs.some(([rr, cc]) => st[rr][cc] === 1)) continue;
       const unk = nbs.filter(([rr, cc]) => st[rr][cc] === 0);
-      if (unk.length === 0) { bad = true; break; }
-      if (unk.length === 1) { if (setPanda(unk[0][0], unk[0][1])) changed = true; }
+      if (unk.length === 0) return false;
+      if (unk.length === 1) {
+        if (!applyPanda(puzzle, st, unk[0][0], unk[0][1])) return false;
+        changed = true;
+      }
     }
   }
-  if (bad) return false;
-  for (let r = 0; r < n; r++)
-    for (let c = 0; c < n; c++)
-      if (st[r][c] === 0) return false; // 推理だけでは確定しきれない
-  const board = st.map((row) => row.map((v) => (v === 1 ? 1 : 0)));
-  return checkWin(puzzle, board); // 導いた盤面が真の解であることを最終確認
+  if (out) out.rounds = (out.rounds || 0) + rounds;
+  return true;
 }
 
-// 論理的に解ける問題が出るまで生成をリトライ
-function generateSolvablePuzzle(n) {
-  let fallback = null;
+const stComplete = (st) => st.every((row) => row.every((v) => v !== 0));
+
+// 完全に解けるか検証。hard = 背理法を要した回数, rounds = 伝播の反復回数
+function deduce(puzzle, depth) {
+  const n = puzzle.n;
+  const st = initState(puzzle);
+  const out = { rounds: 0 };
+  if (!propagateState(puzzle, st, out)) return { solved: false, hard: 0, rounds: out.rounds };
+  let hard = 0;
+  if (depth > 0) {
+    let progress = true;
+    while (progress && !stComplete(st)) {
+      progress = false;
+      outer:
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        if (st[r][c] !== 0) continue;
+        // パンダと仮置きして矛盾 → 草で確定
+        const t1 = st.map((row) => [...row]);
+        if (!applyPanda(puzzle, t1, r, c) || !propagateState(puzzle, t1)) {
+          st[r][c] = 2; hard++;
+          if (!propagateState(puzzle, st, out)) return { solved: false, hard, rounds: out.rounds };
+          progress = true; break outer;
+        }
+        // 草と仮置きして矛盾 → パンダで確定
+        const t2 = st.map((row) => [...row]);
+        t2[r][c] = 2;
+        if (!propagateState(puzzle, t2)) {
+          if (!applyPanda(puzzle, st, r, c) || !propagateState(puzzle, st, out))
+            return { solved: false, hard, rounds: out.rounds };
+          hard++;
+          progress = true; break outer;
+        }
+      }
+    }
+  }
+  if (!stComplete(st)) return { solved: false, hard, rounds: out.rounds };
+  const board = st.map((row) => row.map((v) => (v === 1 ? 1 : 0)));
+  return { solved: checkWin(puzzle, board), hard, rounds: out.rounds };
+}
+
+/* ---- 難易度設定 ----
+   div: 盤面に対するパンダ密度(大きいほど疎)
+   depth 0 + maxRounds: 短い推理チェーンで解ける(かんたん)
+   depth 0 + minRounds: 長いチェーンが必要(むずかしい)
+   depth 1 + minHard: 背理法が必要(激ムズ・鬼ムズ) */
+const DIFF_CONF = {
+  easy:   { div: 4.2, depth: 0, maxRounds: 4 },
+  normal: { div: 4.2, depth: 0 },
+  hard:   { div: 4.6, depth: 0, minRounds: 6 },
+  expert: { div: 4.4, depth: 1, minHard: 1 },
+  oni:    { div: 4.8, depth: 1, minHard: 3 },
+};
+
+// 条件を満たす問題が出るまで生成をリトライ。出なければ最善の候補を返す
+function generateSolvablePuzzle(n, diffKey) {
+  const conf = DIFF_CONF[diffKey] || DIFF_CONF.normal;
+  let fallback = null, best = null, bestScore = -Infinity;
   for (let i = 0; i < 400; i++) {
-    const p = generatePuzzle(n);
+    const p = generatePuzzle(n, conf.div);
     if (!p) continue;
     fallback = fallback || p;
-    if (deduceSolvable(p)) return p;
+    if (conf.depth === 0) {
+      const r = deduce(p, 0);
+      if (!r.solved) continue;
+      if (conf.maxRounds != null) {
+        if (r.rounds <= conf.maxRounds) return p;
+        if (-r.rounds > bestScore) { bestScore = -r.rounds; best = p; }
+      } else if (conf.minRounds != null) {
+        if (r.rounds >= conf.minRounds) return p;
+        if (r.rounds > bestScore) { bestScore = r.rounds; best = p; }
+      } else return p;
+    } else {
+      if (deduce(p, 0).solved) continue; // 単純推理で解ける → 激ムズには物足りない
+      const r = deduce(p, 1);
+      if (!r.solved) continue;
+      if (r.hard >= conf.minHard) return p;
+      if (r.hard > bestScore) { bestScore = r.hard; best = p; }
+    }
   }
-  return fallback;
+  return best || fallback;
+}
+
+/* ============ 効果音 (Web Audio / ゼルダ風チップチューン) ============ */
+
+const AC = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+function ensureAudio() {
+  if (!AC) return;
+  if (!actx) actx = new AC();
+  if (actx.state === "suspended") actx.resume();
+}
+function beep(freq, dur, delay, type, vol) {
+  if (!actx) return;
+  const t = actx.currentTime + (delay || 0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || "square";
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(vol || 0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t); o.stop(t + dur);
+}
+const SFX = {
+  tap() { beep(880, 0.05, 0, "square", 0.04); },
+  row() { beep(659.25, 0.09, 0, "square", 0.07); beep(987.77, 0.14, 0.08, "square", 0.07); },
+  error() { beep(196, 0.12, 0, "square", 0.06); beep(185, 0.2, 0.1, "square", 0.06); },
+  win() {
+    [523.25, 659.25, 739.99, 783.99, 987.77, 1318.51].forEach((f, i) =>
+      beep(f, i === 5 ? 0.34 : 0.14, i * 0.11, "square", 0.08));
+  },
+};
+
+function hasAdjacentPanda(board) {
+  const n = board.length;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (board[r][c] !== 1) continue;
+    for (const [dr, dc] of DIRS8) {
+      const rr = r + dr, cc = c + dc;
+      if (rr >= 0 && rr < n && cc >= 0 && cc < n && board[rr][cc] === 1) return true;
+    }
+  }
+  return false;
 }
 
 /* ============ コンポーネント ============ */
 
 const SIZES = [
-  { n: 5, label: "5×5 かんたん" },
-  { n: 7, label: "7×7 ふつう" },
-  { n: 9, label: "9×9 むずかしい" },
+  { n: 5, label: "5×5" },
+  { n: 7, label: "7×7" },
+  { n: 9, label: "9×9" },
 ];
+const DIFFS = [
+  { key: "easy", label: "かんたん" },
+  { key: "normal", label: "ふつう" },
+  { key: "hard", label: "むずかしい" },
+  { key: "expert", label: "激ムズ" },
+  { key: "oni", label: "鬼ムズ" },
+];
+
+// localStorage(プライベートモード等では使えないことがある)
+const store = {
+  get(k) { try { return localStorage.getItem("panda-" + k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem("panda-" + k, v); } catch (e) {} },
+};
+const initSize = (() => { const v = +store.get("size"); return [5, 7, 9].includes(v) ? v : 7; })();
+const initDiff = (() => { const v = store.get("diff"); return DIFF_CONF[v] ? v : "normal"; })();
 
 function fmt(sec) {
   const m = Math.floor(sec / 60);
@@ -242,19 +381,21 @@ function fmt(sec) {
 }
 
 function PandaPuzzle() {
-  const [size, setSize] = useState(7);
-  const [puzzle, setPuzzle] = useState(() => generateSolvablePuzzle(7));
+  const [size, setSize] = useState(initSize);
+  const [diff, setDiff] = useState(initDiff);
+  const [puzzle, setPuzzle] = useState(() => generateSolvablePuzzle(initSize, initDiff));
   const [board, setBoard] = useState(() =>
-    Array.from({ length: 7 }, () => Array(7).fill(0))
+    Array.from({ length: initSize }, () => Array(initSize).fill(0))
   );
   const [won, setWon] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [showRules, setShowRules] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const timerRef = useRef(null);
 
-  const newGame = useCallback((n) => {
-    const p = generateSolvablePuzzle(n);
+  const newGame = useCallback((n, d) => {
+    const p = generateSolvablePuzzle(n, d);
     setPuzzle(p);
     setBoard(Array.from({ length: n }, () => Array(n).fill(0)));
     setWon(false);
@@ -270,21 +411,39 @@ function PandaPuzzle() {
   // タップ直後はエラーを出さず、操作が止まってから表示する
   useEffect(() => {
     setShowErrors(false);
-    const t = setTimeout(() => setShowErrors(true), 800);
+    const t = setTimeout(() => {
+      setShowErrors(true);
+      if (hasAdjacentPanda(board)) SFX.error();
+    }, 800);
     return () => clearTimeout(t);
   }, [board]);
 
   if (!puzzle) return <div>生成に失敗しました。再読み込みしてください。</div>;
   const { n, bambooSet, rowClues, colClues, total } = puzzle;
 
+  const countRow = (bd, r) => bd[r].filter((v) => v === 1).length;
+  const countCol = (bd, c) => bd.reduce((a, row) => a + (row[c] === 1 ? 1 : 0), 0);
+
   const tap = (r, c) => {
-    if (won || bambooSet.has(`${r},${c}`)) return;
-    setBoard((prev) => {
-      const next = prev.map((row) => [...row]);
-      next[r][c] = { 0: 2, 2: 1, 1: 0 }[next[r][c]]; // 空 → 草マーク → パンダ → 消去
-      if (checkWin(puzzle, next)) setWon(true);
-      return next;
-    });
+    if (won || celebrate || bambooSet.has(`${r},${c}`)) return;
+    ensureAudio();
+    SFX.tap();
+    const wasR = countRow(board, r) === rowClues[r];
+    const wasC = countCol(board, c) === colClues[c];
+    const next = board.map((row) => [...row]);
+    next[r][c] = { 0: 2, 2: 1, 1: 0 }[next[r][c]]; // 空 → 草マーク → パンダ → 消去
+    if (checkWin(puzzle, next)) {
+      SFX.win();
+      // 盤面のお祝いアニメーションを見せてからクリア画面へ
+      setCelebrate(true);
+      setTimeout(() => { setCelebrate(false); setWon(true); }, 1700);
+    } else if (
+      (!wasR && rowClues[r] > 0 && countRow(next, r) === rowClues[r]) ||
+      (!wasC && colClues[c] > 0 && countCol(next, c) === colClues[c])
+    ) {
+      SFX.row();
+    }
+    setBoard(next);
   };
 
   // エラー検出:隣接パンダ
@@ -331,32 +490,34 @@ function PandaPuzzle() {
           border-radius: 999px; padding: 6px 16px; font-size: 1rem;
           font-variant-numeric: tabular-nums; box-shadow: 0 3px 0 rgba(0,0,0,.25);
         }
-        .toolbar { width: 100%; max-width: 560px; display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .toolbar { width: 100%; max-width: 560px; display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
         .btn {
           font-family: inherit; font-weight: 800; font-size: .85rem;
           border: none; border-radius: 12px; padding: 9px 14px; cursor: pointer;
           background: rgba(243,239,226,.12); color: #f3efe2;
           border: 2px solid rgba(243,239,226,.25); transition: all .15s;
         }
+        .btn.small { padding: 7px 10px; font-size: .78rem; }
         .btn:hover { background: rgba(243,239,226,.2); }
         .btn.active { background: #a8cf5a; color: #1d3d2b; border-color: #a8cf5a; }
         .btn.primary { background: #f0b429; color: #4a3208; border-color: #f0b429; margin-left: auto; }
         .btn.primary:hover { background: #ffc94a; }
         .board-wrap {
           background: #f3efe2; border-radius: 20px; padding: 14px;
+          margin-top: 6px;
           box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 0 0 4px #d9d2bb;
         }
         .grid { display: grid; gap: 4px; }
         .cell, .clue, .corner {
-          width: min(11vw, 52px); height: min(11vw, 52px);
+          width: var(--cell); height: var(--cell);
           display: flex; align-items: center; justify-content: center;
           border-radius: 10px; user-select: none;
         }
-        .clue { color: #4c7a4a; font-weight: 800; font-size: clamp(.9rem, 3.4vw, 1.2rem); transition: color .2s; }
+        .clue { color: #4c7a4a; font-weight: 800; font-size: calc(var(--cell) * .42); transition: color .2s; }
         .clue.done { color: #b8b19a; }
         .clue.over { color: #d33f2e; }
         .cell {
-          cursor: pointer; font-size: clamp(1.2rem, 5.2vw, 1.8rem);
+          cursor: pointer; font-size: calc(var(--cell) * .6);
           background: #e9f0e0; transition: transform .08s, background .15s;
           border-bottom: 3px solid rgba(0,0,0,.12);
         }
@@ -366,6 +527,17 @@ function PandaPuzzle() {
         .cell.error { background: #f0a294; animation: shake .3s; }
         .cell.mark { background: #68955a; }
         @keyframes shake { 25% { transform: translateX(-2px);} 75% { transform: translateX(2px);} }
+        .grid.celebrate .cell { animation: sparkle .9s ease both; }
+        .grid.celebrate .cell.panda { animation: dance 1.5s ease both; }
+        @keyframes sparkle {
+          35% { filter: brightness(1.45); transform: scale(1.1); }
+        }
+        @keyframes dance {
+          15% { transform: rotate(-14deg) translateY(-7px) scale(1.18); }
+          35% { transform: rotate(12deg) translateY(0) scale(1.08); }
+          55% { transform: rotate(-10deg) translateY(-5px) scale(1.14); }
+          75% { transform: rotate(8deg) translateY(0) scale(1.05); }
+        }
         .status { margin-top: 14px; font-size: .85rem; opacity: .8; font-weight: 500; }
         .status b { color: #f0b429; }
         .rules {
@@ -409,20 +581,35 @@ function PandaPuzzle() {
           <button
             key={sn}
             className={`btn ${size === sn ? "active" : ""}`}
-            onClick={() => { setSize(sn); newGame(sn); }}
+            onClick={() => { setSize(sn); store.set("size", sn); newGame(sn, diff); }}
           >
             {label}
           </button>
         ))}
-        <button className="btn primary" onClick={() => newGame(size)}>
+        <button className="btn primary" onClick={() => newGame(size, diff)}>
           新しいパズル
         </button>
       </div>
 
+      <div className="toolbar">
+        {DIFFS.map(({ key, label }) => (
+          <button
+            key={key}
+            className={`btn small ${diff === key ? "active" : ""}`}
+            onClick={() => { setDiff(key); store.set("diff", key); newGame(size, key); }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="board-wrap">
         <div
-          className="grid"
-          style={{ gridTemplateColumns: `repeat(${n + 1}, auto)` }}
+          className={`grid ${celebrate ? "celebrate" : ""}`}
+          style={{
+            gridTemplateColumns: `repeat(${n + 1}, auto)`,
+            "--cell": `min(calc((min(100vw, 600px) - ${60 + n * 4}px) / ${n + 1}), 52px)`,
+          }}
         >
           <div className="corner" />
           {colClues.map((clue, c) => (
@@ -444,7 +631,12 @@ function PandaPuzzle() {
                   showErrors && errorSet.has(key) ? "error" : "",
                 ].join(" ");
                 return (
-                  <div key={key} className={cls} onClick={() => tap(r, c)}>
+                  <div
+                    key={key}
+                    className={cls}
+                    style={celebrate ? { animationDelay: `${(r + c) * 60}ms` } : undefined}
+                    onClick={() => tap(r, c)}
+                  >
                     {isBamboo ? "🎋" : v === 1 ? "🐼" : ""}
                   </div>
                 );
@@ -466,7 +658,8 @@ function PandaPuzzle() {
           🎋 竹1本につきパンダ1頭を、竹の<b>上下左右</b>いずれかのマスに置きます(1対1のペア)。<br />
           🐼 パンダ同士は<b>縦・横・斜め</b>に隣り合ってはいけません。<br />
           🔢 行と列の数字は、その行・列にいるパンダの数です。<br />
-          🌿 パンダがいないと分かったマスは草マーク(濃いめの緑)でメモできます。
+          🌿 パンダがいないと分かったマスは草マーク(濃いめの緑)でメモできます。<br />
+          💡 激ムズ・鬼ムズは「仮置きして矛盾を探す」推理が必要な問題です。
         </div>
       )}
 
@@ -477,7 +670,7 @@ function PandaPuzzle() {
             <h2>クリア！</h2>
             <div>あなたの時間</div>
             <div className="time">{fmt(seconds)}</div>
-            <button onClick={() => newGame(size)}>もう一度あそぶ</button>
+            <button onClick={() => newGame(size, diff)}>もう一度あそぶ</button>
           </div>
         </div>
       )}
