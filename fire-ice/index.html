@@ -132,7 +132,14 @@ details p{margin-top:8px;line-height:1.8}
 .win-title{font-size:20px;font-weight:800;margin-bottom:4px}
 .win-time{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin:8px 0 2px}
 .win-sub{font-size:12px;color:var(--ink-soft);margin-bottom:18px}
+.win-verdict{font-size:17px;font-weight:800;margin:2px 0 4px}
 .win-card .btn{width:100%}
+#btnShare{margin-bottom:8px}
+.banner{
+  display:none;background:#fff;border:2px solid var(--fire);border-radius:var(--radius);
+  padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:12px;text-align:center;
+  line-height:1.7;
+}
 
 @media (prefers-reduced-motion: reduce){
   *{animation:none!important;transition:none!important}
@@ -145,6 +152,8 @@ details p{margin-top:8px;line-height:1.8}
     <h1><span class="fire">炎</span><span class="to">と</span><span class="ice">氷</span></h1>
     <div class="tagline">開くたびに新しい問題 — すべて論理だけで解けます</div>
   </header>
+
+  <div class="banner" id="chBanner">📨 挑戦状が届きました！同じ面をクリアしてタイムで勝負。<br>相手のタイムはクリアするまでひみつ🤫</div>
 
   <div class="stats">
     <div class="stat"><div class="label">タイム</div><div class="value" id="timer">0:00</div></div>
@@ -192,9 +201,21 @@ details p{margin-top:8px;line-height:1.8}
   <div class="win-card">
     <div class="win-emoji">🔥🎉🧊</div>
     <div class="win-title">クリア！</div>
+    <div class="win-verdict" id="winVerdict"></div>
     <div class="win-time" id="winTime">0:00</div>
     <div class="win-sub" id="winSub"></div>
+    <button class="btn btn-hint" id="btnShare">📨 友達に挑戦状を送る</button>
     <button class="btn btn-new" id="btnNext">次の問題へ</button>
+  </div>
+</div>
+
+<div class="overlay" id="resOverlay">
+  <div class="win-card">
+    <div class="win-emoji">🏁</div>
+    <div class="win-title">対戦結果が届きました</div>
+    <div class="win-verdict" id="resVerdict"></div>
+    <div class="win-sub" id="resSub"></div>
+    <button class="btn btn-new" id="btnResClose">とじる</button>
   </div>
 </div>
 
@@ -237,7 +258,35 @@ const SFX = {
 
 /* ================= puzzle engine ================= */
 
-const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
+// シード付き乱数(挑戦状: 同じシードから同じ問題を再現するため)
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+let rng = Math.random;
+let currentSeed = 0;
+
+const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=rng()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
+
+// 挑戦状ペイロードの base64url エンコード/デコード
+const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const dec = s => { try{ return JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/'))))); }catch(e){ return null; } };
+
+async function shareLink(url, text){
+  if(navigator.share){
+    try{ await navigator.share({text, url}); return; }catch(e){ if(e.name==='AbortError') return; }
+  }
+  try{
+    await navigator.clipboard.writeText(text+'\n'+url);
+    alert('リンクをコピーしました！\nメッセージアプリにはりつけて友達に送ってね');
+  }catch(e){
+    prompt('このリンクをコピーして友達に送ってね', url);
+  }
+}
 
 let constraints=[], consMap=[];
 function setConstraints(list){
@@ -443,7 +492,9 @@ function fmt(ms){
 const bestKey=()=>N+'-'+difficulty;
 const getBest=()=>{ const v=store.get('best-'+bestKey()); return v==null?null:+v; };
 
-function newGame(){
+function newGame(seed){
+  currentSeed = seed!=null ? (seed>>>0) : ((Math.random()*0x100000000)>>>0);
+  rng = mulberry32(currentSeed);
   const d=DIFF[N][difficulty];
   const {puzzle:p, solution:s, consList} = makePuzzle(d.min, d.cons, d.extra);
   puzzle=p; solution=s; user=p.slice(); given=p.map(v=>v!==null);
@@ -587,7 +638,24 @@ function checkWin(){
   if(b==null||ms<b) store.set('best-'+bestKey(),ms);
   $('best').textContent=fmt(getBest());
   $('winTime').textContent=fmt(ms);
-  $('winSub').textContent=`${N}×${N} ／ ${DIFF_LABEL[difficulty]} ／ 連続クリア ${streak}`;
+  if(challenge){
+    const op=challenge.t;
+    $('winVerdict').textContent = ms<op ? '🏆 あなたの勝ち！' : ms>op ? '😢 まけた…' : '🤝 引き分け！';
+    $('winSub').textContent=`あなた ${fmt(ms)} ／ 相手 ${fmt(op)}`;
+    $('btnShare').textContent='📨 結果を送り返す';
+    shareData={
+      url: location.origin+location.pathname+'?r='+enc({ot:challenge.t, mt:ms}),
+      text:'「炎と氷」の対戦結果が届きました！🔥🧊',
+    };
+  }else{
+    $('winVerdict').textContent='';
+    $('winSub').textContent=`${N}×${N} ／ ${DIFF_LABEL[difficulty]} ／ 連続クリア ${streak}`;
+    $('btnShare').textContent='📨 友達に挑戦状を送る';
+    shareData={
+      url: location.origin+location.pathname+'?c='+enc({n:N, d:difficulty, s:currentSeed, t:ms}),
+      text:`「炎と氷」${N}×${N}・${DIFF_LABEL[difficulty]}で勝負！同じ面でタイムに挑戦してね🔥🧊`,
+    };
+  }
   // 盤面のお祝いアニメーション(斜めの波)を見せてからクリア画面へ
   boardEl.classList.add('celebrate');
   boardEl.querySelectorAll('.cell').forEach((b,i)=>{
@@ -640,9 +708,41 @@ function flash(i){
   setTimeout(()=>b.classList.remove('pulse'),1100);
 }
 
+/* ---- 挑戦状(タイム対戦) ---- */
+let challenge=null, shareData=null;
+(function(){
+  const q=new URLSearchParams(location.search);
+  const c=q.get('c');
+  if(c){
+    const o=dec(c);
+    if(o && DIFF[o.n] && DIFF[o.n][o.d] && typeof o.s==='number' && typeof o.t==='number') challenge=o;
+  }
+  const r=q.get('r');
+  if(r){
+    const o=dec(r);
+    if(o && typeof o.ot==='number' && typeof o.mt==='number'){
+      // 受け取るのは挑戦状を送った本人: ot=自分, mt=相手
+      $('resVerdict').textContent = o.ot<o.mt ? '🏆 あなたの勝ち！' : o.ot>o.mt ? '😢 相手の勝ち…' : '🤝 引き分け！';
+      $('resSub').textContent=`あなた ${fmt(o.ot)} ／ 相手 ${fmt(o.mt)}`;
+      $('resOverlay').classList.add('show');
+    }
+  }
+})();
+function leaveChallenge(){
+  if(!challenge) return;
+  challenge=null;
+  $('chBanner').style.display='none';
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}
+}
+$('btnShare').addEventListener('click',()=>{ if(shareData) shareLink(shareData.url, shareData.text); });
+$('btnResClose').addEventListener('click',()=>{
+  $('resOverlay').classList.remove('show');
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}
+});
+
 /* ---- wiring ---- */
-$('btnNew').addEventListener('click',()=>{streakGuard();newGame();});
-$('btnNext').addEventListener('click',newGame);
+$('btnNew').addEventListener('click',()=>{leaveChallenge();streakGuard();newGame();});
+$('btnNext').addEventListener('click',()=>{leaveChallenge();newGame();});
 $('btnHint').addEventListener('click',hint);
 $('btnClear').addEventListener('click',()=>{
   if(finished) return;
@@ -650,11 +750,12 @@ $('btnClear').addEventListener('click',()=>{
 });
 function streakGuard(){ if(!finished){streak=0;$('streak').textContent=0;store.set('streak',0);} }
 
-// 前回の選択を復元
+// 前回の選択を復元(挑戦状が開かれたときはそちらを優先)
 const savedN=+store.get('size');
 if(savedN===6||savedN===8){ N=savedN; HALF=N/2; }
 const savedD=store.get('diff');
 if(DIFF[N][savedD]) difficulty=savedD;
+if(challenge){ N=challenge.n; HALF=N/2; difficulty=challenge.d; }
 
 document.querySelectorAll('#diffSeg button').forEach(b=>{
   b.classList.toggle('active', b.dataset.d===difficulty);
@@ -663,6 +764,7 @@ document.querySelectorAll('#diffSeg button').forEach(b=>{
     b.classList.add('active');
     difficulty=b.dataset.d;
     store.set('diff',difficulty);
+    leaveChallenge();
     streakGuard();
     newGame();
   });
@@ -674,13 +776,19 @@ document.querySelectorAll('#sizeSeg button').forEach(b=>{
     b.classList.add('active');
     N=+b.dataset.n; HALF=N/2;
     store.set('size',N);
+    leaveChallenge();
     streakGuard();
     newGame();
   });
 });
 
 $('streak').textContent=streak;
-newGame();
+if(challenge){
+  $('chBanner').style.display='block';
+  newGame(challenge.s);
+}else{
+  newGame();
+}
 </script>
 </body>
 </html>
