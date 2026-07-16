@@ -70,6 +70,12 @@ h1 .to{font-size:18px;color:var(--ink-soft);margin:0 2px}
 .btn-hint{background:var(--card);border:1px solid var(--line);color:var(--ink)}
 .btn-row{display:flex;gap:8px;margin-bottom:16px}
 .btn-row .btn{flex:1}
+.hint-msg{
+  display:none;background:var(--card);border:1px solid var(--line);
+  border-left:4px solid var(--ok);border-radius:var(--radius);
+  padding:10px 12px;font-size:12.5px;line-height:1.7;color:var(--ink);
+  margin:-6px 0 14px;
+}
 
 .board-wrap{
   background:var(--card);border:1px solid var(--line);border-radius:20px;
@@ -180,6 +186,8 @@ details p{margin-top:8px;line-height:1.8}
     <button class="btn btn-hint" id="btnHint">ヒント</button>
     <button class="btn btn-hint" id="btnClear">リセット</button>
   </div>
+
+  <div class="hint-msg" id="hintMsg"></div>
 
   <div class="board-wrap">
     <div class="board" id="board" role="grid" aria-label="パズル盤面"></div>
@@ -500,6 +508,7 @@ function newGame(seed){
   puzzle=p; solution=s; user=p.slice(); given=p.map(v=>v!==null);
   setConstraints(consList);
   finished=false;
+  hideHintMsg();
   $('overlay').classList.remove('show');
   $('best').textContent = getBest()!=null ? fmt(getBest()) : '--';
   buildBoard();
@@ -668,11 +677,53 @@ function checkWin(){
   },1700);
 }
 
+// ヒントの理由を表示(しばらくすると消える)
+let hintMsgTimer=null;
+function showHintMsg(text){
+  const el=$('hintMsg');
+  el.textContent=text;
+  el.style.display='block';
+  clearTimeout(hintMsgTimer);
+  hintMsgTimer=setTimeout(()=>{ el.style.display='none'; },8000);
+}
+function hideHintMsg(){ clearTimeout(hintMsgTimer); $('hintMsg').style.display='none'; }
+
+// v がそのマスに置けない理由(v = 置けないと分かった側の値)
+function reasonFor(g, i, v){
+  const r=i/N|0, c=i%N;
+  g[i]=v;
+  const runBad=(idx,isRow)=>{
+    let run=1, prev=null, bad=false;
+    for(let k=0;k<N;k++){
+      const x=isRow?g[idx*N+k]:g[k*N+idx];
+      if(x!==null&&x===prev){ run++; if(run>=3) bad=true; }
+      else run=1;
+      prev = x===null ? Symbol() : x;
+    }
+    return bad;
+  };
+  const count=(idx,isRow)=>{ let m=0; for(let k=0;k<N;k++) if((isRow?g[idx*N+k]:g[k*N+idx])===v) m++; return m; };
+  let msg;
+  if(runBad(r,true)||runBad(c,false)) msg=`${SYM[v]}だと同じマークが3つ連続してしまう`;
+  else if(count(r,true)>HALF) msg=`この行の${SYM[v]}はもう${HALF}個そろっている`;
+  else if(count(c,false)>HALF) msg=`この列の${SYM[v]}はもう${HALF}個そろっている`;
+  else if(!consValid(g,i)) msg=`${SYM[v]}だと ＝／× の印に合わない`;
+  else if(!uniqueValid(g,r,c)) msg=`${SYM[v]}だと同じ並びの行・列ができてしまう`;
+  else msg=`${SYM[v]}は置けない`;
+  g[i]=null;
+  return msg;
+}
+
+const pos=i=>`${(i/N|0)+1}行${(i%N)+1}列`;
+
 function hint(){
   if(finished) return;
   for(let i=0;i<N*N;i++){
     if(!given[i]&&user[i]!==null&&user[i]!==solution[i]){
-      user[i]=null; paint(); flash(i); return;
+      const wrong=SYM[user[i]];
+      user[i]=null; paint(); flash(i);
+      showHintMsg(`${pos(i)}の${wrong}は正解と違うよ。いったん消したよ。`);
+      return;
     }
   }
   const g=user.slice();
@@ -681,7 +732,10 @@ function hint(){
     const r=i/N|0,c=i%N;
     const can0=placementValid(g,r,c,0), can1=placementValid(g,r,c,1);
     if(can0!==can1){
-      user[i]=can1?1:0; paint(); flash(i); checkWin(); return;
+      const val=can1?1:0;
+      user[i]=val; paint(); flash(i);
+      showHintMsg(`${pos(i)}は${SYM[val]}。${reasonFor(g,i,1-val)}から。`);
+      checkWin(); return;
     }
   }
   // 単純推理で確定するマスがない(激ムズ・鬼ムズ) → 背理法で確定するマスを探す
@@ -691,14 +745,18 @@ function hint(){
       const t=g.slice();
       t[i]=v;
       if(!propagate(t)){
-        user[i]=1-v; paint(); flash(i); checkWin(); return;
+        user[i]=1-v; paint(); flash(i);
+        showHintMsg(`${pos(i)}は${SYM[1-v]}。仮に${SYM[v]}を置いて推理を進めると、必ずどこかで矛盾してしまうから(背理法)。`);
+        checkWin(); return;
       }
     }
   }
   // それでもなければ正解を1マス開示
   for(let i=0;i<N*N;i++){
     if(user[i]===null){
-      user[i]=solution[i]; paint(); flash(i); checkWin(); return;
+      user[i]=solution[i]; paint(); flash(i);
+      showHintMsg(`${pos(i)}は${SYM[user[i]]}。ここは深い読みが必要な場面なので、正解をひとつ開示したよ。`);
+      checkWin(); return;
     }
   }
 }
