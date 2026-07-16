@@ -411,15 +411,21 @@ function buildBoard(){
   paint();
 }
 
+// タップ直後はエラーを出さず、操作が止まってから表示する
+let errVisible=true, errTimer=null;
+
 function tap(i){
   if(finished||given[i]) return;
   user[i] = user[i]===null ? 1 : user[i]===1 ? 0 : null;
+  errVisible=false;
+  clearTimeout(errTimer);
+  errTimer=setTimeout(()=>{errVisible=true;paint();},800);
   paint();
   checkWin();
 }
 
 function paint(){
-  const {cells:errCells, cons:errCons}=violations();
+  const {cells:errCells, cons:errCons}=errVisible?violations():{cells:new Set(),cons:new Set()};
   const btns=boardEl.querySelectorAll('.cell');
   btns.forEach((b,i)=>{
     const v=user[i];
