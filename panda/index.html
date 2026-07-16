@@ -361,7 +361,6 @@ function PandaPuzzle() {
           border-bottom: 3px solid rgba(0,0,0,.12);
         }
         .cell:active { transform: scale(.93); }
-        .cell.alt { background: #e9f0e0; }
         .cell.bamboo { background: #3e6b3a; cursor: default; border-bottom-color: rgba(0,0,0,.3); }
         .cell.panda { background: #e7f0d8; }
         .cell.error { background: #f0a294; animation: shake .3s; }
@@ -439,7 +438,6 @@ function PandaPuzzle() {
                 const isBamboo = bambooSet.has(key);
                 const cls = [
                   "cell",
-                  (r + c) % 2 ? "alt" : "",
                   isBamboo ? "bamboo" : "",
                   v === 1 ? "panda" : "",
                   v === 2 ? "mark" : "",
