@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "id": "dark-architecture",
+  "camera": {
+    "fov": 72,
+    "height": 1.64,
+    "moveMs": 260,
+    "turnMs": 220
+  },
+  "geometry": {
+    "cellSize": 4.0,
+    "wallHeight": 3.25,
+    "stripWidth": 0.032
+  },
+  "materials": {
+    "wallColor": "#18130f",
+    "floorColor": "#211b16",
+    "wallRoughness": 0.86,
+    "floorRoughness": 0.52,
+    "floorMetallic": 0.06
+  },
+  "lighting": {
+    "ledColor": "#ffd0a4",
+    "goalColor": "#9fe8ff",
+    "ledIntensity": 4.6,
+    "ambientIntensity": 0.18,
+    "playerLightIntensity": 2.9,
+    "playerLightRange": 14
+  },
+  "post": {
+    "exposure": 1.16,
+    "contrast": 1.18,
+    "bloom": 0.72,
+    "bloomThreshold": 0.72,
+    "fogDensity": 0.011,
+    "vignette": 0.22
+  }
+}

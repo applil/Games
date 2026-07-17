@@ -50,6 +50,7 @@ a.game:active{transform:scale(.98)}
 }
 .game.fire-ice .emoji{background:linear-gradient(135deg,#ffe9df 0%,#e3f1ff 100%)}
 .game.panda .emoji{background:linear-gradient(135deg,#e7f0d8 0%,#cfe3c2 100%)}
+.game.maze .emoji{background:linear-gradient(135deg,#e5e9f5 0%,#d4d9ea 100%)}
 .info{flex:1;min-width:0}
 .name{font-size:17px;font-weight:800;margin-bottom:3px}
 .desc{font-size:12px;color:var(--ink-soft);line-height:1.7}
@@ -79,6 +80,14 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
       <span class="info">
         <span class="name">パンダと竹</span>
         <span class="desc">竹1本にパンダ1頭を隣接配置。パンダ同士は隣接禁止のテントと木パズル(5×5〜9×9)</span>
+      </span>
+      <span class="arrow">›</span>
+    </a>
+    <a class="game maze" href="maze/">
+      <span class="emoji">🌀🧱</span>
+      <span class="info">
+        <span class="name">3D迷路</span>
+        <span class="desc">棒倒し法で生成される一人称視点の3D迷路。7×7から15×15まで段階的に拡大</span>
       </span>
       <span class="arrow">›</span>
     </a>
