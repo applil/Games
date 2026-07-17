@@ -35,7 +35,13 @@ body{
 }
 .app{width:100%;max-width:430px;padding:20px 16px 40px}
 
-header{text-align:center;margin-bottom:14px}
+header{text-align:center;margin-bottom:14px;position:relative}
+.home{
+  position:absolute;left:0;top:2px;
+  background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:6px 12px;font-size:12px;font-weight:700;color:var(--ink-soft);
+  text-decoration:none;
+}
 h1{
   font-size:28px;font-weight:800;letter-spacing:.06em;line-height:1;
   display:inline-flex;align-items:baseline;gap:2px;
@@ -155,11 +161,12 @@ details p{margin-top:8px;line-height:1.8}
 <body>
 <div class="app">
   <header>
+    <a class="home" href="../">◀ メニュー</a>
     <h1><span class="fire">炎</span><span class="to">と</span><span class="ice">氷</span></h1>
     <div class="tagline">開くたびに新しい問題 — すべて論理だけで解けます</div>
   </header>
 
-  <div class="banner" id="chBanner">📨 挑戦状が届きました！同じ面をクリアしてタイムで勝負。<br>相手のタイムはクリアするまでひみつ🤫</div>
+  <div class="banner" id="chBanner">📨 挑戦状が届きました！同じ面をクリアしてタイムで勝負。<br>相手のタイムはクリアするまでひみつ🤫(ヒントを使った回数は相手に伝わるよ)</div>
 
   <div class="stats">
     <div class="stat"><div class="label">タイム</div><div class="value" id="timer">0:00</div></div>
@@ -480,7 +487,7 @@ const DIFF_LABEL={easy:'やさしい',normal:'ふつう',hard:'むずかしい',
 /* ================= game state / UI ================= */
 
 let difficulty='normal', puzzle=[], solution=[], user=[], given=[];
-let startTime=0, timerId=null, finished=false;
+let startTime=0, timerId=null, finished=false, hintCount=0;
 
 // persistence — localStorage may be unavailable (private mode etc.)
 const store={
@@ -508,6 +515,7 @@ function newGame(seed){
   puzzle=p; solution=s; user=p.slice(); given=p.map(v=>v!==null);
   setConstraints(consList);
   finished=false;
+  hintCount=0;
   hideHintMsg();
   $('overlay').classList.remove('show');
   $('best').textContent = getBest()!=null ? fmt(getBest()) : '--';
@@ -649,11 +657,12 @@ function checkWin(){
   $('winTime').textContent=fmt(ms);
   if(challenge){
     const op=challenge.t;
+    const oh=typeof challenge.h==='number'?challenge.h:null;
     $('winVerdict').textContent = ms<op ? '🏆 あなたの勝ち！' : ms>op ? '😢 まけた…' : '🤝 引き分け！';
-    $('winSub').textContent=`あなた ${fmt(ms)} ／ 相手 ${fmt(op)}`;
+    $('winSub').textContent=`あなた ${fmt(ms)}・ヒント${hintCount}回 ／ 相手 ${fmt(op)}${oh!=null?`・ヒント${oh}回`:''}`;
     $('btnShare').textContent='📨 結果を送り返す';
     shareData={
-      url: location.origin+location.pathname+'?r='+enc({ot:challenge.t, mt:ms}),
+      url: location.origin+location.pathname+'?r='+enc({ot:challenge.t, mt:ms, oh:oh!=null?oh:undefined, mh:hintCount}),
       text:'「炎と氷」の対戦結果が届きました！🔥🧊',
     };
   }else{
@@ -661,7 +670,7 @@ function checkWin(){
     $('winSub').textContent=`${N}×${N} ／ ${DIFF_LABEL[difficulty]} ／ 連続クリア ${streak}`;
     $('btnShare').textContent='📨 友達に挑戦状を送る';
     shareData={
-      url: location.origin+location.pathname+'?c='+enc({n:N, d:difficulty, s:currentSeed, t:ms}),
+      url: location.origin+location.pathname+'?c='+enc({n:N, d:difficulty, s:currentSeed, t:ms, h:hintCount}),
       text:`「炎と氷」${N}×${N}・${DIFF_LABEL[difficulty]}で勝負！同じ面でタイムに挑戦してね🔥🧊`,
     };
   }
@@ -718,6 +727,7 @@ const pos=i=>`${(i/N|0)+1}行${(i%N)+1}列`;
 
 function hint(){
   if(finished) return;
+  hintCount++;
   for(let i=0;i<N*N;i++){
     if(!given[i]&&user[i]!==null&&user[i]!==solution[i]){
       const wrong=SYM[user[i]];
@@ -781,7 +791,8 @@ let challenge=null, shareData=null;
     if(o && typeof o.ot==='number' && typeof o.mt==='number'){
       // 受け取るのは挑戦状を送った本人: ot=自分, mt=相手
       $('resVerdict').textContent = o.ot<o.mt ? '🏆 あなたの勝ち！' : o.ot>o.mt ? '😢 相手の勝ち…' : '🤝 引き分け！';
-      $('resSub').textContent=`あなた ${fmt(o.ot)} ／ 相手 ${fmt(o.mt)}`;
+      const hp=(v)=>typeof v==='number'?`・ヒント${v}回`:'';
+      $('resSub').textContent=`あなた ${fmt(o.ot)}${hp(o.oh)} ／ 相手 ${fmt(o.mt)}${hp(o.mh)}`;
       $('resOverlay').classList.add('show');
     }
   }

@@ -542,6 +542,7 @@ function PandaPuzzle() {
   const [showErrors, setShowErrors] = useState(false);
   const [hintMsg, setHintMsg] = useState(null);
   const [hintCell, setHintCell] = useState(null);
+  const [hintCount, setHintCount] = useState(0);
   const timerRef = useRef(null);
   const hintTimerRef = useRef(null);
 
@@ -555,6 +556,7 @@ function PandaPuzzle() {
     setSeconds(0);
     setHintMsg(null);
     setHintCell(null);
+    setHintCount(0);
   }, []);
 
   const leaveChallenge = useCallback(() => {
@@ -565,17 +567,22 @@ function PandaPuzzle() {
   const share = () => {
     if (challenge) {
       shareLink(
-        location.origin + location.pathname + "?r=" + enc({ ot: challenge.t, mt: seconds }),
+        location.origin + location.pathname + "?r=" + enc({
+          ot: challenge.t, mt: seconds,
+          oh: typeof challenge.h === "number" ? challenge.h : undefined, mh: hintCount,
+        }),
         "「パンダと竹」の対戦結果が届きました！🐼"
       );
     } else {
       const label = (DIFFS.find((x) => x.key === diff) || {}).label || diff;
       shareLink(
-        location.origin + location.pathname + "?c=" + enc({ n: size, d: diff, s: seed, t: seconds }),
+        location.origin + location.pathname + "?c=" + enc({ n: size, d: diff, s: seed, t: seconds, h: hintCount }),
         `「パンダと竹」${size}×${size}・${label}で勝負！同じ面でタイムに挑戦してね🐼`
       );
     }
   };
+
+  const hintNote = (v) => (typeof v === "number" ? `・ヒント${v}回` : "");
 
   useEffect(() => {
     if (won) return;
@@ -628,6 +635,7 @@ function PandaPuzzle() {
     if (!h) {
       setHintMsg("いまの盤面からは確定するマスが見つからないよ。置いたパンダや草マークを見直してみて。");
     } else {
+      setHintCount((x) => x + 1);
       const next = board.map((row) => [...row]);
       next[h.r][h.c] = h.val;
       if (checkWin(puzzle, next)) {
@@ -681,6 +689,11 @@ function PandaPuzzle() {
         }
         .header { width: 100%; max-width: 560px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
         .title { font-weight: 800; font-size: 1.35rem; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; }
+        .home {
+          background: rgba(243,239,226,.12); border: 2px solid rgba(243,239,226,.25);
+          color: #f3efe2; border-radius: 999px; padding: 5px 11px;
+          font-size: .8rem; font-weight: 800; text-decoration: none;
+        }
         .title .sub { font-size: .7rem; font-weight: 500; opacity: .65; display: block; letter-spacing: .12em; }
         .timer {
           background: #f3efe2; color: #1d3d2b; font-weight: 800;
@@ -787,6 +800,7 @@ function PandaPuzzle() {
 
       <div className="header">
         <div className="title">
+          <a className="home" href="../">◀</a>
           🐼 パンダと竹
           <span className="sub">TENTS &amp; TREES PUZZLE</span>
         </div>
@@ -823,7 +837,7 @@ function PandaPuzzle() {
       {challenge && !won && (
         <div className="banner">
           📨 挑戦状が届きました！同じ面をクリアしてタイムで勝負。<br />
-          相手のタイムはクリアするまでひみつ🤫
+          相手のタイムはクリアするまでひみつ🤫(ヒントを使った回数は相手に伝わるよ)
         </div>
       )}
 
@@ -902,7 +916,7 @@ function PandaPuzzle() {
                 <div className="verdict">
                   {seconds < challenge.t ? "🏆 あなたの勝ち！" : seconds > challenge.t ? "😢 まけた…" : "🤝 引き分け！"}
                 </div>
-                <div className="vs">あなた {fmt(seconds)} ／ 相手 {fmt(challenge.t)}</div>
+                <div className="vs">あなた {fmt(seconds)}・ヒント{hintCount}回 ／ 相手 {fmt(challenge.t)}{hintNote(challenge.h)}</div>
               </>
             ) : (
               <>
@@ -928,7 +942,7 @@ function PandaPuzzle() {
             <div className="verdict">
               {resView.ot < resView.mt ? "🏆 あなたの勝ち！" : resView.ot > resView.mt ? "😢 相手の勝ち…" : "🤝 引き分け！"}
             </div>
-            <div className="vs">あなた {fmt(resView.ot)} ／ 相手 {fmt(resView.mt)}</div>
+            <div className="vs">あなた {fmt(resView.ot)}{hintNote(resView.oh)} ／ 相手 {fmt(resView.mt)}{hintNote(resView.mh)}</div>
             <button onClick={() => { setResView(null); try { history.replaceState(null, "", location.pathname); } catch (e) {} }}>
               とじる
             </button>
