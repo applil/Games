@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人生の宿題・診断ポータル</title>
+<style>
+:root{
+  color-scheme: light;
+  --paper:#f9f9f7;
+  --card:#fcfcfb;
+  --ink:#0b0b0b;
+  --ink-2:#52514e;
+  --muted:#898781;
+  --grid:#e1e0d9;
+  --axis:#c3c2b7;
+  --line:rgba(11,11,11,.10);
+  --accent:#2a78d6;          /* series 1: 世界水準の運用 */
+  --accent-soft:#cde2fb;
+  --compare:#eb6834;         /* series 6: 比較対象(銀行・インデックス) */
+  --good:#0ca30c;
+  --good-text:#006300;
+  --warning:#fab219;
+  --serious:#ec835a;
+  --critical:#d03b3b;
+  --funnel-1:#86b6ef; --funnel-2:#5598e7; --funnel-3:#2a78d6;
+  --funnel-4:#1c5cab; --funnel-5:#184f95; --funnel-6:#104281;
+  --radius:18px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --paper:#0d0d0d; --card:#1a1a19;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --line:rgba(255,255,255,.10);
+    --accent:#3987e5; --accent-soft:#1c3a5e;
+    --compare:#d95926;
+    --good-text:#0ca30c;
+    --funnel-6:#86b6ef; --funnel-5:#5598e7; --funnel-4:#3987e5;
+    --funnel-3:#2a78d6; --funnel-2:#1c5cab; --funnel-1:#184f95;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --paper:#0d0d0d; --card:#1a1a19;
+  --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --line:rgba(255,255,255,.10);
+  --accent:#3987e5; --accent-soft:#1c3a5e;
+  --compare:#d95926;
+  --good-text:#0ca30c;
+  --funnel-6:#86b6ef; --funnel-5:#5598e7; --funnel-4:#3987e5;
+  --funnel-3:#2a78d6; --funnel-2:#1c5cab; --funnel-1:#184f95;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:system-ui,-apple-system,'Hiragino Kaku Gothic ProN','Yu Gothic','Segoe UI',sans-serif;
+  background:var(--paper); color:var(--ink);
+  min-height:100vh; line-height:1.7;
+}
+.app{max-width:920px;margin:0 auto;padding:28px 16px 60px}
+
+header.top{display:flex;align-items:center;gap:14px;margin-bottom:6px;flex-wrap:wrap}
+.logo{font-size:34px}
+.title h1{font-size:21px;font-weight:800;letter-spacing:.04em}
+.title .sub{font-size:12px;color:var(--ink-2)}
+.mockbadge{margin-left:auto;font-size:11px;color:var(--ink-2);border:1px solid var(--line);border-radius:99px;padding:3px 12px;background:var(--card)}
+
+nav.tabs{display:flex;gap:8px;margin:18px 0 22px;overflow-x:auto;padding-bottom:4px}
+nav.tabs button{
+  flex-shrink:0;border:1px solid var(--line);background:var(--card);color:var(--ink-2);
+  font-size:13px;font-weight:700;padding:9px 16px;border-radius:99px;cursor:pointer;font-family:inherit;
+}
+nav.tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.panel{display:none}
+.panel.active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:20px 22px;margin-bottom:18px;
+}
+.card h2{font-size:15px;font-weight:800;margin-bottom:4px}
+.card .lead{font-size:12px;color:var(--ink-2);margin-bottom:14px}
+
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-bottom:18px}
+.grid2 .card{margin-bottom:0}
+
+/* 入力フォーム */
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px 20px}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--ink-2);margin-bottom:4px}
+.field .hint{font-size:10px;color:var(--muted);font-weight:400}
+.field .row{display:flex;align-items:center;gap:10px}
+.field input[type=range]{flex:1;accent-color:var(--accent)}
+.field .val{min-width:86px;text-align:right;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums}
+
+/* 診断結果 */
+.hero{
+  text-align:center;padding:26px 20px;border-radius:var(--radius);
+  background:var(--card);border:1px solid var(--line);margin-bottom:18px;
+}
+.hero .cap{font-size:13px;font-weight:700;color:var(--ink-2)}
+.hero .num{font-size:44px;font-weight:800;letter-spacing:.02em;color:var(--critical);line-height:1.3}
+.hero .num.ok{color:var(--good-text)}
+.hero .note{font-size:11px;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.tile .k{font-size:11px;color:var(--ink-2);font-weight:700}
+.tile .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+.tile .s{font-size:10px;color:var(--muted)}
+
+.homework-type{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.type-emoji{font-size:40px}
+.type-name{font-size:17px;font-weight:800}
+.type-desc{font-size:12px;color:var(--ink-2)}
+.meter{height:10px;background:var(--grid);border-radius:99px;overflow:hidden;margin-top:10px}
+.meter>i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .4s}
+.meter-cap{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px}
+
+/* チャート */
+.chart{position:relative;margin-top:6px}
+.chart svg{display:block;width:100%;height:auto}
+.tip{
+  position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);
+  border-radius:10px;padding:8px 12px;font-size:11px;box-shadow:0 6px 20px rgba(0,0,0,.12);
+  white-space:nowrap;display:none;z-index:5;line-height:1.6;
+}
+.tip b{font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--ink-2);margin-top:8px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+
+/* クイズ */
+.quiz .choices{display:flex;gap:10px;margin:10px 0}
+.quiz .choices button{
+  flex:1;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--paper);
+  font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;color:var(--ink);
+}
+.quiz .answer{display:none;font-size:12.5px;background:var(--paper);border-radius:12px;padding:12px 14px;margin-top:8px}
+.quiz .answer.show{display:block}
+.quiz .path{font-weight:800;font-size:15px;margin:6px 0}
+.quiz .path .down{color:var(--critical)} .quiz .path .up{color:var(--good-text)}
+
+/* 通知 */
+.phone{max-width:420px;margin:0 auto}
+.notif{
+  display:flex;gap:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:14px 16px;margin-bottom:12px;
+}
+.notif .ic{font-size:26px;flex-shrink:0}
+.notif .t{font-size:13px;font-weight:800}
+.notif .b{font-size:12px;color:var(--ink-2)}
+.notif .meta{font-size:10px;color:var(--muted);margin-top:4px}
+.notif .cta{
+  display:inline-block;margin-top:8px;font-size:11.5px;font-weight:700;color:#fff;
+  background:var(--accent);border-radius:99px;padding:5px 14px;cursor:pointer;
+}
+.trigger-list{font-size:12.5px;color:var(--ink-2)}
+.trigger-list li{margin:6px 0 6px 1.3em}
+
+/* 代理店 */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:640px}
+th{font-size:11px;color:var(--ink-2);text-align:left;font-weight:700;border-bottom:1px solid var(--axis);padding:8px 10px;white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--grid);white-space:nowrap;font-variant-numeric:tabular-nums}
+.prio{font-size:10px;font-weight:800;border-radius:99px;padding:2px 10px;color:#fff;display:inline-flex;align-items:center;gap:4px}
+.prio.high{background:var(--critical)} .prio.mid{background:var(--serious)} .prio.low{background:var(--muted)}
+.tag{font-size:10px;border:1px solid var(--line);border-radius:99px;padding:1px 8px;color:var(--ink-2);margin-right:4px}
+.bar-cell{display:flex;align-items:center;gap:8px}
+.bar-cell .bar{width:70px;height:7px;background:var(--grid);border-radius:99px;overflow:hidden}
+.bar-cell .bar>i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.funnel .frow{display:flex;align-items:center;gap:10px;margin:7px 0}
+.funnel .fl{width:110px;font-size:11px;color:var(--ink-2);font-weight:700;text-align:right;flex-shrink:0}
+.funnel .fbar{height:22px;border-radius:0 4px 4px 0;min-width:2px}
+.funnel .fv{font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums}
+.funnel .fp{font-size:10px;color:var(--muted)}
+.camp{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--grid);font-size:12.5px}
+.camp:last-child{border-bottom:0}
+.camp .cn{font-weight:700}
+.camp .cs{font-size:10.5px;color:var(--muted)}
+.switch{margin-left:auto;width:38px;height:22px;border-radius:99px;background:var(--grid);position:relative;cursor:pointer;flex-shrink:0;transition:background .2s}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch.on{background:var(--good)}
+.switch.on::after{left:19px}
+
+footer.disc{
+  margin-top:30px;font-size:10.5px;color:var(--muted);line-height:1.9;
+  border-top:1px solid var(--grid);padding-top:16px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="logo">📔</div>
+    <div class="title">
+      <h1>人生の宿題・診断ポータル</h1>
+      <div class="sub">大人の義務教育 — 知らなかったで損をしないために</div>
+    </div>
+    <div class="mockbadge">MOCK v0.1</div>
+  </header>
+
+  <nav class="tabs" aria-label="画面切り替え">
+    <button class="active" data-tab="diag">🏠 診断</button>
+    <button data-tab="sim">📈 シミュレーション</button>
+    <button data-tab="notif">🔔 通知</button>
+    <button data-tab="agent">🤝 代理店管理</button>
+  </nav>
+
+  <!-- ═══════════ 診断 ═══════════ -->
+  <section class="panel active" id="panel-diag">
+    <div class="card">
+      <h2>まずは、あなたの数字を教えてください</h2>
+      <div class="lead">3分で「人生の宿題(老後に自分で準備すべき金額)」がわかります。入力はすべて概算でOKです。</div>
+      <div class="fields">
+        <div class="field"><label>現在の年齢</label>
+          <div class="row"><input type="range" id="in-age" min="20" max="60" value="35"><span class="val" id="v-age"></span></div></div>
+        <div class="field"><label>何歳まで生きる想定? <span class="hint">(人生100年時代)</span></label>
+          <div class="row"><input type="range" id="in-life" min="75" max="105" value="95"><span class="val" id="v-life"></span></div></div>
+        <div class="field"><label>何歳でリタイアしたい?</label>
+          <div class="row"><input type="range" id="in-retire" min="50" max="75" value="65"><span class="val" id="v-retire"></span></div></div>
+        <div class="field"><label>老後の理想の生活費 <span class="hint">(月額)</span></label>
+          <div class="row"><input type="range" id="in-cost" min="10" max="60" value="25"><span class="val" id="v-cost"></span></div></div>
+        <div class="field"><label>想定年金 <span class="hint">(月額・ねんきん定期便で確認 / 65歳から受給)</span></label>
+          <div class="row"><input type="range" id="in-pension" min="0" max="30" value="14"><span class="val" id="v-pension"></span></div></div>
+        <div class="field"><label>現在の金融資産</label>
+          <div class="row"><input type="range" id="in-assets" min="0" max="3000" step="50" value="300"><span class="val" id="v-assets"></span></div></div>
+        <div class="field"><label>毎月の積立可能額</label>
+          <div class="row"><input type="range" id="in-monthly" min="0" max="20" step="0.5" value="3"><span class="val" id="v-monthly"></span></div></div>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div class="cap">あなたの「人生の宿題」(年金・現在資産で足りない額)</div>
+      <div class="num" id="hw-amount">—</div>
+      <div class="note" id="hw-formula"></div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="k">老後の総支出</div><div class="v" id="t-spend">—</div><div class="s" id="t-spend-s"></div></div>
+      <div class="tile"><div class="k">年金でカバー</div><div class="v" id="t-pension">—</div><div class="s" id="t-pension-s"></div></div>
+      <div class="tile"><div class="k">現在の資産</div><div class="v" id="t-assets">—</div><div class="s">今日時点</div></div>
+      <div class="tile"><div class="k">準備に使える時間</div><div class="v" id="t-years">—</div><div class="s">リタイアまで</div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>宿題を終わらせるには、月いくら?</h2>
+        <div class="lead">同じ宿題でも「お金の置き場所」で毎月の負担は大きく変わります。</div>
+        <div class="tiles" style="margin-bottom:0">
+          <div class="tile"><div class="k">貯金だけ (年0.2%)</div><div class="v" id="need-flat">—</div><div class="s">毎月の必要積立</div></div>
+          <div class="tile"><div class="k">世界水準で運用 (年6%)</div><div class="v" id="need-invest" style="color:var(--good-text)">—</div><div class="s">毎月の必要積立</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>あなたの宿題タイプ</h2>
+        <div class="lead">夏休みの宿題、いつやるタイプですか?(現在の積立ペース ÷ 必要ペース)</div>
+        <div class="homework-type">
+          <div class="type-emoji" id="type-emoji">📝</div>
+          <div>
+            <div class="type-name" id="type-name">—</div>
+            <div class="type-desc" id="type-desc"></div>
+          </div>
+        </div>
+        <div class="meter"><i id="type-meter" style="width:0%"></i></div>
+        <div class="meter-cap"><span>新学期突入</span><span>8月31日</span><span>コツコツ</span><span>7月完了</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⚠️ 何もしない場合:現金の実質価値(物価上昇 年2%)</h2>
+      <div class="lead">政府目標のインフレ率2%が続くと、いま銀行にある現金の「買える力」はこう減っていきます。</div>
+      <div class="chart" id="chart-inflation"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ シミュレーション ═══════════ -->
+  <section class="panel" id="panel-sim">
+    <div class="card">
+      <h2>お金の置き場所で、未来はどう変わる?</h2>
+      <div class="lead">毎月同じ額を積み立てた場合の比較(月次複利・税費用は考慮しない概算)。</div>
+      <div class="fields" style="margin-bottom:10px">
+        <div class="field"><label>毎月の積立額</label>
+          <div class="row"><input type="range" id="sim-monthly" min="1" max="20" step="0.5" value="3"><span class="val" id="v-sim-monthly"></span></div></div>
+        <div class="field"><label>積立期間</label>
+          <div class="row"><input type="range" id="sim-years" min="10" max="40" value="30"><span class="val" id="v-sim-years"></span></div></div>
+      </div>
+      <div class="chart" id="chart-sim"></div>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>世界水準で運用 (年6%)</span>
+        <span><i style="background:var(--compare)"></i>日本の銀行 (年0.2%)</span>
+        <span><i style="background:var(--muted)"></i>積立元本</span>
+      </div>
+      <div class="lead" id="sim-summary" style="margin:10px 0 0"></div>
+    </div>
+
+    <div class="card">
+      <h2>プロは「マイナスを抑える」ことに集中する</h2>
+      <div class="lead">暴落局面(リーマンショック級)での値動きイメージ。下げ幅が小さいほど回復が早く、老後の出口戦略で致命傷を避けられます。</div>
+      <div class="chart" id="chart-crash"></div>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>プロの分散運用 (下落を約-20%に抑制)</span>
+        <span><i style="background:var(--compare)"></i>インデックス運用 (市場に連動 / -40%超も)</span>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card quiz">
+        <h2>💡 1分クイズ:マイナスの怖さ</h2>
+        <div class="lead">100万円が <b>-50%</b> になった後、<b>+50%</b> になりました。元に戻っている?</div>
+        <div class="choices">
+          <button data-q="yes">戻っている</button>
+          <button data-q="no">戻っていない</button>
+        </div>
+        <div class="answer" id="quiz-answer">
+          <b>正解:戻っていません。</b>
+          <div class="path">100万 <span class="down">→ -50% → 50万</span> <span class="up">→ +50% → 75万</span></div>
+          同じ幅のプラスとマイナスを繰り返すと資産は減ります。だからプロは「大きく勝つ」より「大きく負けない」を優先します。
+        </div>
+      </div>
+      <div class="card">
+        <h2>🎓 応用例:大学費用の実質無償化</h2>
+        <div class="lead">教育資金400万円を「そのまま払う」のではなく「運用しながら使う」発想。</div>
+        <div class="tiles" style="margin-bottom:8px">
+          <div class="tile"><div class="k">元本</div><div class="v">400万円</div><div class="s">教育資金として確保</div></div>
+          <div class="tile"><div class="k">年6%の運用益</div><div class="v" style="color:var(--good-text)">約24万円/年</div><div class="s">= 月2万円</div></div>
+        </div>
+        <div class="lead" style="margin:0">運用益(月2万円)で奨学金の返済月額をまかなえれば、<b>元本400万円を減らさずに</b>教育を終えられる計算になります。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🛡 応用例:保険と運用を分ける</h2>
+      <div class="lead">同じ「月20万円 × 29年間(30〜59歳)」の使い方でも、将来の資産はここまで変わります。</div>
+      <div id="insurance-bars"></div>
+      <div class="lead" style="margin:8px 0 0">積立型保険は「保障」と「運用」のどちらも中途半端になりがち。<b>保障は割安な掛け捨て</b>で確保し、<b>浮いた分を効率よく運用</b>する分離が基本です。(想定利回り:積立保険 年1% / 分離後の運用 年6%)</div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 通知 ═══════════ -->
+  <section class="panel" id="panel-notif">
+    <div class="grid2">
+      <div class="card">
+        <h2>通知トリガー(システムが自動判定)</h2>
+        <div class="lead">ユーザーの状況・世の中の変化に合わせて、最適なタイミングで届けます。</div>
+        <ul class="trigger-list">
+          <li>👨‍👩‍👦 <b>ライフイベント</b> — 子どもの入学・親の介護が視野に入る年齢に達したとき</li>
+          <li>💱 <b>経済状況</b> — 急激な円安・物価上昇が進んだとき(通貨分散の重要性を配信)</li>
+          <li>🍉 <b>夏休みの宿題リマインド</b> — 診断だけして対策未着手のまま一定期間が経過したとき</li>
+          <li>🎫 <b>セミナー誘導</b> — 宿題が「未完了」のユーザーに、代理店経由で招待を送付</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>配信プレビュー(スマホ通知のイメージ)</h2>
+        <div class="lead">タップで診断結果やセミナー予約へ誘導します。</div>
+        <div class="phone">
+          <div class="notif"><div class="ic">🍉</div><div>
+            <div class="t">夏休みの宿題、残ってませんか?</div>
+            <div class="b">診断から30日経ちました。人生の宿題(不足 2,340万円)は、後回しにするほど毎月の負担が増えます。今なら月4.2万円 → 1年後には月4.5万円に。</div>
+            <div class="meta">今日 9:00 ・ リマインド</div>
+            <span class="cta">続きから始める</span>
+          </div></div>
+          <div class="notif"><div class="ic">💱</div><div>
+            <div class="t">1ドル165円を突破しました</div>
+            <div class="b">資産が円だけの場合、円安はそのまま「世界基準での資産の目減り」です。通貨分散(外貨保有)の考え方を3分で解説します。</div>
+            <div class="meta">昨日 18:30 ・ 経済アラート</div>
+            <span class="cta">解説を読む</span>
+          </div></div>
+          <div class="notif"><div class="ic">🎒</div><div>
+            <div class="t">お子さまの進学まであと6年</div>
+            <div class="b">大学費用の平均は約400万円。いま準備を始めれば、運用益で「実質無償化」できる可能性があります。</div>
+            <div class="meta">3日前 ・ ライフイベント</div>
+            <span class="cta">教育資金プランを見る</span>
+          </div></div>
+          <div class="notif"><div class="ic">🎫</div><div>
+            <div class="t">担当の田中さんからセミナーのご案内</div>
+            <div class="b">「大人の義務教育」マネー講座(オンライン・無料)。あなたの診断結果に沿った個別シミュレーションも作成できます。</div>
+            <div class="meta">1週間前 ・ 代理店経由</div>
+            <span class="cta">日程を選ぶ</span>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 代理店管理 ═══════════ -->
+  <section class="panel" id="panel-agent">
+    <div class="tiles">
+      <div class="tile"><div class="k">今月の紹介(リンク訪問)</div><div class="v">120人</div><div class="s">前月比 +18%</div></div>
+      <div class="tile"><div class="k">診断完了率</div><div class="v">48%</div><div class="s">57 / 120人</div></div>
+      <div class="tile"><div class="k">セミナー申込</div><div class="v">18人</div><div class="s">完了者の32%</div></div>
+      <div class="tile"><div class="k">個別相談へ</div><div class="v">7人</div><div class="s">参加者の58%</div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card funnel">
+        <h2>紹介ファネル(今月)</h2>
+        <div class="lead">どこで離脱しているかが一目でわかります。</div>
+        <div id="funnel"></div>
+      </div>
+      <div class="card">
+        <h2>通知キャンペーン管理</h2>
+        <div class="lead">配信のON/OFFと文言はここで管理(A/Bテスト対応予定)。</div>
+        <div class="camp"><div>🍉</div><div><div class="cn">夏休みの宿題リマインド</div><div class="cs">診断後30日・未行動のユーザー / 開封率 61%</div></div><div class="switch on"></div></div>
+        <div class="camp"><div>💱</div><div><div class="cn">円安アラート</div><div class="cs">対ドル ±5円/月の変動時 / 開封率 54%</div></div><div class="switch on"></div></div>
+        <div class="camp"><div>🎒</div><div><div class="cn">教育資金(入学6年前)</div><div class="cs">子の年齢トリガー / 開封率 47%</div></div><div class="switch on"></div></div>
+        <div class="camp"><div>🧓</div><div><div class="cn">介護への備え(親が70歳)</div><div class="cs">親の年齢トリガー / 準備中</div></div><div class="switch"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>紹介ユーザー一覧</h2>
+      <div class="lead">フォロー優先度は「宿題の大きさ × 診断完了 × 通知への反応」から自動算出。優先度の高い人から声をかけましょう。</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ユーザー</th><th>診断</th><th>人生の宿題</th><th>宿題の進み具合</th><th>関心タグ</th><th>フォロー優先度</th><th>次のアクション</th></tr></thead>
+          <tbody id="user-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="disc">
+    【モックに関する注記】本画面はシステム開発検討用のモックであり、実在の金融商品・利回りを保証するものではありません。表示される数値はすべて仮定に基づく概算シミュレーションです(税金・手数料・為替変動は考慮していません)。過去の運用実績は将来の成果を保証しません。実サービス化の際は、金融商品取引法等の関連法令に基づく表示・体制のリーガルチェックが必要です。
+  </footer>
+</div>
+
+<script>
+'use strict';
+/* ---------- ユーティリティ ---------- */
+const $ = id => document.getElementById(id);
+const fmtMan = v => { // v: 万円
+  if (v >= 10000) { const oku = v / 10000; return (oku >= 10 ? Math.round(oku) : Math.round(oku * 10) / 10).toLocaleString() + '億円'; }
+  return Math.round(v).toLocaleString() + '万円';
+};
+
+/* ---------- SVGラインチャート(ホバー付き) ---------- */
+function lineChart(el, opt) {
+  const W = 640, H = 260, pad = {t: 16, r: 84, b: 30, l: 54};
+  const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const xs = opt.x, n = xs.length;
+  let ymax = 0, ymin = 0;
+  opt.series.forEach(s => s.data.forEach(v => { if (v > ymax) ymax = v; if (v < ymin) ymin = v; }));
+  if (opt.yMin !== undefined) ymin = opt.yMin;
+  ymax *= 1.06;
+  const X = i => pad.l + iw * i / (n - 1);
+  const Y = v => pad.t + ih - ih * (v - ymin) / (ymax - ymin);
+  const ticks = 4, parts = [];
+  parts.push(`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opt.label || ''}">`);
+  for (let t = 0; t <= ticks; t++) {
+    const v = ymin + (ymax - ymin) * t / ticks, y = Y(v);
+    parts.push(`<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" style="stroke:var(--grid)" stroke-width="1"/>`);
+    parts.push(`<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" font-size="10" style="fill:var(--muted);font-variant-numeric:tabular-nums">${opt.yFmt(v)}</text>`);
+  }
+  parts.push(`<line x1="${pad.l}" y1="${Y(Math.max(ymin,0))}" x2="${W - pad.r}" y2="${Y(Math.max(ymin,0))}" style="stroke:var(--axis)" stroke-width="1"/>`);
+  const xtick = Math.max(1, Math.ceil((n - 1) / 6));
+  for (let i = 0; i < n; i += xtick)
+    parts.push(`<text x="${X(i)}" y="${H - 8}" text-anchor="middle" font-size="10" style="fill:var(--muted)">${opt.xFmt(xs[i])}</text>`);
+  opt.series.forEach(s => {
+    const d = s.data.map((v, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1)).join('');
+    parts.push(`<path d="${d}" fill="none" style="stroke:${s.color}" stroke-width="2" ${s.dash ? 'stroke-dasharray="5 4"' : ''} stroke-linejoin="round"/>`);
+  });
+  // 直接ラベル(右端)— 重なりを避けて配置
+  const ends = opt.series.map((s, si) => ({si, y: Y(s.data[n - 1])})).sort((a, b) => a.y - b.y);
+  for (let k = 1; k < ends.length; k++) if (ends[k].y - ends[k - 1].y < 14) ends[k].y = ends[k - 1].y + 14;
+  ends.forEach(e => {
+    const s = opt.series[e.si];
+    parts.push(`<text x="${W - pad.r + 6}" y="${e.y + 4}" font-size="10.5" font-weight="700" style="fill:var(--ink-2)">${s.short || s.name}</text>`);
+  });
+  parts.push(`<line id="xh" x1="0" y1="${pad.t}" x2="0" y2="${H - pad.b}" style="stroke:var(--axis)" stroke-width="1" visibility="hidden"/>`);
+  parts.push(`<rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" fill="transparent"/>`);
+  parts.push('</svg>');
+  el.innerHTML = parts.join('') + '<div class="tip"></div>';
+  const svg = el.querySelector('svg'), tip = el.querySelector('.tip'), xh = svg.querySelector('#xh');
+  svg.addEventListener('mousemove', ev => {
+    const r = svg.getBoundingClientRect(), sx = W / r.width;
+    const mx = (ev.clientX - r.left) * sx;
+    if (mx < pad.l || mx > W - pad.r) { tip.style.display = 'none'; xh.setAttribute('visibility', 'hidden'); return; }
+    const i = Math.round((mx - pad.l) / iw * (n - 1));
+    xh.setAttribute('x1', X(i)); xh.setAttribute('x2', X(i)); xh.setAttribute('visibility', 'visible');
+    tip.innerHTML = `<div style="color:var(--muted)">${opt.xFmt(xs[i])}</div>` +
+      opt.series.map(s => `<div><i style="display:inline-block;width:10px;height:3px;border-radius:2px;background:${s.color};vertical-align:middle;margin-right:5px"></i>${s.name}: <b>${opt.yFmt(s.data[i])}</b></div>`).join('');
+    tip.style.display = 'block';
+    const px = X(i) / sx, flip = px > r.width * 0.6;
+    tip.style.left = flip ? (px - tip.offsetWidth - 12) + 'px' : (px + 12) + 'px';
+    tip.style.top = '18px';
+  });
+  svg.addEventListener('mouseleave', () => { tip.style.display = 'none'; xh.setAttribute('visibility', 'hidden'); });
+}
+
+/* ---------- タブ ---------- */
+document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('nav.tabs button').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + b.dataset.tab));
+}));
+
+/* ---------- 診断 ---------- */
+const IN = ['age', 'life', 'retire', 'cost', 'pension', 'assets', 'monthly'];
+const UNITS = {age: '歳', life: '歳', retire: '歳', cost: '万円', pension: '万円', assets: '万円', monthly: '万円'};
+function readInputs() {
+  const o = {};
+  IN.forEach(k => { o[k] = parseFloat($('in-' + k).value); $('v-' + k).textContent = o[k].toLocaleString() + UNITS[k]; });
+  return o;
+}
+const TYPES = [
+  {min: 1.2, emoji: '🏖', name: '7月完了型', desc: '素晴らしい!今のペースなら宿題は余裕を持って終わります。運用効率の最適化を検討するステージです。', pct: 100},
+  {min: 0.9, emoji: '📚', name: 'コツコツ型', desc: 'ほぼ計画通り。あと少しペースを上げるか、運用利回りを見直せば安心圏です。', pct: 75},
+  {min: 0.4, emoji: '😅', name: '8月31日型', desc: 'このままだと最後に泣くパターン。今なら間に合います。置き場所の見直しから始めましょう。', pct: 45},
+  {min: -1, emoji: '🚨', name: '新学期突入型', desc: '宿題がほぼ手つかずです。ただし「時間」はまだ味方。まずは現状把握から一歩ずつ。', pct: 18},
+];
+function renderDiag() {
+  const d = readInputs();
+  if (d.retire <= d.age) d.retire = d.age + 1;
+  if (d.life <= d.retire) d.life = d.retire + 1;
+  const spend = (d.life - d.retire) * 12 * d.cost;
+  const pensionTotal = Math.max(0, (d.life - Math.max(d.retire, 65)) * 12 * d.pension);
+  const hw = Math.max(0, spend - pensionTotal - d.assets);
+  const months = (d.retire - d.age) * 12;
+
+  const el = $('hw-amount');
+  el.textContent = hw > 0 ? fmtMan(hw) : '宿題ゼロ!🎉';
+  el.classList.toggle('ok', hw === 0);
+  $('hw-formula').textContent = `(${d.life}歳 − ${d.retire}歳) × 12ヶ月 × ${d.cost}万円 − 年金 − 現在資産`;
+  $('t-spend').textContent = fmtMan(spend);
+  $('t-spend-s').textContent = `${d.retire}歳〜${d.life}歳の${d.life - d.retire}年間`;
+  $('t-pension').textContent = fmtMan(pensionTotal);
+  $('t-pension-s').textContent = `65歳から月${d.pension}万円`;
+  $('t-assets').textContent = fmtMan(d.assets);
+  $('t-years').textContent = (d.retire - d.age) + '年';
+
+  const flat = hw / months;
+  const r = 0.06 / 12;
+  const invest = hw * r / (Math.pow(1 + r, months) - 1);
+  $('need-flat').textContent = hw ? flat.toFixed(1) + '万円' : '0円';
+  $('need-invest').textContent = hw ? invest.toFixed(1) + '万円' : '0円';
+
+  const ratio = hw === 0 ? 99 : d.monthly / invest;
+  const t = TYPES.find(t => ratio >= t.min);
+  $('type-emoji').textContent = t.emoji;
+  $('type-name').textContent = t.name;
+  $('type-desc').textContent = t.desc;
+  $('type-meter').style.width = Math.min(100, Math.max(4, ratio / 1.2 * 100)) + '%';
+
+  // インフレ:現在資産の実質価値(単一系列)
+  const yrs = [], vals = [];
+  for (let y = 0; y <= 20; y += 2) { yrs.push(y); vals.push(d.assets / Math.pow(1.02, y)); }
+  lineChart($('chart-inflation'), {
+    label: '現金の実質価値の推移', x: yrs,
+    xFmt: y => y === 0 ? '現在' : y + '年後',
+    yFmt: v => Math.round(v).toLocaleString() + '万',
+    yMin: 0,
+    series: [{name: '実質価値', short: '実質' + fmtMan(vals[vals.length - 1]), color: 'var(--critical)', data: vals}],
+  });
+}
+IN.forEach(k => $('in-' + k).addEventListener('input', () => { renderDiag(); renderSim(); }));
+
+/* ---------- シミュレーション ---------- */
+function renderSim() {
+  const m = parseFloat($('sim-monthly').value), yrs = parseInt($('sim-years').value);
+  $('v-sim-monthly').textContent = m + '万円';
+  $('v-sim-years').textContent = yrs + '年';
+  const step = Math.max(1, Math.round(yrs / 12));
+  const xs = [], principal = [], bank = [], world = [];
+  const fv = (rate, months) => rate === 0 ? m * months : m * (Math.pow(1 + rate / 12, months) - 1) / (rate / 12);
+  for (let y = 0; y <= yrs; y += step) {
+    xs.push(y);
+    principal.push(m * 12 * y);
+    bank.push(fv(0.002, y * 12));
+    world.push(fv(0.06, y * 12));
+  }
+  lineChart($('chart-sim'), {
+    label: '積立シミュレーション比較', x: xs,
+    xFmt: y => y + '年', yFmt: v => v >= 10000 ? (v / 10000).toFixed(1) + '億' : Math.round(v).toLocaleString() + '万',
+    series: [
+      {name: '世界水準 (6%)', short: fmtMan(world[world.length - 1]), color: 'var(--accent)', data: world},
+      {name: '銀行 (0.2%)', short: fmtMan(bank[bank.length - 1]), color: 'var(--compare)', data: bank},
+      {name: '積立元本', short: '元本' + fmtMan(principal[principal.length - 1]), color: 'var(--muted)', dash: true, data: principal},
+    ],
+  });
+  const diff = world[world.length - 1] - bank[bank.length - 1];
+  $('sim-summary').innerHTML = `同じ月${m}万円の積立でも、${yrs}年後の差は <b style="color:var(--good-text)">${fmtMan(diff)}</b>。差を生むのは節約ではなく「置き場所」です。`;
+}
+$('sim-monthly').addEventListener('input', renderSim);
+$('sim-years').addEventListener('input', renderSim);
+
+/* 暴落チャート(イメージ・値は説明用) */
+(function () {
+  const xs = [0, .5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6];
+  lineChart($('chart-crash'), {
+    label: '暴落時の値動き比較(イメージ)', x: xs,
+    xFmt: v => v + '年', yFmt: v => Math.round(v),
+    yMin: 40,
+    series: [
+      {name: 'プロの分散運用', short: '分散 124', color: 'var(--accent)', data: [100, 103, 106, 100, 88, 84, 88, 94, 100, 106, 112, 118, 124]},
+      {name: 'インデックス運用', short: '指数 108', color: 'var(--compare)', data: [100, 106, 112, 96, 66, 58, 64, 72, 80, 88, 95, 102, 108]},
+    ],
+  });
+})();
+
+/* クイズ */
+document.querySelectorAll('.quiz .choices button').forEach(b => b.addEventListener('click', () => {
+  $('quiz-answer').classList.add('show');
+  document.querySelectorAll('.quiz .choices button').forEach(x => {
+    x.style.opacity = .55;
+    if (x.dataset.q === 'no') { x.style.opacity = 1; x.style.borderColor = 'var(--good)'; }
+  });
+}));
+
+/* 保険分離の比較バー */
+(function () {
+  const el = $('insurance-bars');
+  const fv6 = 19.5 * (Math.pow(1 + 0.06 / 12, 348) - 1) / (0.06 / 12); // 掛け捨て0.5万を引いた19.5万を運用
+  const fv1 = 20 * (Math.pow(1 + 0.01 / 12, 348) - 1) / (0.01 / 12);
+  const max = fv6;
+  const row = (label, v, color, note) => `
+    <div style="margin:10px 0">
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>${label}</span><span style="font-variant-numeric:tabular-nums">${fmtMan(v)}</span></div>
+      <div style="height:20px;background:var(--grid);border-radius:4px;overflow:hidden;margin-top:3px">
+        <div style="width:${v / max * 100}%;height:100%;background:${color};border-radius:0 4px 4px 0"></div>
+      </div>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:2px">${note}</div>
+    </div>`;
+  el.innerHTML =
+    row('掛け捨て保険 + 運用(年6%)', fv6, 'var(--accent)', '保障0.5万円 + 運用19.5万円/月 に分離') +
+    row('積立型保険のみ(年1%想定)', fv1, 'var(--compare)', '保障と運用が一体・どちらも中途半端') +
+    `<div style="font-size:12.5px;font-weight:800;margin-top:6px">その差、<span style="color:var(--good-text)">${fmtMan(fv6 - fv1)}</span></div>`;
+})();
+
+/* ---------- 代理店 ---------- */
+(function () {
+  const steps = [
+    ['リンク訪問', 120], ['診断開始', 84], ['診断完了', 57],
+    ['セミナー申込', 18], ['セミナー参加', 12], ['個別相談', 7],
+  ];
+  $('funnel').innerHTML = steps.map(([l, v], i) => `
+    <div class="frow">
+      <div class="fl">${l}</div>
+      <div class="fbar" style="width:${v / steps[0][1] * 100 * 0.62}%;background:var(--funnel-${i + 1})"></div>
+      <div class="fv">${v}<span class="fp"> (${Math.round(v / steps[0][1] * 100)}%)</span></div>
+    </div>`).join('');
+
+  const users = [
+    ['佐々木さん', '完了', 3400, 15, ['教育資金', '円安'], 'high', 'セミナー招待を送る'],
+    ['高橋さん', '完了', 2760, 40, ['老後資金'], 'high', '個別相談の日程調整'],
+    ['伊藤さん', '完了', 1980, 62, ['保険見直し'], 'mid', '保険分離の資料送付'],
+    ['渡辺さん', '診断中', null, 20, ['介護'], 'mid', '診断完了のリマインド'],
+    ['小林さん', '完了', 850, 88, ['NISA併用'], 'low', '四半期後にフォロー'],
+    ['加藤さん', '未着手', null, 0, [], 'low', '🍉宿題リマインド配信予定'],
+  ];
+  const P = {high: '🔥 高', mid: '⏳ 中', low: '💤 低'};
+  $('user-rows').innerHTML = users.map(([n, st, hw, prog, tags, pr, act]) => `
+    <tr>
+      <td><b>${n}</b></td>
+      <td>${st}</td>
+      <td>${hw === null ? '<span style="color:var(--muted)">—</span>' : fmtMan(hw)}</td>
+      <td><div class="bar-cell"><div class="bar"><i style="width:${prog}%"></i></div>${prog}%</div></td>
+      <td>${tags.map(t => `<span class="tag">${t}</span>`).join('') || '<span style="color:var(--muted)">—</span>'}</td>
+      <td><span class="prio ${pr}">${P[pr]}</span></td>
+      <td style="white-space:normal;min-width:150px">${act}</td>
+    </tr>`).join('');
+
+  document.querySelectorAll('.switch').forEach(s => s.addEventListener('click', () => s.classList.toggle('on')));
+})();
+
+/* 初期描画 */
+renderDiag();
+renderSim();
+</script>
+</body>
+</html>
