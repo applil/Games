@@ -181,6 +181,56 @@ td{padding:9px 10px;border-bottom:1px solid var(--grid);white-space:nowrap;font-
 .switch.on{background:var(--good)}
 .switch.on::after{left:19px}
 
+/* 事前チェック */
+.qrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--grid)}
+.qrow:last-child{border-bottom:0}
+.qrow .qno{width:26px;height:26px;border-radius:50%;background:var(--paper);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--ink-2);flex-shrink:0}
+.qrow .qt{flex:1;font-size:13px;font-weight:600;line-height:1.6}
+.seg{display:flex;gap:6px;flex-shrink:0}
+.seg button{padding:7px 16px;border-radius:99px;border:1px solid var(--line);background:var(--paper);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--ink-2)}
+.seg button.sel-yes{background:var(--accent);border-color:var(--accent);color:#fff}
+.seg button.sel-no{background:var(--critical);border-color:var(--critical);color:#fff}
+.gap-card{display:flex;gap:12px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:8px 0}
+.gap-card .gi{font-size:20px;flex-shrink:0}
+.gap-card .gt{font-size:12.5px;font-weight:800}
+.gap-card .gd{font-size:11.5px;color:var(--ink-2)}
+.btn{display:inline-block;border:none;background:var(--accent);color:#fff;font-family:inherit;font-size:13.5px;font-weight:800;padding:11px 26px;border-radius:99px;cursor:pointer}
+.btn.ghost{background:var(--paper);color:var(--ink-2);border:1px solid var(--line)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* フォロー */
+.stepper{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px}
+.step{flex:1;min-width:86px;text-align:center;font-size:10.5px;font-weight:700;color:var(--muted);position:relative;padding-top:26px}
+.step::before{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:var(--grid)}
+.step::after{content:'';position:absolute;top:14px;left:calc(50% + 10px);right:calc(-50% + 10px);height:2px;background:var(--grid)}
+.step:last-child::after{display:none}
+.step.done{color:var(--good-text)}
+.step.done::before{background:var(--good)}
+.step.now{color:var(--accent)}
+.step.now::before{background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:6px 14px;border-radius:99px;border:1px solid var(--line);font-size:12px;font-weight:700;cursor:pointer;background:var(--paper);color:var(--ink-2);font-family:inherit}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.stars{display:flex;gap:2px}
+.stars button{font-size:26px;background:none;border:none;cursor:pointer;filter:grayscale(1);opacity:.45;padding:0 2px}
+.stars button.on{filter:none;opacity:1}
+.flabel{font-size:12px;font-weight:800;color:var(--ink-2);margin:14px 0 6px}
+.content-card{display:flex;gap:12px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:8px 0}
+.content-card .ci{font-size:24px;flex-shrink:0}
+.content-card .ct{font-size:12.5px;font-weight:800}
+.content-card .cm{font-size:10.5px;color:var(--muted)}
+.content-card .for-you{font-size:9.5px;font-weight:800;color:#fff;background:var(--serious);border-radius:99px;padding:1px 8px;margin-left:6px;vertical-align:1px}
+.content-card .watch{margin-left:auto;flex-shrink:0}
+.growth{display:flex;align-items:center;justify-content:center;gap:14px;font-size:15px;font-weight:800;background:var(--paper);border-radius:14px;padding:14px;margin:10px 0}
+.growth .from{color:var(--muted)} .growth .to{color:var(--good-text);font-size:22px}
+.ready-wrap{margin:10px 0}
+.ready-bar{height:14px;background:var(--grid);border-radius:99px;overflow:hidden;position:relative}
+.ready-bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--good));border-radius:99px;transition:width .5s}
+.ready-cap{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:4px}
+.slot{margin:4px 6px 4px 0}
+.slot.on{background:var(--good);border-color:var(--good);color:#fff}
+.locked{font-size:12px;color:var(--muted);background:var(--paper);border:1px dashed var(--axis);border-radius:12px;padding:12px 14px}
+
 footer.disc{
   margin-top:30px;font-size:10.5px;color:var(--muted);line-height:1.9;
   border-top:1px solid var(--grid);padding-top:16px;
@@ -199,14 +249,26 @@ footer.disc{
   </header>
 
   <nav class="tabs" aria-label="画面切り替え">
-    <button class="active" data-tab="diag">🏠 診断</button>
+    <button class="active" data-tab="check">✅ 事前チェック</button>
+    <button data-tab="diag">🏠 診断</button>
     <button data-tab="sim">📈 シミュレーション</button>
+    <button data-tab="follow">🧭 受講後フォロー</button>
     <button data-tab="notif">🔔 通知</button>
     <button data-tab="agent">🤝 代理店管理</button>
   </nav>
 
+  <!-- ═══════════ 事前チェック ═══════════ -->
+  <section class="panel active" id="panel-check">
+    <div class="card">
+      <h2>💰 お金の健康チェック(1分・8問)</h2>
+      <div class="lead">セミナーを受講するか迷っている方へ。まずは「はい」がいくつあるか数えてみてください。回答は記憶され、受講後のフォローにも活かされます(モックではこのブラウザ内に保存)。</div>
+      <div id="check-list"></div>
+    </div>
+    <div id="check-result"></div>
+  </section>
+
   <!-- ═══════════ 診断 ═══════════ -->
-  <section class="panel active" id="panel-diag">
+  <section class="panel" id="panel-diag">
     <div class="card">
       <h2>まずは、あなたの数字を教えてください</h2>
       <div class="lead">3分で「人生の宿題(老後に自分で準備すべき金額)」がわかります。入力はすべて概算でOKです。</div>
@@ -335,6 +397,16 @@ footer.disc{
     </div>
   </section>
 
+  <!-- ═══════════ 受講後フォロー ═══════════ -->
+  <section class="panel" id="panel-follow">
+    <div class="card">
+      <h2>🧭 受講後フォローの流れ</h2>
+      <div class="lead">事前チェックの回答を記憶し、「受講 → アンケート → あなた向け配信 → ミニアンケート → 個別相談」へ自然につなげます。<a href="#" id="demo-reset" style="color:var(--accent)">デモをリセット</a></div>
+      <div class="stepper" id="stepper"></div>
+    </div>
+    <div id="follow-body"></div>
+  </section>
+
   <!-- ═══════════ 通知 ═══════════ -->
   <section class="panel" id="panel-notif">
     <div class="grid2">
@@ -404,6 +476,12 @@ footer.disc{
         <div class="camp"><div>🎒</div><div><div class="cn">教育資金(入学6年前)</div><div class="cs">子の年齢トリガー / 開封率 47%</div></div><div class="switch on"></div></div>
         <div class="camp"><div>🧓</div><div><div class="cn">介護への備え(親が70歳)</div><div class="cs">親の年齢トリガー / 準備中</div></div><div class="switch"></div></div>
       </div>
+    </div>
+
+    <div class="card funnel">
+      <h2>受講後フォローの進み具合</h2>
+      <div class="lead">事前チェック → セミナー → アンケート → 配信 → 個別相談 の各段階にいる人数。滞留している段階へのテコ入れ(通知・声かけ)が代理店の腕の見せどころです。</div>
+      <div id="stage-funnel"></div>
     </div>
 
     <div class="card">
@@ -658,11 +736,277 @@ document.querySelectorAll('.quiz .choices button').forEach(b => b.addEventListen
     </tr>`).join('');
 
   document.querySelectorAll('.switch').forEach(s => s.addEventListener('click', () => s.classList.toggle('on')));
+
+  const stages = [
+    ['事前チェック完了', 57], ['セミナー受講済', 12], ['アンケート回答済', 9],
+    ['配信コンテンツ視聴中', 6], ['相談準備OK (60%〜)', 4], ['個別相談予約済', 2],
+  ];
+  $('stage-funnel').innerHTML = stages.map(([l, v], i) => `
+    <div class="frow">
+      <div class="fl" style="width:150px">${l}</div>
+      <div class="fbar" style="width:${v / stages[0][1] * 100 * 0.55}%;background:var(--funnel-${i + 1})"></div>
+      <div class="fv">${v}人</div>
+    </div>`).join('');
 })();
+
+/* ---------- 事前チェック & 受講後フォロー ---------- */
+const STORE_KEY = 'lp_state_v1';
+let S = {check: [], applied: false, survey1: null, watched: [], survey2: null, booked: false, slot: null};
+try { const raw = localStorage.getItem(STORE_KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch (e) {}
+const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} };
+const gotoTab = t => document.querySelector(`nav.tabs button[data-tab="${t}"]`).click();
+
+const CHECKQ = [
+  {q: 'ねんきん定期便などで、自分の年金見込み額を確認したことがある', tag: '年金', teaser: '年金の「実際の数字」を知ると宿題の大きさが見えます。確認方法はセミナーで3分で解説。'},
+  {q: '老後に必要な総額を、自分の数字で計算したことがある', tag: '老後資金', teaser: '式はシンプル:(生きる年齢−リタイア年齢)×12ヶ月×生活費。セミナーで一緒に計算します。'},
+  {q: '物価上昇2%が続くと、現金1,000万円が20年で約672万円分の価値になると知っていた', tag: 'インフレ', teaser: '「持っているだけで減る」時代の守り方には、世界共通のセオリーがあります。', re: 'インフレで現金の価値がどう減るか、人に説明できる'},
+  {q: '日本の預金金利(約0.2%)と世界平均(約6%)の差を知っていた', tag: 'お金の置き場所', teaser: '同じ積立でも30年で数千万円の差に。差を生むのは節約ではなく「置き場所」です。', re: '「お金の置き場所」で将来の資産が変わる理由を、人に説明できる'},
+  {q: '「-50%の後に+50%」では元に戻らないことを知っていた', tag: 'リスク管理', teaser: 'プロが「増やす」より「減らさない」を優先する理由を、実例グラフで紹介します。', re: '「-50%の後に+50%では戻らない」理由を、人に説明できる'},
+  {q: '資産の一部を外貨(米ドルなど)で持っている', tag: '通貨分散', teaser: '円だけで持つのは「日本に全額ベット」と同じ。円安時代の通貨分散の基本を解説。'},
+  {q: '加入中の保険の「保障」と「運用」の内訳を説明できる', tag: '保険見直し', teaser: '保険と運用の分離だけで、生涯で1億円以上の差が出るケースも。'},
+  {q: 'お金について相談できる専門家が身近にいる', tag: '相談相手', teaser: '独学より「信頼できる縁」。あなた専用のシミュレーションを作れる相談先をご用意。'},
+];
+const LEVELS = [
+  {min: 7, emoji: '🏆', name: '金融優等生', desc: '基礎は十分。あとは「世界水準の選択肢」を知るだけで一気に伸びます。'},
+  {min: 4, emoji: '🌱', name: '伸びしろ充分', desc: '平均的なライン。ただし「いいえ」の項目は、そのまま損している可能性がある項目です。'},
+  {min: 0, emoji: '🚨', name: '要注意:無知はコスト', desc: '危険信号。でも大丈夫——下の項目はすべて、1回のセミナーで埋まる知識です。'},
+];
+const weakTags = () => CHECKQ.filter((_, i) => S.check[i] === 0).map(c => c.tag);
+
+function renderCheck() {
+  $('check-list').innerHTML = CHECKQ.map((c, i) => `
+    <div class="qrow">
+      <div class="qno">${i + 1}</div>
+      <div class="qt">${c.q}</div>
+      <div class="seg" data-i="${i}">
+        <button data-a="1" class="${S.check[i] === 1 ? 'sel-yes' : ''}">はい</button>
+        <button data-a="0" class="${S.check[i] === 0 ? 'sel-no' : ''}">いいえ</button>
+      </div>
+    </div>`).join('');
+  document.querySelectorAll('#check-list .seg button').forEach(b => b.addEventListener('click', () => {
+    S.check[+b.parentElement.dataset.i] = +b.dataset.a;
+    save(); renderCheck(); renderFollow();
+  }));
+
+  const done = CHECKQ.every((_, i) => S.check[i] !== undefined);
+  const box = $('check-result');
+  if (!done) {
+    const left = CHECKQ.filter((_, i) => S.check[i] === undefined).length;
+    box.innerHTML = `<div class="card" style="text-align:center;color:var(--muted);font-size:12.5px">あと${left}問で結果がわかります</div>`;
+    return;
+  }
+  const score = S.check.reduce((a, b) => a + b, 0);
+  const lv = LEVELS.find(l => score >= l.min);
+  const gaps = CHECKQ.filter((_, i) => S.check[i] === 0);
+  box.innerHTML = `
+    <div class="hero" style="margin-bottom:18px">
+      <div class="cap">お金の健康スコア</div>
+      <div class="num ${score >= 7 ? 'ok' : ''}" style="color:${score >= 7 ? '' : score >= 4 ? 'var(--serious)' : 'var(--critical)'}">${score} <span style="font-size:20px;color:var(--muted)">/ 8</span></div>
+      <div style="font-size:16px;font-weight:800;margin-top:2px">${lv.emoji} ${lv.name}</div>
+      <div class="note" style="max-width:460px;margin:6px auto 0">${lv.desc}</div>
+    </div>
+    ${gaps.length ? `<div class="card"><h2>あなたの伸びしろ(=知らないと損している可能性がある項目)</h2>
+      <div class="lead">それぞれ、セミナーで扱うテーマです。</div>
+      ${gaps.map(g => `<div class="gap-card"><div class="gi">🔍</div><div><div class="gt"><span class="tag">${g.tag}</span></div><div class="gd">${g.teaser}</div></div></div>`).join('')}
+    </div>` : ''}
+    <div class="card" style="text-align:center">
+      ${S.applied
+        ? `<div style="font-size:14px;font-weight:800;color:var(--good-text)">✅ セミナー申込を受け付けました(モック)</div>
+           <div class="lead" style="margin:6px 0 12px">受講後は「受講後フォロー」タブでアンケートとフォローが始まります。</div>
+           <button class="btn" id="go-follow">受講後フォローへ進む</button>`
+        : `<div style="font-size:14px;font-weight:800">${gaps.length ? `この${gaps.length}項目、全部1回で埋められます。` : 'その知識、最新の世界水準にアップデートしませんか?'}</div>
+           <div class="lead" style="margin:6px 0 12px">「大人の義務教育」マネー講座(無料・オンライン可)— あなたの回答に合わせた内容でご案内します。</div>
+           <button class="btn" id="apply-seminar">セミナーに申し込む(モック)</button>`}
+    </div>`;
+  const ap = $('apply-seminar');
+  if (ap) ap.addEventListener('click', () => { S.applied = true; save(); renderCheck(); renderFollow(); });
+  const gf = $('go-follow');
+  if (gf) gf.addEventListener('click', () => gotoTab('follow'));
+}
+
+const CONTENTS = [
+  {tag: '老後資金', icon: '🏖', type: '動画3分', title: '年金だけで足りない人の「出口戦略」入門'},
+  {tag: '教育資金', icon: '🎒', type: '記事5分', title: '大学費用400万円を"実質無償化"する考え方'},
+  {tag: '保険見直し', icon: '🛡', type: '動画4分', title: '積立保険を続ける前に知るべき3つの数字'},
+  {tag: '通貨分散', icon: '💱', type: '記事4分', title: '1ドル165円時代の外貨保有バランス'},
+  {tag: 'リスク管理', icon: '📉', type: 'クイズ2分', title: '暴落に強い人の共通点クイズ'},
+  {tag: 'インフレ', icon: '📈', type: '動画3分', title: '物価2%上昇で現金はどれだけ目減りする?'},
+  {tag: 'お金の置き場所', icon: '🌍', type: '記事6分', title: '世界の運用会社ランキングと日本の現在地'},
+  {tag: 'NISA併用', icon: '🧾', type: '記事5分', title: 'NISAと海外積立の役割分担'},
+  {tag: '相続・承継', icon: '👨‍👩‍👦', type: '動画5分', title: '家族に「プチFIRE」を残す承継の仕組み'},
+];
+const RECHECK = [2, 3, 4]; // 受講後に再確認する設問(インフレ・置き場所・リスク管理)
+const INTERESTS = ['老後資金', '教育資金', '保険見直し', '通貨分散', 'NISA併用', '相続・承継'];
+let f1 = {stars: 0, re: {}, tags: [], wish: null}; // アンケート入力中の一時状態
+
+function readiness() {
+  let r = 0;
+  if (S.survey1) {
+    r += {now: 40, info: 22, later: 12}[S.survey1.wish] || 0;
+    r += S.survey1.stars * 4;
+  }
+  r += Math.min(24, S.watched.length * 8);
+  if (S.survey2) r += {yes: 16, part: 10, no: 4}[S.survey2.q1] || 0;
+  return Math.min(100, r);
+}
+
+function renderFollow() {
+  const checkDone = CHECKQ.every((_, i) => S.check[i] !== undefined);
+  const steps = [
+    ['事前チェック', checkDone],
+    ['セミナー受講', S.applied],
+    ['アンケート', !!S.survey1],
+    ['あなた向け配信', S.watched.length > 0],
+    ['ミニアンケート', !!S.survey2],
+    ['個別相談', S.booked],
+  ];
+  const nowIdx = steps.findIndex(s => !s[1]);
+  $('stepper').innerHTML = steps.map(([l, done], i) =>
+    `<div class="step ${done ? 'done' : i === nowIdx ? 'now' : ''}">${done ? '✓ ' : ''}${l}</div>`).join('');
+
+  const body = $('follow-body');
+  if (!checkDone) {
+    body.innerHTML = `<div class="card" style="text-align:center">
+      <div class="lead" style="margin-bottom:12px">まずは事前チェック(1分)から始めましょう。回答があなた専用のフォロー内容になります。</div>
+      <button class="btn" id="fb-go-check">事前チェックへ</button></div>`;
+    $('fb-go-check').addEventListener('click', () => gotoTab('check'));
+    return;
+  }
+  const parts = [];
+
+  /* --- 受講後アンケート --- */
+  if (!S.survey1) {
+    parts.push(`<div class="card"><h2>📋 受講後アンケート(1分)</h2>
+      <div class="lead">回答すると、あなた専用のフォローコンテンツが届きます。${S.applied ? '' : '(モックのため受講前でも回答できます)'}</div>
+      <div class="flabel">Q1. セミナーの満足度</div>
+      <div class="stars" id="f-stars">${[1,2,3,4,5].map(n => `<button data-n="${n}" class="${f1.stars >= n ? 'on' : ''}">⭐</button>`).join('')}</div>
+      <div class="flabel">Q2. 理解度チェック — 受講前と同じ質問です。いまなら?</div>
+      ${RECHECK.map(qi => `<div class="qrow"><div class="qt" style="font-weight:600">${CHECKQ[qi].re}?</div>
+        <div class="seg f-re" data-qi="${qi}">
+          <button data-a="1" class="${f1.re[qi] === 1 ? 'sel-yes' : ''}">はい</button>
+          <button data-a="0" class="${f1.re[qi] === 0 ? 'sel-no' : ''}">まだ</button>
+        </div></div>`).join('')}
+      <div class="flabel">Q3. 特に興味を持ったテーマ(複数選択可)</div>
+      <div class="chips" id="f-tags">${INTERESTS.map(t => `<button class="chip ${f1.tags.includes(t) ? 'on' : ''}" data-t="${t}">${t}</button>`).join('')}</div>
+      <div class="flabel">Q4. 個別相談について</div>
+      <div class="chips" id="f-wish">
+        <button class="chip ${f1.wish === 'now' ? 'on' : ''}" data-w="now">今すぐ相談したい</button>
+        <button class="chip ${f1.wish === 'info' ? 'on' : ''}" data-w="info">情報がもっと欲しい</button>
+        <button class="chip ${f1.wish === 'later' ? 'on' : ''}" data-w="later">じっくり検討したい</button>
+      </div>
+      <div style="margin-top:16px"><button class="btn" id="f-submit">回答を送信(モック)</button></div>
+    </div>`);
+  } else {
+    const before = S.check.reduce((a, b) => a + b, 0);
+    let after = 0;
+    S.check.forEach((v, i) => { after += RECHECK.includes(i) ? (S.survey1.re[i] ? 1 : 0) : v; });
+    parts.push(`<div class="card"><h2>📋 受講後アンケート — 回答済み ✅</h2>
+      <div class="lead">満足度 ${'⭐'.repeat(S.survey1.stars)} / 興味テーマ:${S.survey1.tags.map(t => `<span class="tag">${t}</span>`).join('') || 'なし'}</div>
+      <div class="growth"><span>お金の健康スコア</span><span class="from">${before}/8</span><span>→</span><span class="to">${after}/8</span><span style="font-size:12px;color:var(--good-text)">${after > before ? '成長!🎉' : ''}</span></div>
+      <div class="lead" style="margin:0">受講前のチェックと同じ質問で「知識の伸び」を可視化。この成長体験が次の行動(個別相談)への動機になります。</div>
+    </div>`);
+  }
+
+  /* --- あなた向け配信 --- */
+  if (S.survey1) {
+    const prefer = new Set([...S.survey1.tags, ...weakTags()]);
+    const list = CONTENTS.map(c => ({...c, hit: prefer.has(c.tag)})).sort((a, b) => b.hit - a.hit).slice(0, 6);
+    parts.push(`<div class="card"><h2>🎁 あなた向け配信コンテンツ</h2>
+      <div class="lead">事前チェックの「いいえ」項目 + アンケートの興味テーマから自動選定。視聴するほど下の準備度ゲージが貯まります。</div>
+      ${list.map((c, i) => `<div class="content-card"><div class="ci">${c.icon}</div>
+        <div><div class="ct">${c.title}${c.hit ? '<span class="for-you">あなた向け</span>' : ''}</div><div class="cm">${c.type} ・ ${c.tag}</div></div>
+        <button class="chip watch ${S.watched.includes(c.title) ? 'on' : ''}" data-c="${c.title}">${S.watched.includes(c.title) ? '✓ 視聴済み' : '視聴する'}</button>
+      </div>`).join('')}
+    </div>`);
+  }
+
+  /* --- ミニアンケート第2弾 --- */
+  if (S.survey1 && S.watched.length > 0 && !S.survey2) {
+    parts.push(`<div class="card"><h2>📮 ミニアンケート(30秒)</h2>
+      <div class="lead">配信コンテンツはいかがでしたか?</div>
+      <div class="flabel">Q1. お金の不安は解消されてきましたか?</div>
+      <div class="chips" id="f2-q1">
+        <button class="chip" data-a="yes">はい、道筋が見えた</button>
+        <button class="chip" data-a="part">一部は解消された</button>
+        <button class="chip" data-a="no">まだ不安が残る</button>
+      </div>
+      <div class="lead" style="margin:8px 0 0">※どの回答でも大丈夫。「まだ不安」の方こそ個別相談で解消できます。</div>
+    </div>`);
+  } else if (S.survey1 && !S.survey2) {
+    parts.push(`<div class="locked" style="margin-bottom:18px">🔒 ミニアンケートは、コンテンツを1本以上視聴すると届きます</div>`);
+  } else if (S.survey2) {
+    parts.push(`<div class="card"><h2>📮 ミニアンケート — 回答済み ✅</h2>
+      <div class="lead" style="margin:0">「${{yes: 'はい、道筋が見えた', part: '一部は解消された', no: 'まだ不安が残る'}[S.survey2.q1]}」— この回答も準備度に反映されています。</div></div>`);
+  }
+
+  /* --- 個別相談 --- */
+  if (S.survey1) {
+    const r = readiness();
+    const ready = r >= 60;
+    parts.push(`<div class="card"><h2>🤝 個別相談への準備度</h2>
+      <div class="lead">アンケート回答・コンテンツ視聴から自動算出。${ready ? '<b style="color:var(--good-text)">ご案内に最適なタイミングです!</b>' : 'ゲージが貯まると予約枠をご案内します。'}</div>
+      <div class="ready-wrap">
+        <div class="ready-bar"><i style="width:${r}%"></i></div>
+        <div class="ready-cap"><span>情報収集中</span><span>検討中</span><span>相談準備OK(60%〜)</span></div>
+        <div style="text-align:right;font-size:13px;font-weight:800;margin-top:2px">${r}%</div>
+      </div>
+      ${S.booked
+        ? `<div style="text-align:center;padding:8px 0"><div style="font-size:15px;font-weight:800;color:var(--good-text)">✅ ${S.slot} で予約を受け付けました(モック)</div>
+           <div class="lead" style="margin:6px 0 0">担当者があなたの事前チェック・アンケート結果を確認した上で、専用シミュレーションを準備してお待ちします。</div></div>`
+        : ready
+        ? `<div class="flabel">無料・オンライン可 — ご都合の良い枠を選んでください</div>
+           <div>${['7/28(火) 19:00', '7/30(木) 12:00', '8/1(土) 10:00'].map(s => `<button class="chip slot ${S.slot === s ? 'on' : ''}" data-s="${s}">${s}</button>`).join('')}</div>
+           <div style="margin-top:14px"><button class="btn" id="book-btn" ${S.slot ? '' : 'disabled'}>この枠で予約する(モック)</button></div>
+           <div class="lead" style="margin:10px 0 0">※あなたの回答(弱点:${weakTags().slice(0, 3).map(t => `<span class="tag">${t}</span>`).join('') || 'なし'})に合わせた個別シミュレーションを事前に用意します。</div>`
+        : `<div class="locked">🔒 コンテンツの視聴やアンケート回答でゲージが貯まります(モック上はすぐ試せます)</div>`}
+    </div>`);
+  }
+
+  body.innerHTML = parts.join('');
+
+  /* イベント */
+  const st = $('f-stars');
+  if (st) st.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { f1.stars = +b.dataset.n; renderFollow(); }));
+  document.querySelectorAll('.f-re button').forEach(b => b.addEventListener('click', () => { f1.re[+b.parentElement.dataset.qi] = +b.dataset.a; renderFollow(); }));
+  const ft = $('f-tags');
+  if (ft) ft.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
+    const t = b.dataset.t;
+    f1.tags = f1.tags.includes(t) ? f1.tags.filter(x => x !== t) : [...f1.tags, t];
+    renderFollow();
+  }));
+  const fw = $('f-wish');
+  if (fw) fw.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => { f1.wish = b.dataset.w; renderFollow(); }));
+  const fs = $('f-submit');
+  if (fs) fs.addEventListener('click', () => {
+    if (!f1.stars || f1.wish === null || RECHECK.some(qi => f1.re[qi] === undefined)) { alert('満足度・理解度チェック・Q4は必須です(モック)'); return; }
+    S.survey1 = {stars: f1.stars, re: {...f1.re}, tags: [...f1.tags], wish: f1.wish};
+    save(); renderFollow();
+  });
+  document.querySelectorAll('.watch').forEach(b => b.addEventListener('click', () => {
+    const c = b.dataset.c;
+    S.watched = S.watched.includes(c) ? S.watched.filter(x => x !== c) : [...S.watched, c];
+    save(); renderFollow();
+  }));
+  const f2 = $('f2-q1');
+  if (f2) f2.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => { S.survey2 = {q1: b.dataset.a}; save(); renderFollow(); }));
+  document.querySelectorAll('.slot').forEach(b => b.addEventListener('click', () => { S.slot = b.dataset.s; save(); renderFollow(); }));
+  const bk = $('book-btn');
+  if (bk) bk.addEventListener('click', () => { S.booked = true; save(); renderFollow(); });
+}
+
+$('demo-reset').addEventListener('click', e => {
+  e.preventDefault();
+  localStorage.removeItem(STORE_KEY);
+  S = {check: [], applied: false, survey1: null, watched: [], survey2: null, booked: false, slot: null};
+  f1 = {stars: 0, re: {}, tags: [], wish: null};
+  renderCheck(); renderFollow();
+});
 
 /* 初期描画 */
 renderDiag();
 renderSim();
+renderCheck();
+renderFollow();
 </script>
 </body>
 </html>
