@@ -104,7 +104,9 @@ h1 .to{font-size:18px;color:var(--ink-soft);margin:0 2px}
 .cell:focus-visible{outline:3px solid var(--ice);outline-offset:2px}
 .cell.given{cursor:default;box-shadow:inset 0 0 0 1.5px var(--line)}
 .cell.given:active{transform:none}
+.cell.memo{outline:2.5px dashed #8fa3c7;outline-offset:-3px}
 .cell.err{box-shadow:inset 0 0 0 2.5px var(--error)}
+#btnMemo.active,#btnMemoCommit{background:var(--ink);color:#fff;border-color:var(--ink)}
 .cell.pulse{animation:pulse .5s ease 2}
 @keyframes pulse{50%{box-shadow:inset 0 0 0 3px var(--ok);transform:scale(1.06)}}
 .board.celebrate .cell{animation:winwave .9s ease both}
@@ -189,8 +191,14 @@ details p{margin-top:8px;line-height:1.8}
 
   <div class="btn-row">
     <button class="btn btn-new" id="btnNew">新しい問題</button>
+    <button class="btn btn-hint" id="btnMemo">✏️ メモ</button>
     <button class="btn btn-hint" id="btnHint">ヒント</button>
     <button class="btn btn-hint" id="btnClear">リセット</button>
+  </div>
+
+  <div class="btn-row" id="memoRow" style="display:none">
+    <button class="btn btn-hint" id="btnMemoCommit">✔ メモを確定</button>
+    <button class="btn btn-hint" id="btnMemoDiscard">✖ メモを取消</button>
   </div>
 
   <div class="hint-msg" id="hintMsg"></div>
@@ -207,6 +215,7 @@ details p{margin-top:8px;line-height:1.8}
     ・<b>同じ並びの行</b> や <b>同じ並びの列</b> を作ってはいけません<br>
     ・<b>＝</b> でつながれた隣り合うマスは <b>同じマーク</b>、<b>×</b> は <b>違うマーク</b> になります<br>
     ・薄い枠線で囲まれたマスは最初から固定されたヒントです<br>
+    ・<b>✏️ メモ</b>は仮置きモード。置いたマスが点線で囲まれ、<b>✔ 確定</b>でそのまま採用、<b>✖ 取消</b>でまとめて元に戻せます(むずかしい以上の「仮置きして矛盾探し」に便利)<br>
     ・どの問題も推測なしの論理だけで解けることが生成時に検証済みです</p>
   </details>
 </div>
@@ -518,6 +527,7 @@ function newGame(seed){
   setConstraints(consList);
   finished=false;
   hintCount=0;
+  clearMemo();
   hideHintMsg();
   $('overlay').classList.remove('show');
   $('best').textContent = getBest()!=null ? fmt(getBest()) : '--';
@@ -577,12 +587,24 @@ function lineCleared(g, idx, isRow){
 // タップ直後はエラーを出さず、操作が止まってから表示する
 let errVisible=true, errTimer=null;
 
+// メモ(仮置き)モード: 置いたマスを点線表示し、まとめて確定/取消できる
+let memoMode=false;
+const memoBackup=new Map(); // index -> 仮置き前の値
+function updateMemoUI(){
+  $('btnMemo').classList.toggle('active',memoMode);
+  $('memoRow').style.display = memoBackup.size ? 'flex' : 'none';
+}
+function clearMemo(){ memoMode=false; memoBackup.clear(); updateMemoUI(); }
+
 function tap(i){
   if(finished||given[i]) return;
   ensureAudio();
   const r=i/N|0, c=i%N;
   const wasR=lineCleared(user,r,true), wasC=lineCleared(user,c,false);
+  if(memoMode && !memoBackup.has(i)) memoBackup.set(i,user[i]);
   user[i] = user[i]===null ? 1 : user[i]===1 ? 0 : null;
+  if(memoMode && memoBackup.has(i) && memoBackup.get(i)===user[i]) memoBackup.delete(i);
+  updateMemoUI();
   errVisible=false;
   clearTimeout(errTimer);
   errTimer=setTimeout(()=>{
@@ -602,6 +624,7 @@ function paint(){
   btns.forEach((b,i)=>{
     const v=user[i];
     b.textContent = v===null ? '' : SYM[v];
+    b.classList.toggle('memo',memoBackup.has(i));
     b.classList.toggle('err',errCells.has(i));
     b.setAttribute('aria-label',`${(i/N|0)+1}行${i%N+1}列 ${v===null?'空':v===1?'炎':'氷'}`);
   });
@@ -647,6 +670,7 @@ function checkWin(){
   if(user.some(v=>v===null)) return;
   if(user.some((v,i)=>v!==solution[i])) return;
   finished=true;
+  clearMemo(); // 仮置きのまま完成したら自動で確定扱い
   SFX.win();
   clearInterval(timerId);
   const ms=Date.now()-startTime;
@@ -817,7 +841,13 @@ $('btnNext').addEventListener('click',()=>{leaveChallenge();newGame();});
 $('btnHint').addEventListener('click',hint);
 $('btnClear').addEventListener('click',()=>{
   if(finished) return;
-  user=puzzle.slice(); paint();
+  user=puzzle.slice(); clearMemo(); paint();
+});
+$('btnMemo').addEventListener('click',()=>{ memoMode=!memoMode; updateMemoUI(); });
+$('btnMemoCommit').addEventListener('click',()=>{ memoBackup.clear(); memoMode=false; updateMemoUI(); paint(); });
+$('btnMemoDiscard').addEventListener('click',()=>{
+  for(const [i,v] of memoBackup) user[i]=v;
+  memoBackup.clear(); memoMode=false; updateMemoUI(); paint();
 });
 function streakGuard(){ if(!finished){streak=0;$('streak').textContent=0;store.set('streak',0);} }
 

@@ -549,6 +549,8 @@ function PandaPuzzle() {
   const [hintMsg, setHintMsg] = useState(null);
   const [hintCell, setHintCell] = useState(null);
   const [hintCount, setHintCount] = useState(0);
+  const [memoMode, setMemoMode] = useState(false);
+  const [memoCells, setMemoCells] = useState({}); // "r,c" -> 仮置き前の値
   const timerRef = useRef(null);
   const hintTimerRef = useRef(null);
 
@@ -563,6 +565,8 @@ function PandaPuzzle() {
     setHintMsg(null);
     setHintCell(null);
     setHintCount(0);
+    setMemoMode(false);
+    setMemoCells({});
   }, []);
 
   const leaveChallenge = useCallback(() => {
@@ -589,6 +593,18 @@ function PandaPuzzle() {
   };
 
   const hintNote = (v) => (typeof v === "number" ? `・ヒント${v}回` : "");
+
+  const commitMemo = () => { setMemoCells({}); setMemoMode(false); };
+  const discardMemo = () => {
+    const next = board.map((row) => [...row]);
+    for (const key of Object.keys(memoCells)) {
+      const [r, c] = key.split(",").map(Number);
+      next[r][c] = memoCells[key];
+    }
+    setBoard(next);
+    setMemoCells({});
+    setMemoMode(false);
+  };
 
   useEffect(() => {
     if (won) return;
@@ -618,10 +634,21 @@ function PandaPuzzle() {
     SFX.tap();
     const wasR = countRow(board, r) === rowClues[r];
     const wasC = countCol(board, c) === colClues[c];
+    const key = `${r},${c}`;
     const next = board.map((row) => [...row]);
     next[r][c] = { 0: 2, 2: 1, 1: 0 }[next[r][c]]; // 空 → 草マーク → パンダ → 消去
+    if (memoMode) {
+      setMemoCells((prev) => {
+        const m = { ...prev };
+        if (!(key in m)) m[key] = board[r][c];
+        else if (m[key] === next[r][c]) delete m[key];
+        return m;
+      });
+    }
     if (checkWin(puzzle, next)) {
       SFX.win();
+      setMemoCells({});
+      setMemoMode(false);
       // 盤面のお祝いアニメーションを見せてからクリア画面へ
       setCelebrate(true);
       setTimeout(() => { setCelebrate(false); setWon(true); }, 1700);
@@ -744,6 +771,7 @@ function PandaPuzzle() {
         .cell.error { background: #f0a294; animation: shake .3s; }
         .cell.mark { background: #68955a; }
         @keyframes shake { 25% { transform: translateX(-2px);} 75% { transform: translateX(2px);} }
+        .cell.memo { outline: 2.5px dashed #f0b429; outline-offset: -3px; }
         .cell.hintflash { animation: hintpulse .6s ease 3; }
         @keyframes hintpulse { 50% { box-shadow: inset 0 0 0 3px #f0b429; transform: scale(1.07); } }
         .grid.celebrate .cell { animation: sparkle .9s ease both; }
@@ -877,6 +905,7 @@ function PandaPuzzle() {
                   v === 2 ? "mark" : "",
                   showErrors && errorSet.has(key) ? "error" : "",
                   hintCell === key ? "hintflash" : "",
+                  key in memoCells ? "memo" : "",
                 ].join(" ");
                 return (
                   <div
@@ -898,7 +927,14 @@ function PandaPuzzle() {
         パンダ <b>{placed}</b> / {total} 頭　·　タップで 草マーク → 🐼 → 消去
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", justifyContent: "center" }}>
+        <button className={`btn ${memoMode ? "active" : ""}`} onClick={() => setMemoMode((m) => !m)}>✏️ メモ</button>
+        {Object.keys(memoCells).length > 0 && (
+          <>
+            <button className="btn" onClick={commitMemo}>✔ 確定</button>
+            <button className="btn" onClick={discardMemo}>✖ 取消</button>
+          </>
+        )}
         <button className="btn" onClick={hint}>💡 ヒント</button>
         <button className="btn" onClick={() => setShowRules(!showRules)}>
           {showRules ? "ルールを閉じる" : "ルールを見る"}
@@ -911,7 +947,8 @@ function PandaPuzzle() {
           🐼 パンダ同士は<b>縦・横・斜め</b>に隣り合ってはいけません。<br />
           🔢 行と列の数字は、その行・列にいるパンダの数です。<br />
           🌿 パンダがいないと分かったマスは草マーク(濃いめの緑)でメモできます。<br />
-          💡 むずかしい・鬼ムズは「仮置きして矛盾を探す」推理が必要な問題です。
+          💡 むずかしい・鬼ムズは「仮置きして矛盾を探す」推理が必要な問題です。<br />
+          ✏️ メモは仮置きモード。置いたマスが点線で囲まれ、✔確定でそのまま採用、✖取消でまとめて元に戻せます。
         </div>
       )}
 
