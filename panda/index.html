@@ -594,6 +594,15 @@ function PandaPuzzle() {
 
   const hintNote = (v) => (typeof v === "number" ? `・ヒント${v}回` : "");
 
+  const resetBoard = () => {
+    if (won || celebrate) return;
+    setBoard(Array.from({ length: n }, () => Array(n).fill(0)));
+    setMemoCells({});
+    setMemoMode(false);
+    setHintMsg(null);
+    setHintCell(null);
+  };
+
   const commitMemo = () => { setMemoCells({}); setMemoMode(false); };
   const discardMemo = () => {
     const next = board.map((row) => [...row]);
@@ -936,6 +945,7 @@ function PandaPuzzle() {
           </>
         )}
         <button className="btn" onClick={hint}>💡 ヒント</button>
+        <button className="btn" onClick={resetBoard}>リセット</button>
         <button className="btn" onClick={() => setShowRules(!showRules)}>
           {showRules ? "ルールを閉じる" : "ルールを見る"}
         </button>
