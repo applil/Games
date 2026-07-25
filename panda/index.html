@@ -689,6 +689,7 @@ function PandaPuzzle() {
         }
         .header { width: 100%; max-width: 560px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
         .title { font-weight: 800; font-size: 1.35rem; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; }
+        .title-text { display: flex; flex-direction: column; line-height: 1.25; }
         .home {
           background: rgba(243,239,226,.12); border: 2px solid rgba(243,239,226,.25);
           color: #f3efe2; border-radius: 999px; padding: 5px 11px;
@@ -801,8 +802,10 @@ function PandaPuzzle() {
       <div className="header">
         <div className="title">
           <a className="home" href="../">◀</a>
-          🐼 パンダと竹
-          <span className="sub">TENTS &amp; TREES PUZZLE</span>
+          <div className="title-text">
+            🐼 パンダと竹
+            <span className="sub">TENTS &amp; TREES PUZZLE</span>
+          </div>
         </div>
         <div className="timer">{fmt(seconds)}</div>
       </div>
