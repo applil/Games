@@ -183,7 +183,6 @@ details p{margin-top:8px;line-height:1.8}
       <button data-d="easy">やさしい</button>
       <button data-d="normal" class="active">ふつう</button>
       <button data-d="hard">むずかしい</button>
-      <button data-d="expert">激ムズ</button>
       <button data-d="oni">鬼ムズ</button>
     </div>
   </div>
@@ -473,16 +472,19 @@ function makePuzzle(minClues, numCons, extra){
 }
 
 // per-size difficulty settings: min remaining clues + number of =/× marks
-// extra = 背理法が必要になるまで削る追加パス(激ムズ・鬼ムズ)
+// extra = 背理法が必要になるまで削る追加パス(むずかしい・鬼ムズ)
+// expert は旧「激ムズ」の別名(過去の挑戦状リンク互換用。設定は hard と同一)
 const DIFF = {
-  6:{ easy:{min:18,cons:5},  normal:{min:11,cons:6},  hard:{min:0,cons:7},
+  6:{ easy:{min:18,cons:5},  normal:{min:11,cons:6},
+      hard:{min:0,cons:4,extra:{tries:12,removals:4}},
       expert:{min:0,cons:4,extra:{tries:12,removals:4}},
       oni:{min:0,cons:2,extra:{tries:24,removals:9}} },
-  8:{ easy:{min:32,cons:8},  normal:{min:20,cons:10}, hard:{min:0,cons:12},
+  8:{ easy:{min:32,cons:8},  normal:{min:20,cons:10},
+      hard:{min:0,cons:6,extra:{tries:12,removals:4}},
       expert:{min:0,cons:6,extra:{tries:12,removals:4}},
       oni:{min:0,cons:3,extra:{tries:24,removals:9}} }
 };
-const DIFF_LABEL={easy:'やさしい',normal:'ふつう',hard:'むずかしい',expert:'激ムズ',oni:'鬼ムズ'};
+const DIFF_LABEL={easy:'やさしい',normal:'ふつう',hard:'むずかしい',expert:'むずかしい',oni:'鬼ムズ'};
 
 /* ================= game state / UI ================= */
 
@@ -822,9 +824,13 @@ function streakGuard(){ if(!finished){streak=0;$('streak').textContent=0;store.s
 // 前回の選択を復元(挑戦状が開かれたときはそちらを優先)
 const savedN=+store.get('size');
 if(savedN===6||savedN===8){ N=savedN; HALF=N/2; }
-const savedD=store.get('diff');
+let savedD=store.get('diff');
+if(savedD==='expert') savedD='hard'; // 旧「激ムズ」は「むずかしい」に統合
 if(DIFF[N][savedD]) difficulty=savedD;
-if(challenge){ N=challenge.n; HALF=N/2; difficulty=challenge.d; }
+if(challenge){
+  N=challenge.n; HALF=N/2;
+  difficulty = challenge.d==='expert' ? 'hard' : challenge.d;
+}
 
 document.querySelectorAll('#diffSeg button').forEach(b=>{
   b.classList.toggle('active', b.dataset.d===difficulty);

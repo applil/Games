@@ -283,10 +283,11 @@ function deduce(puzzle, depth) {
    depth 0 + maxRounds: 短い推理チェーンで解ける(かんたん)
    depth 0 + minRounds: 長いチェーンが必要(むずかしい)
    depth 1 + minHard: 背理法が必要(激ムズ・鬼ムズ) */
+// expert は旧「激ムズ」の別名(過去の挑戦状リンク互換用。設定は hard と同一)
 const DIFF_CONF = {
   easy:   { div: 4.2, depth: 0, maxRounds: 4 },
   normal: { div: 4.2, depth: 0 },
-  hard:   { div: 4.6, depth: 0, minRounds: 6 },
+  hard:   { div: 4.4, depth: 1, minHard: 1 },
   expert: { div: 4.4, depth: 1, minHard: 1 },
   oni:    { div: 4.8, depth: 1, minHard: 3 },
 };
@@ -469,7 +470,6 @@ const DIFFS = [
   { key: "easy", label: "かんたん" },
   { key: "normal", label: "ふつう" },
   { key: "hard", label: "むずかしい" },
-  { key: "expert", label: "激ムズ" },
   { key: "oni", label: "鬼ムズ" },
 ];
 
@@ -499,7 +499,9 @@ async function shareLink(url, text) {
 const QUERY = new URLSearchParams(location.search);
 const CH = (() => {
   const o = QUERY.get("c") && dec(QUERY.get("c"));
-  return o && [5, 7, 9].includes(o.n) && DIFF_CONF[o.d] && typeof o.s === "number" && typeof o.t === "number" ? o : null;
+  if (!(o && [5, 7, 9].includes(o.n) && DIFF_CONF[o.d] && typeof o.s === "number" && typeof o.t === "number")) return null;
+  if (o.d === "expert") o.d = "hard"; // 旧「激ムズ」は「むずかしい」に統合(生成設定は同一)
+  return o;
 })();
 const RES = (() => {
   const o = QUERY.get("r") && dec(QUERY.get("r"));
@@ -516,7 +518,11 @@ function seededPuzzle(n, d, seed) {
 }
 
 const initSize = CH ? CH.n : (() => { const v = +store.get("size"); return [5, 7, 9].includes(v) ? v : 7; })();
-const initDiff = CH ? CH.d : (() => { const v = store.get("diff"); return DIFF_CONF[v] ? v : "normal"; })();
+const initDiff = CH ? CH.d : (() => {
+  let v = store.get("diff");
+  if (v === "expert") v = "hard";
+  return DIFF_CONF[v] && DIFFS.some((x) => x.key === v) ? v : "normal";
+})();
 const initGen = seededPuzzle(initSize, initDiff, CH ? CH.s : null);
 
 function fmt(sec) {
@@ -905,7 +911,7 @@ function PandaPuzzle() {
           🐼 パンダ同士は<b>縦・横・斜め</b>に隣り合ってはいけません。<br />
           🔢 行と列の数字は、その行・列にいるパンダの数です。<br />
           🌿 パンダがいないと分かったマスは草マーク(濃いめの緑)でメモできます。<br />
-          💡 激ムズ・鬼ムズは「仮置きして矛盾を探す」推理が必要な問題です。
+          💡 むずかしい・鬼ムズは「仮置きして矛盾を探す」推理が必要な問題です。
         </div>
       )}
 
