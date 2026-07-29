@@ -107,6 +107,7 @@ h1 .to{font-size:18px;color:var(--ink-soft);margin:0 2px}
 .cell.memo{outline:2.5px dashed #8fa3c7;outline-offset:-3px}
 .cell.err{box-shadow:inset 0 0 0 2.5px var(--error)}
 #btnMemo.active,#btnMemoCommit{background:var(--ink);color:#fff;border-color:var(--ink)}
+#btnMemo.shrink{flex:0 0 auto;padding:9px 12px}
 .cell.pulse{animation:pulse .5s ease 2}
 @keyframes pulse{50%{box-shadow:inset 0 0 0 3px var(--ok);transform:scale(1.06)}}
 .board.celebrate .cell{animation:winwave .9s ease both}
@@ -196,12 +197,9 @@ details p{margin-top:8px;line-height:1.8}
   </div>
 
   <div class="btn-row">
+    <button class="btn btn-hint" id="btnMemoCommit" style="display:none">✔ 確定</button>
+    <button class="btn btn-hint" id="btnMemoDiscard" style="display:none">✖ 取消</button>
     <button class="btn btn-hint" id="btnMemo">✏️ メモ</button>
-  </div>
-
-  <div class="btn-row" id="memoRow" style="display:none">
-    <button class="btn btn-hint" id="btnMemoCommit">✔ メモを確定</button>
-    <button class="btn btn-hint" id="btnMemoDiscard">✖ メモを取消</button>
   </div>
 
   <div class="hint-msg" id="hintMsg"></div>
@@ -595,7 +593,10 @@ let memoMode=false;
 const memoBackup=new Map(); // index -> 仮置き前の値
 function updateMemoUI(){
   $('btnMemo').classList.toggle('active',memoMode);
-  $('memoRow').style.display = memoBackup.size ? 'flex' : 'none';
+  const on = memoBackup.size > 0;
+  $('btnMemoCommit').style.display = on ? '' : 'none';
+  $('btnMemoDiscard').style.display = on ? '' : 'none';
+  $('btnMemo').classList.toggle('shrink', on);
 }
 function clearMemo(){ memoMode=false; memoBackup.clear(); updateMemoUI(); }
 
