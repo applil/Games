@@ -212,6 +212,51 @@ function harvestBig(rng, out, seen, kind){
   return 0;
 }
 
+// チュートリアル用。荷物の数を指定して、ごく小さく素直な面を作る
+function harvestTutorial(rng, out, seen, nbox){
+  const layout=S.buildShape(rng,{size:'小'});
+  if(!layout||layout.W>5||layout.H>5) return 0;
+  const {grid,w}=layout;
+  const floors=[];
+  for(let i=0;i<grid.length;i++) if(!grid[i]) floors.push(i);
+  if(floors.length<nbox*2+2||floors.length>22) return 0;
+  const gp=S.pickGoals(layout, floors, nbox, rng);
+  if(!gp) return 0;
+  const goals=gp.goals;
+  const dist=solvableStates(grid,w,goals,60000);
+  if(!dist) return 0;
+  const policies=greedyPolicies(grid,w,goals);
+  const cands=[];
+  for(const [k,d] of dist){
+    if(d<nbox||d>nbox+3) continue;                 // 荷物1個につき1〜2手程度
+    const rep=k.charCodeAt(0);
+    const boxes=[];
+    for(let i=1;i<k.length;i++) boxes.push(k.charCodeAt(i));
+    cands.push({boxes,rep,d});
+  }
+  if(!cands.length) return 0;
+  for(let t=0;t<6;t++){
+    const c=cands[rng()*cands.length|0];
+    const r=regionRep(grid,w,new Set(c.boxes),c.rep);
+    const a=analyse(grid,w,goals,dist,{boxes:c.boxes,rep:c.rep,cells:r.cells},rng,policies);
+    if(!a) continue;
+    if(a.greedyDied>0||a.trapRatio>0.12||a.forced>0||a.offGoal) continue;   // 罠のない面だけ
+    const rows=toXSB({grid,w:layout.w,h:layout.h,boxes:c.boxes,goals,player:c.rep});
+    const key=canonical(rows);
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      id:hashId(key), b:rows.join('/'), p:a.pushes,
+      s:+a.score.toFixed(1), k:+a.score.toFixed(1),
+      tr:Math.round(a.trapRatio*100), f:a.forced, g:a.greedyDied, og:a.offGoal?1:0,
+      sh:layout.shape, sz:layout.size, ar:layout.aspect, gp:gp.pattern,
+      sp:'-', pl:'-', cl:layout.clutter, st:dist.size, tut:nbox,
+    });
+    return 1;
+  }
+  return 0;
+}
+
 /* ================= 生成 ================= */
 console.log(`面プールを作ります (目標 ${TOTAL} 面)`);
 const rng=mulberry32(SEED);
@@ -228,6 +273,18 @@ while(levels.length<POOL_TARGET && attempts<POOL_TARGET*200){
   }
 }
 console.log(`  候補 ${levels.length} 面 / 試行 ${attempts} 回 / ${((Date.now()-t0)/1000).toFixed(0)}秒`);
+
+// チュートリアル用(荷物1〜4個)を別枠で用意する
+{
+  const t=Date.now();
+  const got=[];
+  for(let nb=1;nb<=4;nb++){
+    let n=0, tries=0;
+    while(n<25 && tries<25*400){ tries++; n+=harvestTutorial(rng, levels, seen, nb); }
+    got.push(nb+'個:'+n);
+  }
+  console.log(`  チュートリアル ${got.join(' ')} / ${((Date.now()-t)/1000).toFixed(0)}秒`);
+}
 
 // 大きい盤を別枠で用意する(捻りあり / 広いだけ)
 for(const [kind, target, label] of [['twist',BIGH_POOL,'捻りあり'],['plain',BIGP_POOL,'広いだけ']]){
@@ -251,16 +308,18 @@ for(const [kind, target, label] of [['twist',BIGH_POOL,'捻りあり'],['plain',
 
 // 区間ごとの狙い。t は区間内の進み具合(0→1)
 const SECTIONS=[
-  // 1〜4: チュートリアル。本当に簡単
-  {to:4,   push:t=>[2,3],            trap:t=>[0,12],        greedy:t=>0,           twist:t=>0},
-  // 5〜20: 少し面白さが出てくる
-  {to:20,  push:t=>[3,4+2*t],        trap:t=>[5,20+10*t],   greedy:t=>0.05+0.10*t, twist:t=>0.05+0.15*t},
-  // 21〜100: 簡単だがパズルとして成立している(頭を使う)
-  {to:100, push:t=>[4+t,6+3*t],      trap:t=>[15+10*t,35],  greedy:t=>0.20+0.20*t, twist:t=>0.25+0.20*t},
-  // 101〜450: 手応えのある面を交えつつ、徐々に上げる
-  {to:450, push:t=>[5+5*t,8+6*t],    trap:t=>[25+20*t,45+15*t], greedy:t=>0.45+0.45*t, twist:t=>0.45+0.40*t},
+  // 1〜4: チュートリアル。荷物の数はステージ番号と同じ、盤も極小、罠なし
+  {to:4,   push:t=>[1,6],             trap:t=>[0,10],          greedy:t=>0,           twist:t=>0},
+  // 5〜20: いきなり手応えのあるところから始める(旧85面あたりの水準)
+  {to:20,  push:t=>[6,8+t],           trap:t=>[22+3*t,34+4*t], greedy:t=>0.20+0.10*t, twist:t=>0.25+0.10*t},
+  // 21〜100
+  {to:100, push:t=>[6+2*t,9+2*t],     trap:t=>[25+6*t,38+7*t], greedy:t=>0.30+0.20*t, twist:t=>0.35+0.15*t},
+  // 101〜300
+  {to:300, push:t=>[8+3*t,11+3*t],    trap:t=>[31+8*t,45+8*t], greedy:t=>0.50+0.30*t, twist:t=>0.50+0.25*t},
+  // 301〜450
+  {to:450, push:t=>[11+3*t,14+4*t],   trap:t=>[39+8*t,53+9*t], greedy:t=>0.80+0.15*t, twist:t=>0.75+0.15*t},
   // 451〜500: 難問揃い
-  {to:500, push:t=>[10+3*t,16+4*t],  trap:t=>[45+10*t,100], greedy:t=>1,           twist:t=>1},
+  {to:500, push:t=>[14+3*t,18+4*t],   trap:t=>[47+10*t,100],   greedy:t=>1,           twist:t=>1},
 ];
 function specFor(i, n, rng){          // i は 0 始まり
   const stage=i+1;
@@ -275,6 +334,10 @@ function specFor(i, n, rng){          // i は 0 始まり
     return rng()<0.15 ? v+(rng()<0.5?-1:1)*(hi-lo)*0.35 : v;
   };
   const greedyP=sec.greedy(t), twistP=sec.twist(t);
+  if(stage<=4){
+    // チュートリアル: 荷物の数 = ステージ番号
+    return {stage, boxes:stage, tut:true, push:null, trap:12, greedy:false, twist:false};
+  }
   return {
     stage,
     push:  Math.max(2, Math.round(jitter(pLo,pHi))),
@@ -292,6 +355,9 @@ function chooseFor(spec, pool, used, recent){
   for(let i=0;i<pool.length;i++){
     if(used[i]) continue;
     const l=pool[i];
+    if(spec.tut){                                    // チュートリアルの枠
+      if(l.tut!==spec.boxes) continue;
+    }else if(l.tut) continue;                        // チュートリアル用の面は1〜4面だけに出す
     if(spec.big && l.bigKind!==spec.big) continue;   // 大きい面の枠(種類も一致させる)
     if(!spec.big && l.big) continue;                 // 大きい面は指定の枠だけに出す
     // バイナリは指定があれば必須条件
@@ -300,7 +366,8 @@ function chooseFor(spec, pool, used, recent){
     const twisty = (l.f>=2||l.og);
     if(spec.twist===true  && !twisty) continue;
     if(spec.twist===false && twisty) continue;
-    let cost=Math.abs(l.p-spec.push)*1.6 + Math.abs(l.tr-spec.trap)*0.09;
+    let cost = spec.push==null ? l.p*0.5           // チュートリアルは手数が少ないほど良い
+             : Math.abs(l.p-spec.push)*1.6 + Math.abs(l.tr-spec.trap)*0.09;
     // 直前3面と同じ形・置き場・大きさが続くのを避ける
     for(let r=0;r<recent.length;r++){
       const wgt=(recent.length-r);
