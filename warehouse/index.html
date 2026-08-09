@@ -37,9 +37,6 @@ body{
 
 /* タイトルは絶対配置で中央に。左右のボタンの幅に影響されない */
 header{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:0 0 auto;min-height:34px}
-/* 右肩のボタンは縦に積む。幅を揃えて並びをそろえる */
-.hstack{display:flex;flex-direction:column;gap:6px;align-items:stretch}
-.hstack .iconbtn{text-align:center}
 h1{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   font-size:23px;font-weight:800;letter-spacing:.06em;color:var(--ink-soft);
@@ -55,10 +52,12 @@ h1{
 .stagebar{flex:0 0 auto;position:relative;text-align:center;padding:10px 0 8px}
 .stagelabel{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.16em;line-height:1.2}
 .stageno{font-size:28px;font-weight:800;letter-spacing:.03em;line-height:1.15}
+/* 手数と「最初から」は、番号の左右に同じ高さで置く */
 .pushes{
-  position:absolute;left:0;top:50%;transform:translateY(-50%);
-  font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums;
+  position:absolute;left:var(--pushx,42px);top:50%;transform:translate(-50%,-50%);
+  font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap;
 }
+.stagebar .reset{position:absolute;right:0;top:50%;transform:translateY(-50%)}
 
 /* 盤を囲むカードは無し。盤そのものだけを見せる */
 .board-wrap{flex:0 0 auto;align-self:center;position:relative}
@@ -96,8 +95,11 @@ h1{
 
 .spacer{flex:1 1 auto;min-height:0}
 
-/* 十字の形(3行3列・中央は空き)。3行になったぶん、盤に場所を残すよう少し細くする */
-.dpad{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:0 auto;width:min(186px,54vw)}
+/* 十字の形(3行3列・中央は空き)。上下は詰めて、左右だけ間をあける */
+.dpad{
+  flex:0 0 auto;display:grid;grid-template-columns:repeat(3,1fr);
+  column-gap:7px;row-gap:0;margin:0 auto;width:min(186px,54vw);
+}
 .dpad button{
   aspect-ratio:1;border:1px solid var(--line);background:var(--card);border-radius:15px;
   font-size:20px;color:var(--ink);cursor:pointer;
@@ -106,14 +108,18 @@ h1{
 }
 .dpad button:active{transform:scale(.94);background:var(--floor)}
 .dpad .empty{visibility:hidden}
-body.dpad-mini .dpad{width:min(108px,33vw);gap:4px}
+body.dpad-mini .dpad{width:min(108px,33vw);column-gap:4px}
 body.dpad-mini .dpad button{border-radius:9px;font-size:12px;box-shadow:none}
 body.dpad-off .dpad{display:none}
 
+/* 十字キーの左右の空きに、下端をそろえてボタンを置く */
+.bottomarea{flex:0 0 auto;position:relative}
 .footrow{
-  flex:0 0 auto;display:grid;grid-template-columns:1fr auto 1fr;
-  gap:8px;align-items:center;padding-top:10px;
+  position:absolute;left:0;right:0;bottom:0;
+  display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;
 }
+/* 十字キーを隠しているときは、重ねる相手がいないので普通に流す */
+body.dpad-off .footrow{position:static;padding-top:10px;align-items:center}
 .footrow .left{justify-self:start;display:flex;gap:6px}
 .footrow .mid{justify-self:center}
 .footrow .right{justify-self:end;display:flex;gap:6px}
@@ -209,10 +215,7 @@ body.debug .debugbar{display:flex}
   <header>
     <a class="iconbtn" href="../">◀ メニュー</a>
     <h1>倉庫パズル</h1>
-    <div class="hstack">
-      <button class="iconbtn" id="btnRules" title="ルール">ルール</button>
-      <button class="iconbtn" id="btnReset" title="このステージを最初から">最初から</button>
-    </div>
+    <button class="iconbtn" id="btnRules" title="ルール">ルール</button>
   </header>
 
   <div class="banner" id="banner"><span id="bannerText"></span></div>
@@ -230,6 +233,7 @@ body.debug .debugbar{display:flex}
     <div class="pushes"><span id="pushes">0</span> 手</div>
     <div class="stagelabel" id="stageLabel">ステージ</div>
     <div class="stageno"><span id="stageNo">--</span></div>
+    <button class="iconbtn reset" id="btnReset" title="このステージを最初から">最初から</button>
   </div>
 
   <div class="board-wrap">
@@ -253,6 +257,7 @@ body.debug .debugbar{display:flex}
 
   <div class="spacer"></div>
 
+  <div class="bottomarea">
   <div class="dpad">
     <button class="empty"></button>
     <button data-dir="up" aria-label="上へ">↑</button>
@@ -275,6 +280,7 @@ body.debug .debugbar{display:flex}
       <button class="btn" id="btnExport" style="display:none">★</button>
       <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
     </div>
+  </div>
   </div>
 </div>
 
@@ -442,7 +448,16 @@ function applyDpadMode(){
 
 /* ================= 盤の大きさ =================
    十字キーまで画面に収まるよう、余った高さからマスの大きさを決める */
+// 手数の中心を「◀ メニュー」の中心にそろえる。ボタンの幅は文字数で変わるので実測する
+function alignPushes(){
+  const menu=document.querySelector('header .iconbtn');
+  const bar=document.querySelector('.stagebar');
+  if(!menu||!bar) return;
+  const m=menu.getBoundingClientRect(), b=bar.getBoundingClientRect();
+  document.documentElement.style.setProperty('--pushx', (m.left+m.width/2-b.left)+'px');
+}
 function layoutBoard(){
+  alignPushes();
   if(!puzzle) return;
   const app=document.querySelector('.app');
   const wrap=boardEl.parentElement;
