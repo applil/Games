@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>倉庫番 — 自動生成パズル</title>
+<title>倉庫パズル — 自動生成</title>
 <style>
 :root{
   --ink:#1c2b46;
@@ -182,7 +182,7 @@ details p{margin-top:8px;line-height:1.8}
 <div class="app">
   <header>
     <a class="home" href="../">◀ メニュー</a>
-    <h1>🐧📦 倉庫番</h1>
+    <h1>🐧📦 倉庫パズル</h1>
     <div class="tagline">小さい盤・完全ランダム配置<br>手数は短く、でも素直に押すと詰みます</div>
   </header>
 
@@ -214,7 +214,7 @@ details p{margin-top:8px;line-height:1.8}
   <div class="msg" id="msg"></div>
 
   <div class="board-wrap">
-    <div class="board" id="board" role="img" aria-label="倉庫番の盤面"></div>
+    <div class="board" id="board" role="img" aria-label="倉庫パズルの盤面"></div>
     <div class="loading" id="loading">
       <div class="spin">📦</div>
       <div>問題を作っています…</div>
@@ -246,7 +246,7 @@ details p{margin-top:8px;line-height:1.8}
 
   <details>
     <summary>問題はどう作られている？</summary>
-    <p>壁も置き場も<b>完全にランダム</b>に置きます。設計された構造がないぶん、素直な倉庫番らしくない配置が出てきます。<br>
+    <p>壁も置き場も<b>完全にランダム</b>に置きます。設計された構造がないぶん、いかにもパズルらしい整った配置にはなりません。<br>
     そのうえで、その盤面で<b>ありうる配置をすべて列挙</b>し、完成状態から逆にたどって「そこから完成させられる配置」の集合を丸ごと求めます。盤が小さいので全部数え切れます。ランダムに置いた配置が解けるかどうかは、この集合に入っているかどうかで<b>厳密に決まります</b>。<br>
     難易度は手数では測っていません。全配置の残り手数が分かっているので、<b>「打てる手のうち何割が指した瞬間に詰む手か」「正解が1手しかない場面がいくつあるか」「置き場から荷物を一度どける必要があるか」</b>を正確に数えられます。さらに「置き場に近づける」式の素直な手筋を3種類走らせて、<b>全部詰む問題だけ</b>を「むずかしい」として出題しています。<br>
     この表があるので、ゲーム中の<b>詰み判定とヒントも経験則ではなく厳密</b>です。</p>
@@ -342,8 +342,8 @@ let undoStack=[], pushCount=0, moveCount=0, hintCount=0;
 let startTime=0, timerId=null, finished=false, deadShown=false;
 
 const store={
-  get(k){ try{ return localStorage.getItem('sokoban-'+k); }catch(e){ return null; } },
-  set(k,v){ try{ localStorage.setItem('sokoban-'+k,v); }catch(e){} }
+  get(k){ try{ return localStorage.getItem('warehouse-'+k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem('warehouse-'+k,v); }catch(e){} }
 };
 const bestKey=()=>'best-'+difficulty;
 const getBest=()=>{ const v=store.get(bestKey()); return v==null?null:+v; };
@@ -673,7 +673,7 @@ function checkWin(){
     $('btnShare').textContent='📨 結果を送り返す';
     shareData={
       url: location.origin+location.pathname+'?r='+enc({op:challenge.p, mp:pushCount, ot:challenge.t, mt:ms}),
-      text:'「倉庫番」の対戦結果が届きました！📦',
+      text:'「倉庫パズル」の対戦結果が届きました！📦',
     };
   }else{
     $('winVerdict').textContent = perfect ? '✨ 最短クリア！' : '';
@@ -681,7 +681,7 @@ function checkWin(){
     $('btnShare').textContent='📨 友達に挑戦状を送る';
     shareData={
       url: location.origin+location.pathname+'?c='+enc({d:difficulty, s:currentSeed, p:pushCount, t:ms}),
-      text:`「倉庫番」${DIFF_LABEL[difficulty]}を${pushCount}手でクリア！同じ問題で勝負しよう📦🐧`,
+      text:`「倉庫パズル」${DIFF_LABEL[difficulty]}を${pushCount}手でクリア！同じ問題で勝負しよう📦🐧`,
     };
   }
   boardEl.classList.add('celebrate');

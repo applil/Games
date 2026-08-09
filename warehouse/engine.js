@@ -1,5 +1,5 @@
 'use strict';
-/* 倉庫番 自動生成エンジン v3 — 「ひらめき」重視 / 小さい盤 / 完全ランダム配置
+/* 倉庫パズル 自動生成エンジン v3 — 「ひらめき」重視 / 小さい盤 / 完全ランダム配置
  *
  * 方針:
  *   1. 壁も置き場も完全にランダムに置く(意図した構造を作らない)
@@ -351,5 +351,5 @@ const DIFF={
 /* ================= 外部に公開 ================= */
 // ページからも生成ワーカーからも同じファイルを読み込む
 (function(root){
-  root.SokobanEngine={generate, DIFF, solvableStates, regionRep, regionsOf, pushesFrom, keyOf, mulberry32};
+  root.WarehouseEngine={generate, DIFF, solvableStates, regionRep, regionsOf, pushesFrom, keyOf, mulberry32};
 })(typeof self!=='undefined'?self:this);

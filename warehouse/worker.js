@@ -7,9 +7,9 @@ self.onmessage = e => {
   const {id, difficulty, seed} = e.data;
   const t0 = Date.now();
   try{
-    const cfg = SokobanEngine.DIFF[difficulty];
+    const cfg = WarehouseEngine.DIFF[difficulty];
     if(!cfg) throw new Error('unknown difficulty: '+difficulty);
-    const p = SokobanEngine.generate(seed>>>0, cfg);
+    const p = WarehouseEngine.generate(seed>>>0, cfg);
     if(!p) { self.postMessage({id, error:'生成に失敗しました'}); return; }
     self.postMessage({
       id, difficulty, seed, ms: Date.now()-t0,
