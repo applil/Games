@@ -14,9 +14,9 @@
   --wall-top:#55637f;
   --floor:#eef2f9;
   --goal:#ff9f1c;
-  --goal-soft:#fff2dc;
+  --goal-soft:#ffe0b0;      /* 荷物が乗っていない置き場 */
   --done:#2fa46a;
-  --done-soft:#e2f5eb;
+  --done-soft:#bde8d0;      /* 置き場に乗った荷物 */
   --line:#dce5f2;
   --error:#e5484d;
   --cell:36px;
@@ -63,11 +63,8 @@ h1{
 }
 .cell.wall{background:var(--wall);box-shadow:inset 0 2px 0 var(--wall-top);border-radius:5px}
 .cell.void{background:transparent}
-.cell.goal::before{
-  content:'';position:absolute;width:36%;height:36%;border-radius:50%;
-  border:2.5px dashed var(--goal);background:var(--goal-soft);
-}
-.cell.box{background:var(--goal-soft)}
+/* 置き場は色だけで示す。荷物がなければオレンジ、乗ればグリーン */
+.cell.goal{background:var(--goal-soft)}
 .cell.box.on{background:var(--done-soft)}
 .cell .fig{position:relative;z-index:1;transition:transform .1s}
 .cell.hintbox{box-shadow:inset 0 0 0 3px var(--done)}
