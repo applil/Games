@@ -73,10 +73,11 @@ h1{
 /* 置き場は色だけで示す。荷物がなければオレンジ、乗ればグリーン */
 .cell.goal{background:var(--goal-soft)}
 .cell.box.on{background:var(--done-soft)}
-.cell .fig{position:relative;z-index:1;transition:transform .1s}
+.cell .fig{position:relative;z-index:1;transition:transform .11s ease-out}
+.cell .fig.sliding{transition:none}
 .cell.hintbox{box-shadow:inset 0 0 0 3px var(--done)}
 .cell.bump .fig{animation:bump .18s ease}
-@keyframes bump{50%{transform:scale(.82)}}
+@keyframes bump{50%{transform:scale(1.18)}}
 .board.celebrate .cell .fig{animation:winwave .9s ease both}
 @keyframes winwave{35%{transform:scale(1.25) rotate(10deg)}}
 .arrowtag{
@@ -293,7 +294,7 @@ body.picks #btnUndo, body.picks #btnHint{display:none}
 
 <div class="overlay" id="overlay">
   <div class="win-card">
-    <div class="win-emoji">📦🎉🐧</div>
+    <div class="win-emoji">📦🎉🐤</div>
     <div class="win-title" id="winTitle">クリア！</div>
     <div class="win-verdict" id="winVerdict"></div>
     <div class="win-time" id="winPush">0手</div>
@@ -308,7 +309,7 @@ body.picks #btnUndo, body.picks #btnHint{display:none}
   <div class="win-card" style="text-align:left">
     <div style="font-size:17px;font-weight:800;text-align:center;margin-bottom:12px">ルール</div>
     <div class="rules">
-      <p>🐧 を動かして、📦 をすべて<b>置き場</b>に運びます。</p>
+      <p>🐤 を動かして、📦 をすべて<b>置き場</b>に運びます。</p>
       <p>置き場は<span class="sw goal"></span><b>オレンジのマス</b>です。荷物が乗ると<span class="sw done"></span><b>グリーン</b>に変わります。<b>全部グリーンになればクリア</b>です。</p>
       <p><b>箱は押すことしかできません。</b>引けません。一度に押せる箱は1つだけで、壁や別の箱が後ろにあると押せません。</p>
       <p>角に押し込むなど、二度と動かせない置き方をすると<b>その面は詰みます</b>。おかしいと思ったら右上の <b>最初から</b> でやり直してください。</p>
@@ -425,6 +426,13 @@ const bestOf=lv=>lv&&progress.cleared[lv.id];
 
 // ★ 採用候補。1〜500でいうとどのあたりか、も一緒に覚える
 let favs={}, favFromWin=false;
+function setFavRange(max){
+  const r=$('favRange');
+  if(!(max>0)||+r.max===max) return;
+  r.max=max;
+  if(+r.value>max){ r.value=max; $('favVal').textContent=max; }
+  $('favQ').textContent='このステージ、1〜'+max+'でいうとどのあたり？';
+}
 (function(){ try{ favs=JSON.parse(store.get('favs')||'{}')||{}; }catch(e){ favs={}; } })();
 const saveFavs=()=>store.set('favs', JSON.stringify(favs));
 
@@ -501,22 +509,27 @@ function layoutBoard(){
 window.addEventListener('resize', layoutBoard);
 
 /* ================= 読み込み ================= */
+// 面データの取り込み口はここ1か所。1枚のHTMLに固めるときはここを差し替える
+function loadJSON(name){
+  return fetch(name).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); });
+}
 function showLoading(t){ if(t) $('loadingText').textContent=t; $('loading').classList.add('show'); }
 const hideLoading=()=>$('loading').classList.remove('show');
 
 showLoading();
-fetch(FILE)
-  .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
+loadJSON(FILE)
   .then(data=>{
     LEVELS=data.levels;
     hideLoading();
     // 送られてきたリンクは、その1面だけを独立して遊べるようにする
     SHARED = !DEBUG && WANT>=1 && WANT<=LEVELS.length && SET!=='picks' && (WANT-1)!==unlockedMax();
-    // ★の見立ては「本編の何面くらいか」。目盛りは本編の面数に合わせる
-    {
-      const max = SET==='picks' ? 500 : LEVELS.length;
-      $('favRange').max=max;
-      $('favQ').textContent='このステージ、1〜'+max+'でいうとどのあたり？';
+    // ★の見立ては「本編の何面くらいか」。目盛りは本編の面数に合わせる。
+    // よりぬき版は本編のリストを持っていないので、面数だけ後から取りに行く
+    setFavRange(LEVELS.length);
+    if(SET==='picks'){
+      loadJSON('levels.json')
+        .then(d=>{ if(d&&d.count) setFavRange(d.count); })
+        .catch(()=>{});
     }
     if(SET==='picks'){
       $('banner').style.display='block';
@@ -637,7 +650,7 @@ function paint(){
     const wall=puzzle.grid[i], goal=goalSet.has(i), box=boxSet.has(i);
     const outside=wall&&outsideMask&&outsideMask[i];
     el.className='cell'+(outside?' void':wall?' wall':'')+(goal&&!box?' goal':'')+(box?' box':'')+(box&&goal?' on':'');
-    fig.textContent = box ? '📦' : (i===player ? '🐧' : '');
+    fig.textContent = box ? '📦' : (i===player ? '🐤' : '');
   }
 }
 
@@ -754,18 +767,33 @@ function move(name){
     boxes[bi]=beyond;
     player=next;
     pushCount++; moveCount++;
-    paint(); bump(beyond);
-    if(goalSet.has(beyond)) SFX.onGoal(); else SFX.push();
+    paint();
+    slide(beyond, d); slide(player, d);      // 荷物と自分が、いた場所から滑ってくる
+    if(goalSet.has(beyond)){ SFX.onGoal(); setTimeout(()=>bump(beyond),110); }
+    else SFX.push();
   }else{
     undoStack.push({player, boxes:boxes.slice(), pushCount, moveCount});
     player=next;
     moveCount++;
-    paint(); SFX.step();
+    paint(); slide(player, d); SFX.step();
   }
   updateStats();
   clearHint();
   if(checkWin()) return;
   if(DEBUG) checkDead();
+}
+// 移動したマスの絵を、1マスぶん手前に置いてから定位置へ戻す
+function slide(i, d){
+  const fig=cellEls[i] && cellEls[i].firstChild;
+  if(!fig) return;
+  const step=cellEls[i].getBoundingClientRect().width + 2;   // マスの幅 + すき間
+  const dx=(d===1?-1:d===-1?1:0)*step;
+  const dy=(d===puzzle.w?-1:d===-puzzle.w?1:0)*step;
+  fig.classList.add('sliding');
+  fig.style.transform=`translate(${dx}px,${dy}px)`;
+  void fig.offsetWidth;                                       // ここで一度置き直させる
+  fig.classList.remove('sliding');
+  fig.style.transform='';
 }
 function bump(i){
   const el=cellEls[i];

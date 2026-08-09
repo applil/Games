@@ -42,7 +42,11 @@ html=swap(html, '<script src="engine.js"></script>', '<script>\n'+engine+'\n</sc
 // 3. 面データを埋め込んで fetch を差し替える
 const embed='<script>\nwindow.__EMBED={'
   +'"levels.json":'+levels+',"levels-picks.json":'+picks+'};\n</script>\n';
-html=swap(html, 'fetch(FILE)', 'Promise.resolve({ok:true,json:()=>window.__EMBED[FILE]})', 'fetch');
+html=swap(html,
+  "  return fetch(name).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); });",
+  "  return window.__EMBED[name] ? Promise.resolve(window.__EMBED[name])\n"
+  +"                             : Promise.reject(new Error(name+' は埋め込まれていません'));",
+  'loadJSON');
 html=embed+html;
 
 // 4. worker は Blob から起動する(engine.js も中に入れてしまう)
