@@ -190,7 +190,7 @@ details p{margin-top:8px;line-height:1.8}
 }
 .grid-stages button.cleared{background:var(--done-soft);border-color:var(--done);color:var(--done)}
 .grid-stages button.current{background:var(--ink);border-color:var(--ink);color:#fff}
-.grid-stages button.locked{opacity:.35;cursor:default}
+.grid-stages button.nextup{border-color:var(--goal);color:var(--goal);background:var(--goal-soft)}
 .picker .btn{margin-top:10px}
 
 @media (prefers-reduced-motion: reduce){
@@ -253,7 +253,7 @@ details p{margin-top:8px;line-height:1.8}
     ・壁や別の箱が後ろにあると押せません<br>
     ・操作は<b>矢印キー / WASD</b>、盤面の<b>スワイプ</b>、下の<b>十字ボタン</b>のどれでもOK<br>
     ・取り返しがつかない配置になった瞬間に教えます。<b>↩ 1手戻す</b>でやり直してね<br>
-    ・面は全員共通の固定順。1面から順に進み、クリアすると次が開きます</p>
+    ・面は全員共通の固定順です。<b>面を選ぶ</b>から、まだ解いていない面にも自由に飛べます（実験中）</p>
   </details>
 
   <details>
@@ -510,7 +510,7 @@ function updateProgress(){
 }
 function updateNav(){
   $('btnPrev').disabled = index<=0;
-  $('btnNext').disabled = index>=Math.min(unlockedMax(), LEVELS.length-1);
+  $('btnNext').disabled = index>=LEVELS.length-1;
 }
 
 /* ================= 局面のキー ================= */
@@ -682,16 +682,16 @@ function openPicker(){
   $('pickOverlay').classList.add('show');
 }
 function renderPicker(){
-  const max=unlockedMax();
+  const next=unlockedMax();
   const chapters=Math.ceil(LEVELS.length/CHAPTER);
-  $('pickSub').textContent=`クリアした面は何度でも遊べます（現在 ${clearedCount()} 面クリア）`;
+  $('pickSub').textContent=
+    `どの面にも飛べます（実験中）。クリア ${clearedCount()} 面 / 順番どおりなら次は第${next+1}面`;
   const ch=$('chapters');
   ch.innerHTML='';
   for(let c=0;c<chapters;c++){
     const b=document.createElement('button');
     b.textContent=`${c*CHAPTER+1}〜${Math.min((c+1)*CHAPTER, LEVELS.length)}`;
     if(c===chapter) b.classList.add('active');
-    if(c*CHAPTER>max) b.disabled=true, b.style.opacity=.35;
     b.addEventListener('click',()=>{ chapter=c; renderPicker(); });
     ch.appendChild(b);
   }
@@ -702,9 +702,9 @@ function renderPicker(){
     const b=document.createElement('button');
     b.textContent=i+1;
     if(isCleared(LEVELS[i])) b.classList.add('cleared');
+    if(i===next && !isCleared(LEVELS[i])) b.classList.add('nextup');
     if(i===index) b.classList.add('current');
-    if(i>max){ b.classList.add('locked'); b.disabled=true; }
-    else b.addEventListener('click',()=>{
+    b.addEventListener('click',()=>{
       $('pickOverlay').classList.remove('show');
       startLevel(i);
     });
