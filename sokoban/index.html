@@ -100,6 +100,7 @@ h1{font-size:26px;font-weight:800;letter-spacing:.08em;line-height:1.2}
   box-shadow:inset 0 2px 0 var(--wall-top);
   border-radius:5px;
 }
+.cell.void{background:transparent}
 .cell.goal::before{
   content:'';position:absolute;width:36%;height:36%;border-radius:50%;
   border:2.5px dashed var(--goal);background:var(--goal-soft);
@@ -131,7 +132,7 @@ h1{font-size:26px;font-weight:800;letter-spacing:.08em;line-height:1.2}
 
 .boardnote{
   margin-top:8px;text-align:center;font-size:11px;color:var(--ink-soft);
-  letter-spacing:.03em;line-height:1.6;
+  letter-spacing:.03em;line-height:1.7;white-space:pre-line;
 }
 .dpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px auto 0;max-width:230px}
 .dpad button{
@@ -182,7 +183,7 @@ details p{margin-top:8px;line-height:1.8}
   <header>
     <a class="home" href="../">◀ メニュー</a>
     <h1>🐧📦 倉庫番</h1>
-    <div class="tagline">開くたびに新しい問題 — すべて解けることを生成時に検証済み</div>
+    <div class="tagline">小さい盤・完全ランダム配置<br>手数は短く、でも素直に押すと詰みます</div>
   </header>
 
   <div class="banner" id="chBanner">📨 挑戦状が届きました！同じ問題を、より少ない押し回数でクリアできるかな？</div>
@@ -238,14 +239,17 @@ details p{margin-top:8px;line-height:1.8}
     ・箱は<b>押すことだけ</b>できます（引けません）。1回に押せる箱は1つだけ<br>
     ・壁や別の箱が後ろにあると押せません<br>
     ・操作は<b>矢印キー / WASD</b>、盤面の<b>スワイプ</b>、下の<b>十字ボタン</b>のどれでもOK<br>
-    ・角に押し込むなど取り返しがつかない配置になったら教えます。<b>↩ 1手戻す</b>でやり直してね<br>
-    ・スコアは<b>押した回数</b>。表示される「最短」は、この問題を解くのに必要な理論上の最小押し回数です</p>
+    ・取り返しがつかない配置になった瞬間に教えます。<b>↩ 1手戻す</b>でやり直してね<br>
+    ・スコアは<b>押した回数</b>。表示される「最短」は、この問題を解くのに必要な理論上の最小押し回数です<br>
+    ・手数は短めです。詰まるのは手順が長いからではなく、<b>最初の一手に気づけるか</b>だからです</p>
   </details>
 
   <details>
     <summary>問題はどう作られている？</summary>
-    <p>ランダムな壁配置に置き場を決めたら、<b>完成状態から逆再生</b>します。箱を「引く」動きだけで盤面を巻き戻していくので、出来上がった問題は<b>必ず解ける</b>ことが構成上保証されます。<br>
-    そのうえで前向きのソルバー(A*)を回して<b>本当の最小押し回数</b>と<b>方向転換の回数</b>を測り、難易度の条件を満たした盤面だけを出題しています。</p>
+    <p>壁も置き場も<b>完全にランダム</b>に置きます。設計された構造がないぶん、素直な倉庫番らしくない配置が出てきます。<br>
+    そのうえで、その盤面で<b>ありうる配置をすべて列挙</b>し、完成状態から逆にたどって「そこから完成させられる配置」の集合を丸ごと求めます。盤が小さいので全部数え切れます。ランダムに置いた配置が解けるかどうかは、この集合に入っているかどうかで<b>厳密に決まります</b>。<br>
+    難易度は手数では測っていません。全配置の残り手数が分かっているので、<b>「打てる手のうち何割が指した瞬間に詰む手か」「正解が1手しかない場面がいくつあるか」「置き場から荷物を一度どける必要があるか」</b>を正確に数えられます。さらに「置き場に近づける」式の素直な手筋を3種類走らせて、<b>全部詰む問題だけ</b>を「むずかしい」として出題しています。<br>
+    この表があるので、ゲーム中の<b>詰み判定とヒントも経験則ではなく厳密</b>です。</p>
   </details>
 </div>
 
@@ -323,7 +327,7 @@ async function shareLink(url, text){
 
 /* ================= 生成エンジン ================= */
 // 盤面生成とソルバー本体は engine.js が定義している(生成ワーカーと共用)。
-// generate / DIFF / makeCtx / makeSolver はそこで宣言済みのものをそのまま使う。
+// generate / DIFF / solvableStates などはそこで宣言済みのものをそのまま使う。
 
 const DIFF_LABEL={easy:'やさしい',normal:'ふつう',hard:'むずかしい'};
 
@@ -332,7 +336,7 @@ const $=id=>document.getElementById(id);
 const boardEl=$('board');
 
 let difficulty='normal', currentSeed=0;
-let puzzle=null, ctx=null, solver=null;
+let puzzle=null, dist=null;   // dist: この盤面で「解ける状態 → 残り最短手数」の完全な表
 let boxes=[], player=0, goalSet=new Set();
 let undoStack=[], pushCount=0, moveCount=0, hintCount=0;
 let startTime=0, timerId=null, finished=false, deadShown=false;
@@ -442,8 +446,9 @@ function newGame(seed){
 function startPuzzle(seed, p){
   currentSeed=seed>>>0;
   puzzle=p;
-  ctx=makeCtx(p);
-  solver=makeSolver(ctx,p,p.goals);
+  // 盤が小さいので、その面の解ける状態を全部洗い出しておく。
+  // これで詰み判定もヒントも(経験則ではなく)厳密になる
+  dist=solvableStates(p.grid, p.w, p.goals, 500000);
   goalSet=new Set(p.goals);
   boxes=p.boxes.slice();
   player=p.player;
@@ -457,10 +462,25 @@ function startPuzzle(seed, p){
   $('timer').textContent='0:00';
 }
 
-let cellEls=[];
+let cellEls=[], outsideMask=null;
+// 床に接していない壁は「倉庫の外」。ブロックとして描かず背景に沈めると輪郭が読める
+function computeOutside(){
+  const {grid,w}=puzzle;
+  const m=new Uint8Array(grid.length).fill(1);
+  for(let i=0;i<grid.length;i++){
+    if(grid[i]) continue;
+    m[i]=0;
+    for(const d of [1,-1,w,-w,w+1,w-1,-w+1,-w-1]){
+      const q=i+d;
+      if(q>=0&&q<grid.length) m[q]=0;
+    }
+  }
+  return m;
+}
 function buildBoard(){
   boardEl.innerHTML='';
   boardEl.style.gridTemplateColumns=`repeat(${puzzle.w},1fr)`;
+  outsideMask=computeOutside();
   cellEls=[];
   for(let i=0;i<puzzle.grid.length;i++){
     const d=document.createElement('div');
@@ -479,7 +499,8 @@ function paint(){
   for(let i=0;i<cellEls.length;i++){
     const el=cellEls[i], fig=el.firstChild;
     const wall=puzzle.grid[i], goal=goalSet.has(i), box=boxSet.has(i);
-    el.className='cell'+(wall?' wall':'')+(goal&&!box?' goal':'')+(box?' box':'')+(box&&goal?' on':'');
+    const outside=wall&&outsideMask&&outsideMask[i];
+    el.className='cell'+(outside?' void':wall?' wall':'')+(goal&&!box?' goal':'')+(box?' box':'')+(box&&goal?' on':'');
     fig.textContent = box ? '📦' : (i===player ? '🐧' : '');
   }
 }
@@ -489,10 +510,18 @@ function updateStats(){
   const b=getBest();
   $('best').textContent = puzzle ? `${puzzle.pushes}手 / ${b==null?'--':b+'手'}` : '--';
   if(puzzle){
-    const parts=[`荷物 ${puzzle.boxes.length}個`, `${puzzle.W}×${puzzle.H}`];
-    if(puzzle.style) parts.push(`壁: ${puzzle.style}`);
-    if(puzzle.goalStyle) parts.push(`置き場: ${puzzle.goalStyle}`);
-    $('boardNote').textContent=parts.join(' ・ ');
+    const st=puzzle.stats||{};
+    const parts=[`${puzzle.W}×${puzzle.H}`, `荷物 ${puzzle.boxes.length}個`, `最短 ${puzzle.pushes}手`];
+    const tags=[];
+    if(st.greedyDied>=3) tags.push('素直に押すと詰みます');
+    else if(st.greedyDied>=2) tags.push('素直な手筋はだいたい詰みます');
+    if(st.offGoal) tags.push('置き場から一度どける手が要ります');
+    if(st.firstOnly) tags.push('初手が一択');
+    else if(st.forced>=2) tags.push('正解が一本道の場面あり');
+    let text=parts.join(' ・ ');
+    if(st.trapRatio!=null) text+=` ・ 打てる手の${Math.round(st.trapRatio*100)}%が詰み手`;
+    if(tags.length) text+='\n'+tags.join(' / ');
+    $('boardNote').textContent=text;
   }
 }
 
@@ -531,6 +560,18 @@ function move(name){
   checkDead();
 }
 
+// いまの局面(荷物の位置＋プレイヤーの到達領域)を表のキーに変換する
+function stateKeyNow(){
+  const b=boxes.slice().sort((x,y)=>x-y);
+  const r=regionRep(puzzle.grid, puzzle.w, new Set(b), player);
+  return keyOf(b, r.rep);
+}
+function remainingPushes(){
+  if(!dist) return null;
+  const d=dist.get(stateKeyNow());
+  return d===undefined ? null : d;
+}
+
 function bump(i){
   const el=cellEls[i];
   el.classList.add('bump');
@@ -554,13 +595,14 @@ function resetPuzzle(){
   paint(); updateStats(); clearHint(); hideMsg();
 }
 
-/* ---- 詰み検知 ---- */
+/* ---- 詰み検知(この盤面の全状態が分かっているので厳密) ---- */
 function checkDead(){
-  if(!solver.isDead(boxes)) { if(deadShown){ deadShown=false; hideMsg(); } return; }
+  if(!dist) return;
+  if(dist.has(stateKeyNow())){ if(deadShown){ deadShown=false; hideMsg(); } return; }
   if(deadShown) return;
   deadShown=true;
   SFX.dead();
-  showMsg('この箱はもう動かせません。↩ 1手戻す か 🔄 最初から でやり直してね。', true);
+  showMsg('この配置からはもう完成できません。↩ 1手戻す か 🔄 最初から でやり直してね。', true);
 }
 
 /* ---- ヒント: いまの配置から最短手順の1手目を教える ---- */
@@ -574,14 +616,20 @@ function hint(){
   if(!puzzle||finished) return;
   ensureAudio();
   clearHint();
-  const sol=solver.solve(boxes, player, 200000);
-  if(!sol){
-    showMsg('ここからは解けません。↩ 1手戻す でやり直してね。', true);
+  if(!dist){ showMsg('この盤面ではヒントを出せません。', true); return; }
+  const d=remainingPushes();
+  if(d===null){
+    showMsg('この配置からはもう完成できません。↩ 1手戻す でやり直してね。', true);
     return;
   }
-  if(!sol.moves.length) return;
+  if(d===0) return;
   hintCount++;
-  const m=sol.moves[0];
+  const b=boxes.slice().sort((x,y)=>x-y);
+  const r=regionRep(puzzle.grid, puzzle.w, new Set(b), player);
+  // 残り手数が1つ減る手＝最短手順の一手
+  const next=pushesFrom(puzzle.grid, puzzle.w, b, r.cells).filter(mv=>dist.get(mv.key)===d-1);
+  if(!next.length){ showMsg('この配置からはもう完成できません。', true); return; }
+  const m={from:next[0].box, dir:next[0].dir};
   const w=puzzle.w;
   const arrow = m.dir===-w?'↑' : m.dir===w?'↓' : m.dir===-1?'←' : '→';
   const el=cellEls[m.from];
@@ -591,7 +639,7 @@ function hint(){
   tag.textContent=arrow;
   el.appendChild(tag);
   hintEls.push(tag);
-  showMsg(`光っている箱を ${arrow} に押すと最短。残り ${sol.pushes} 押しで解けます。`);
+  showMsg(`光っている箱を ${arrow} に押すと最短。残り ${d} 押しで解けます。`);
 }
 
 let msgTimer=null;

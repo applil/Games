@@ -16,8 +16,7 @@ self.onmessage = e => {
       puzzle:{
         grid:p.grid, w:p.w, h:p.h, W:p.W, H:p.H,
         boxes:p.boxes, goals:p.goals, player:p.player,
-        pushes:p.pushes, lines:p.lines,
-        style:p.style, goalStyle:p.goalStyle, nbox:p.nbox
+        pushes:p.pushes, states:p.states, stats:p.stats
       }
     });
   }catch(err){
