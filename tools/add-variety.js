@@ -3,8 +3,8 @@
  *
  *   node tools/add-variety.js [levels.json]
  *
- * 置く先は、いま bigKind:'odd' が付いている面と、足りないぶんを等間隔で補った枠。
- * どの枠も、素直な手筋3種が全滅し、一本道か置き場どけが要る面しか採らない。
+ * 置く先は全体に等間隔。差し替えではなく挿入なので、いまある面は1つも減らない。
+ * どの面も、素直な手筋3種が全滅し、一本道か置き場どけが要るものしか採らない。
  */
 const fs=require('fs');
 const path=require('path');
@@ -34,20 +34,9 @@ const data=JSON.parse(fs.readFileSync(TARGET,'utf8'));
 const N=data.levels.length;
 
 /* ================= 置く枠を決める ================= */
-// いまある「形が変」の枠を活かしつつ、等間隔になるよう足す
-const existing=[];
-data.levels.forEach((l,i)=>{ if(l.bigKind==='odd') existing.push(i); });
 const slots=[];
 for(let k=0;k<TOTAL;k++){
-  const want=Math.round((k+0.5)*N/TOTAL);
-  // 近くに元の枠があればそれを使う
-  let best=-1, bestD=Infinity;
-  for(const e of existing){
-    if(slots.includes(e)) continue;
-    const d=Math.abs(e-want);
-    if(d<bestD){ bestD=d; best=e; }
-  }
-  let at = (bestD<=12 && best>=0) ? best : want;
+  let at=Math.round((k+0.5)*N/TOTAL);
   while(at<4 || slots.includes(at)) at++;
   slots.push(at);
 }
@@ -172,8 +161,9 @@ const order=[];
 }
 
 let done=0, missed=[];
-slots.forEach((slot,k)=>{
-  const label=order[k];
+// 後ろから挿すと、前の面の位置がずれない
+const plan=slots.map((slot,k)=>({slot, label:order[k]}));
+plan.reverse().forEach(({slot,label})=>{
   const pool=pools[label]||[];
   if(!pool.length){ missed.push(label); return; }
   const push=near(slot,l=>l.p), trap=near(slot,l=>l.tr);
@@ -183,14 +173,14 @@ slots.forEach((slot,k)=>{
     if(cost<bestCost){ bestCost=cost; best=i; }
   });
   const now=pool.splice(best,1)[0];
-  const old=data.levels[slot];
-  data.levels[slot]=now;
-  const os=old.b.split('/'), ns=now.b.split('/');
-  console.log(`第${String(slot+1).padStart(3)}面 [${label}] ${os[0].length}x${os.length} ${old.p}手 罠${old.tr}%`
-    +`  →  ${ns[0].length}x${ns.length} ${now.p}手 罠${now.tr}% 詰む${now.g}/3 一本道${now.f} どけ${now.og} ${now.sh}`);
+  data.levels.splice(slot, 0, now);              // 挿入。元の面は消さない
+  const ns=now.b.split('/');
+  console.log(`第${String(slot+1).padStart(3)}面に挿入 [${label}] ${ns[0].length}x${ns.length}`
+    +` ${now.p}手 罠${now.tr}% 詰む${now.g}/3 一本道${now.f} どけ${now.og} ${now.sh}`);
   done++;
 });
+data.count=data.levels.length;
 
 fs.writeFileSync(TARGET, JSON.stringify(data));
-console.log(`\n${TARGET} を更新しました (${done}面を差し替え)`);
+console.log(`\n${TARGET} を更新しました (${done}面を挿入 / 全${data.levels.length}面)`);
 if(missed.length) console.log('候補が作れなかった型: '+missed.join(', '));
