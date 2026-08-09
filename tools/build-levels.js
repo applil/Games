@@ -17,7 +17,7 @@ const E=require(path.join(__dirname,'..','warehouse','engine.js')).WarehouseEngi
 const {randomLayout, solvableStates, regionRep, greedyPolicies, analyse, mulberry32, keyOf, pushesFrom}=E;
 const S=require(path.join(__dirname,'shapes.js'));
 
-const TOTAL   = +(process.argv[2]||2000);
+const TOTAL   = +(process.argv[2]||500);
 const OUTPUT  = process.argv[3]||path.join(__dirname,'..','warehouse','levels.json');
 const SEED    = 20260809;          // 並びを再現できるよう固定
 const WINDOW  = 40;                // 局所シャッフルの窓幅 = 隣り合う面のばらけ具合
@@ -26,9 +26,11 @@ const SPICE_FROM = 20;             // ここから難しい面を差し込み始
 const SPICE_TO   = 700;            // ここまでで差し込みを終える
 const SPICE_RATE = 0.20;           // 差し込む割合(最大)
 const SPICE_JUMP = 4500;           // 何ランク先の候補から持ってくるか
-const POOL_X  = 5;                 // 目標数の何倍の候補を作ってから間引くか
+const POOL_X  = 30;                 // 目標数の何倍の候補を作ってから間引くか
 const EASE    = 0.75;              // <1 で易しい側の混雑を圧縮する(順位の進み方)
-const DEPTH_MAX  = 24;             // 採用する最短手数の上限
+const STATE_CAP  = 60000;          // 全状態がこれを超える盤は捨てる
+                                   // (面を開くたびにブラウザでも同じ表を作るため)
+const DEPTH_MAX  = 30;             // 採用する最短手数の上限
 const DEPTH_BIAS = 2.2;            // 深い(手数の長い)局面を選ぶ重み。大きいほど長い面が増える
 const LEN_BONUS  = 0.6;            // 並べ替えのとき、手数1手あたりに足す難易度
 
@@ -110,14 +112,14 @@ function harvest(rng, out, seen, cfg){
   const floors=[];
   for(let i=0;i<grid.length;i++) if(!grid[i]) floors.push(i);
   const nbox=2+(rng()*3|0);                        // 2〜4個
-  if(floors.length<nbox*3+2||floors.length>34) return;
+  if(floors.length<nbox*3+2||floors.length>44) return;
 
   // 置き場の配置も型から抽選する
   const gp=S.pickGoals(layout, floors, nbox, rng);
   if(!gp) return;
   const goals=gp.goals;
 
-  const dist=solvableStates(grid,w,goals,300000);
+  const dist=solvableStates(grid,w,goals,STATE_CAP);
   if(!dist) return;
   const policies=greedyPolicies(grid,w,goals);
 
@@ -207,6 +209,7 @@ function harvest(rng, out, seen, cfg){
       sp: useStart,            // 荷物の初期位置の性格
       pl: usePlayer,           // 人の立ち位置
       cl: layout.clutter,      // 仕切りの密度
+      st: dist.size,           // その盤の全状態数(重さの目安)
     });
   }
 }
@@ -228,72 +231,104 @@ while(levels.length<POOL_TARGET && attempts<POOL_TARGET*200){
 }
 console.log(`  候補 ${levels.length} 面 / 試行 ${attempts} 回 / ${((Date.now()-t0)/1000).toFixed(0)}秒`);
 
-/* ================= 難易度順に並べ、順位を等間隔に抜く ================= */
-// スコアが同じ面は手数の少ない順(短いほど取りつきやすい)
-levels.sort((a,b)=>(a.k-b.k)||(a.p-b.p));
+/* ================= 難易度の設計 =================
+   難しさを4つのパラメータに分けて、面ごとに独立に振る。
+     ・手数        : 数値。徐々に上げる
+     ・罠率        : 数値。徐々に上げる
+     ・素直な手筋が3種とも詰むか : バイナリ。Yesになる確率を徐々に上げる
+     ・正解が一本道 or 置き場から一度どける必要 : バイナリ。同じく確率を上げる
+   数値2つには毎回ゆらぎを載せるので、隣り合う面の手応えはばらつく。
+   確率で振るバイナリ2つも、序盤にたまに当たり、終盤はほぼ確実に当たる。   */
 
-// 候補は易しい側に固まるので、順位を進める速さに指数を掛けて混雑を圧縮する。
-// 指数 <1 だと序盤ほど順位が速く進むので、同じ手応えの面が延々と続かない。
-// 順位ベースなので、スコア空間で切るのと違って同じ面が二度出ることがない。
-const pool=levels.slice();          // 選抜前の全候補(難易度順)。差し込みに使う
-const pickedIdx=[];                 // levels[i] が pool の何番目か
-const usedIdx=new Set();
-if(pool.length>TOTAL){
-  const picked=[];
-  let last=-1;
-  for(let i=0;i<TOTAL;i++){
-    const t=Math.pow(i/(TOTAL-1), EASE);
-    let idx=Math.round(t*(pool.length-1));
-    if(idx<=last) idx=last+1;                 // 必ず前へ進める(重複防止)
-    idx=Math.min(idx, pool.length-1-(TOTAL-1-i));
-    picked.push(pool[idx]);
-    pickedIdx.push(idx);
-    usedIdx.add(idx);
-    last=idx;
-  }
-  levels.length=0;
-  levels.push(...picked);
-}else{
-  console.log(`⚠ 候補が ${levels.length} 面しかありません`);
-  levels.forEach((_,i)=>{ pickedIdx.push(i); usedIdx.add(i); });
+// 区間ごとの狙い。t は区間内の進み具合(0→1)
+const SECTIONS=[
+  // 1〜4: チュートリアル。本当に簡単
+  {to:4,   push:t=>[2,3],            trap:t=>[0,12],        greedy:t=>0,           twist:t=>0},
+  // 5〜20: 少し面白さが出てくる
+  {to:20,  push:t=>[3,4+2*t],        trap:t=>[5,20+10*t],   greedy:t=>0.05+0.10*t, twist:t=>0.05+0.15*t},
+  // 21〜100: 簡単だがパズルとして成立している(頭を使う)
+  {to:100, push:t=>[4+t,6+3*t],      trap:t=>[15+10*t,35],  greedy:t=>0.20+0.20*t, twist:t=>0.25+0.20*t},
+  // 101〜450: 手応えのある面を交えつつ、徐々に上げる
+  {to:450, push:t=>[5+5*t,8+6*t],    trap:t=>[25+20*t,45+15*t], greedy:t=>0.45+0.45*t, twist:t=>0.45+0.40*t},
+  // 451〜500: 難問揃い
+  {to:500, push:t=>[10+3*t,16+4*t],  trap:t=>[45+10*t,100], greedy:t=>1,           twist:t=>1},
+];
+function specFor(i, n, rng){          // i は 0 始まり
+  const stage=i+1;
+  let from=1, sec=SECTIONS[SECTIONS.length-1];
+  for(const s of SECTIONS){ if(stage<=s.to){ sec=s; break; } from=s.to+1; }
+  const span=Math.max(1, sec.to-from);
+  const t=Math.min(1,(stage-from)/span);
+  const [pLo,pHi]=sec.push(t), [trLo,trHi]=sec.trap(t);
+  // ゆらぎ: 帯の中から引く。ときどき帯を少しはみ出させて揺らす
+  const jitter=(lo,hi)=>{
+    const v=lo+(hi-lo)*rng();
+    return rng()<0.15 ? v+(rng()<0.5?-1:1)*(hi-lo)*0.35 : v;
+  };
+  const greedyP=sec.greedy(t), twistP=sec.twist(t);
+  return {
+    stage,
+    push:  Math.max(2, Math.round(jitter(pLo,pHi))),
+    trap:  Math.max(0, Math.round(jitter(trLo,trHi))),
+    // 確率で Yes/No を決める。序盤は明示的に No(易しさを保証する)
+    greedy: rng()<greedyP ? true : (stage<=100 ? false : null),
+    twist:  rng()<twistP  ? true : (stage<=100 ? false : null),
+  };
 }
 
-/* --- 序盤に歯ごたえのある面を差し込む ---
-   窓を広げて後ろから引っ張ると、押し出された易しい面が終盤まで残ってしまう。
-   そこで【選ばれなかった候補】から難しい面を持ってきて置き換える。
-   こうすると後半の顔ぶれは一切変わらず、下限が下がらない。 */
-const srng=mulberry32(SEED^0x5bf03635);
-let spiced=0;
-if(pool.length>TOTAL){
-  for(let i=SPICE_FROM;i<Math.min(SPICE_TO, levels.length);i++){
-    // 差し込む割合は序盤で最大、SPICE_TO に近づくほど0へ
-    const t=(i-SPICE_FROM)/(SPICE_TO-SPICE_FROM);
-    if(srng() > SPICE_RATE*(1-t)) continue;
-    // その面より SPICE_JUMP ランクほど先の、まだ使っていない候補を探す
-    let target=Math.min(pool.length-1, pickedIdx[i]+Math.round(SPICE_JUMP*(0.5+srng())));
-    let found=-1;
-    for(let d=0; d<pool.length; d++){
-      if(target+d<pool.length && !usedIdx.has(target+d)){ found=target+d; break; }
-      if(target-d>=0 && !usedIdx.has(target-d)){ found=target-d; break; }
+// 仕様にいちばん近い面をプールから選ぶ。
+// 直前の数面と形や置き場の型が続かないよう、変化のある面を優先する。
+function chooseFor(spec, pool, used, recent){
+  let best=null, bestCost=Infinity;
+  for(let i=0;i<pool.length;i++){
+    if(used[i]) continue;
+    const l=pool[i];
+    // バイナリは指定があれば必須条件
+    if(spec.greedy===true  && l.g<3) continue;
+    if(spec.greedy===false && l.g>=3) continue;
+    const twisty = (l.f>=2||l.og);
+    if(spec.twist===true  && !twisty) continue;
+    if(spec.twist===false && twisty) continue;
+    let cost=Math.abs(l.p-spec.push)*1.6 + Math.abs(l.tr-spec.trap)*0.09;
+    // 直前3面と同じ形・置き場・大きさが続くのを避ける
+    for(let r=0;r<recent.length;r++){
+      const wgt=(recent.length-r);
+      if(recent[r].sh===l.sh) cost+=1.2*wgt;
+      if(recent[r].gp===l.gp) cost+=0.8*wgt;
+      if(recent[r].sz===l.sz&&recent[r].ar===l.ar) cost+=0.4*wgt;
     }
-    if(found<0) continue;
-    usedIdx.delete(pickedIdx[i]);
-    usedIdx.add(found);
-    pickedIdx[i]=found;
-    levels[i]=pool[found];
-    spiced++;
+    if(cost<bestCost){ bestCost=cost; best=i; }
   }
+  return best;
 }
-console.log(`  序盤に差し込んだ歯ごたえのある面: ${spiced}面`);
 
-// 各要素を最大 WINDOW 個先までの範囲だけで入れ替える局所シャッフル。
-// 前へしか動かないので、差し込んだ面を除けば平均も下限も単調に上がる。
-// 冒頭 KEEP_EASY 面は動かさない(1面目が難しくなるのを防ぐ)
-for(let i=KEEP_EASY;i<levels.length;i++){
-  const span=Math.min(WINDOW, levels.length-i);
-  const j=i+(srng()*span|0);
-  [levels[i],levels[j]]=[levels[j],levels[i]];
+const srng=mulberry32(SEED^0x5bf03635);
+const pool=levels.slice();
+const used=new Uint8Array(pool.length);
+const picked=[];
+const recent=[];
+let missed=0;
+for(let i=0;i<TOTAL;i++){
+  let spec=specFor(i, TOTAL, srng);
+  let idx=chooseFor(spec, pool, used, recent);
+  if(idx==null){                       // 条件を満たす面が無ければ順に緩める
+    missed++;
+    for(const relax of [{twist:null},{greedy:null,twist:null}]){
+      idx=chooseFor(Object.assign({},spec,relax), pool, used, recent);
+      if(idx!=null) break;
+    }
+  }
+  if(idx==null) break;
+  used[idx]=1;
+  const lv=pool[idx];
+  lv.spec={p:spec.push, tr:spec.trap, g:spec.greedy, tw:spec.twist};
+  picked.push(lv);
+  recent.push(lv);
+  if(recent.length>3) recent.shift();
 }
+levels.length=0;
+levels.push(...picked);
+console.log(`  仕様どおりに選べなかった面: ${missed}件 (条件を緩めて補充)`);
 
 /* ================= 書き出し ================= */
 const payload={
@@ -308,25 +343,22 @@ const bytes=fs.statSync(OUTPUT).size;
 console.log(`\n${OUTPUT} に ${levels.length} 面を書き出しました (${(bytes/1024).toFixed(0)}KB)`);
 
 /* ================= 並びの確認 ================= */
-const bucket=200;
-console.log('\n並びの確認 (200面ごと):');
-console.log('  区間        平均スコア  最低  最高  平均手数  罠率  素直に全滅する面');
-for(let i=0;i<levels.length;i+=bucket){
-  const seg=levels.slice(i,i+bucket);
-  const avg=seg.reduce((s,x)=>s+x.s,0)/seg.length;
-  const min=Math.min(...seg.map(x=>x.s));
-  const ap=seg.reduce((s,x)=>s+x.p,0)/seg.length;
-  const ab=seg.reduce((s,x)=>s+(x.b.match(/[$*]/g)||[]).length,0)/seg.length;
-  const atr=seg.reduce((s,x)=>s+x.tr,0)/seg.length;
-  const mx=Math.max(...seg.map(x=>x.s));
+const SEGS=[[1,4],[5,20],[21,100],[101,200],[201,300],[301,450],[451,500]];
+console.log('\n区間ごとの実測:');
+console.log('  区間       手数(平均/最大)  罠率(平均)  素直に全滅  一本道or置き場どけ  荷物  盤の広さ');
+for(const [a,b] of SEGS){
+  const seg=levels.slice(a-1,b);
+  if(!seg.length) continue;
+  const avg=k=>seg.reduce((s,x)=>s+x[k],0)/seg.length;
   const g3=seg.filter(x=>x.g>=3).length;
-  console.log(`  ${String(i+1).padStart(4)}-${String(Math.min(i+bucket,levels.length)).padEnd(5)} `
-    +`${avg.toFixed(1).padStart(9)} ${min.toFixed(1).padStart(6)} ${mx.toFixed(1).padStart(5)} `
-    +`${ap.toFixed(1).padStart(9)} ${atr.toFixed(0).padStart(4)}% `
-    +`${String(g3).padStart(9)}/${seg.length}`);
+  const tw=seg.filter(x=>x.f>=2||x.og).length;
+  const nb=seg.reduce((s,x)=>s+(x.b.match(/[$*]/g)||[]).length,0)/seg.length;
+  const area=seg.reduce((s,x)=>s+(x.b.split('/')[0].length-2)*(x.b.split('/').length-2),0)/seg.length;
+  console.log(`  ${String(a+'-'+b).padEnd(9)} ${avg('p').toFixed(1).padStart(8)} /${String(Math.max(...seg.map(x=>x.p))).padStart(3)}  `
+    +`${avg('tr').toFixed(0).padStart(8)}%  ${String(g3+'/'+seg.length).padStart(9)}  ${String(tw+'/'+seg.length).padStart(16)}  `
+    +`${nb.toFixed(1).padStart(4)}  ${area.toFixed(0).padStart(5)}マス`);
 }
 
-// 型の散らばり
 const tally=(key)=>{
   const c={};
   for(const l of levels) c[l[key]]=(c[l[key]]||0)+1;
@@ -335,22 +367,10 @@ const tally=(key)=>{
 console.log('\n型の散らばり:');
 console.log('  形      ', tally('sh'));
 console.log('  大きさ  ', tally('sz'), '/ 縦横比', tally('ar'));
-console.log('  置き場  ', tally('gp'));
 console.log('  仕切り  ', tally('cl'));
+console.log('  置き場  ', tally('gp'));
 console.log('  荷物配置', tally('sp'));
 console.log('  人の位置', tally('pl'));
-
-// 序盤の様子は20面ごとにも出す
-console.log('\n序盤の様子 (20面ごと):');
-console.log('  区間      平均  最低  最高  素直に全滅');
-for(let i=0;i<Math.min(200,levels.length);i+=20){
-  const seg=levels.slice(i,i+20);
-  const avg=seg.reduce((s,x)=>s+x.s,0)/seg.length;
-  const min=Math.min(...seg.map(x=>x.s));
-  const mx=Math.max(...seg.map(x=>x.s));
-  const g3=seg.filter(x=>x.g>=3).length;
-  console.log(`  ${String(i+1).padStart(3)}-${String(i+20).padEnd(4)} `
-    +`${avg.toFixed(1).padStart(7)} ${min.toFixed(1).padStart(5)} ${mx.toFixed(1).padStart(5)} ${String(g3).padStart(7)}/20`);
-}
-
-module.exports={toXSB,fromXSB,canonical,hashId};
+let same=0;
+for(let i=1;i<levels.length;i++) if(levels[i].sh===levels[i-1].sh) same++;
+console.log(`  隣り合う面で形が同じ: ${same}/${levels.length-1}組`);

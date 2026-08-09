@@ -290,12 +290,15 @@ function addClutter(L, rng){
 
 /* ================= 大きさと縦横比 ================= */
 // 小/中/大 × 縦長/正方/横長 を独立に振る
-const SIZE_RANGE={'小':[3,4], '中':[5,6], '大':[6,7]};
+const SIZE_RANGE={'小':[3,4], '中':[5,6], '大':[6,7], '特大':[8,8]};
 function pickSize(rng, minW, minH){
   // その形が成立する大きさの中から選ぶ。
   // (先に大きさを引くと、大きい盤でしか作れない形に引っぱられて大ばかりになる)
   const ok=Object.keys(SIZE_RANGE).filter(k=>SIZE_RANGE[k][1]>=(minW||0)&&SIZE_RANGE[k][1]>=(minH||0));
-  const size=pick(ok.length?ok:['大'],rng);
+  // 特大は全状態の列挙が重くなるので出現を抑える
+  const weighted=[];
+  for(const k of (ok.length?ok:['大'])) for(let n=0;n<(k==='特大'?1:3);n++) weighted.push(k);
+  const size=pick(weighted,rng);
   const aspect=pick(['縦長','正方','横長'],rng);
   const base=SIZE_RANGE[size];
   let W=randInt(base[0],base[1],rng), H=randInt(base[0],base[1],rng);
