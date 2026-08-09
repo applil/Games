@@ -535,17 +535,26 @@ if(DEBUG){
       if(hintPending){ hintPending=false; hint(); }
       else if(dist) checkDead();
     };
-    tableWorker.onerror=()=>{ tableWorker=null; };
+    // Worker が使えない場所(埋め込み先の制限など)では、その場で作り直す
+    tableWorker.onerror=()=>{ tableWorker=null; requestTable(); };
   }catch(err){ tableWorker=null; }
 }
 function requestTable(){
   const id=++tableReq;
   if(tableWorker){
     tableWorker.postMessage({id, grid:puzzle.grid, w:puzzle.w, goals:puzzle.goals, cap:3000000});
-  }else{
-    // Worker が使えない環境ではその場で作る
-    dist=solvableStates(puzzle.grid, puzzle.w, puzzle.goals, 3000000);
+    return;
   }
+  // Worker が使えない環境ではこの場で作る。重い盤があるので画面を描いてから
+  showMsg('詰み判定の表を作っています…');
+  setTimeout(()=>{
+    if(id!==tableReq) return;                       // その間に面が変わったらやめる
+    dist=solvableStates(puzzle.grid, puzzle.w, puzzle.goals, 3000000);
+    hideMsg();
+    updateStats();
+    if(hintPending){ hintPending=false; hint(); }
+    else if(dist) checkDead();
+  },0);
 }
 
 /* ================= 面の開始 ================= */
