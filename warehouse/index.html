@@ -32,7 +32,8 @@ body{
     var(--paper);
   display:flex;justify-content:center;
 }
-.app{width:100%;max-width:430px;padding:10px 14px 12px;display:flex;flex-direction:column;height:100dvh}
+/* 画面のどこでもスワイプで操作するので、ブラウザ側のジェスチャは切っておく */
+.app{width:100%;max-width:430px;padding:10px 14px 12px;display:flex;flex-direction:column;height:100dvh;touch-action:none}
 
 /* タイトルは絶対配置で中央に。左右のボタンの幅に影響されない */
 header{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:0 0 auto;min-height:34px}
@@ -286,7 +287,7 @@ body.debug .debugbar{display:flex}
       <p>置き場は<span class="sw goal"></span><b>オレンジのマス</b>です。荷物が乗ると<span class="sw done"></span><b>グリーン</b>に変わります。<b>全部グリーンになればクリア</b>です。</p>
       <p><b>箱は押すことしかできません。</b>引けません。一度に押せる箱は1つだけで、壁や別の箱が後ろにあると押せません。</p>
       <p>角に押し込むなど、二度と動かせない置き方をすると<b>その面は詰みます</b>。おかしいと思ったら <b>🔄 最初から</b> でやり直してください。</p>
-      <p>操作は <b>矢印キー / WASD</b>、盤面の<b>スワイプ</b>、<b>十字キー</b>のどれでも。十字キーは左下のボタンで<b>大 / 小 / 非表示</b>を切り替えられます。</p>
+      <p>操作は <b>矢印キー / WASD</b>、<b>画面のスワイプ</b>（どこでもかまいません）、<b>十字キー</b>のどれでも。十字キーは左下のボタンで<b>大 / 小 / 非表示</b>を切り替えられます。</p>
       <p>ステージは1面ずつ進みます。クリアすると、その面の<b>最短手数</b>が分かります。</p>
     </div>
     <button class="btn btn-new" id="btnRulesClose" style="margin-top:14px">とじる</button>
@@ -865,13 +866,27 @@ document.addEventListener('keydown',e=>{
 document.querySelectorAll('.dpad button[data-dir]').forEach(b=>{
   b.addEventListener('click',()=>move(b.dataset.dir));
 });
-// 盤の上のスワイプ。ページごとスクロールしないよう既定の動作を止める
-let tsx=0, tsy=0, swiped=false;
-boardEl.addEventListener('touchstart',e=>{
+// スワイプは画面のどこでも受け付ける。ページごとスクロールしないよう既定の動作を止める。
+// ただしボタン類とモーダルの上では、押せなくなってしまうので受け付けない
+let tsx=0, tsy=0, swiped=false, tracking=false, tapDir=null;
+const swipeBlocked=t=>{
+  if(!(t instanceof Element)) return false;
+  if(t.closest('.dpad button[data-dir]')) return false;   // 十字キーの上でもスワイプできる
+  if(t.closest('button,a,input,select,textarea,label')) return true;
+  if(t.closest('.overlay.show')) return true;
+  return false;
+};
+document.addEventListener('touchstart',e=>{
+  tracking=!swipeBlocked(e.target);
+  if(!tracking) return;
+  // 十字キーの上で始まった場合、動かさずに離したら「押した」ことにする
+  const key=e.target instanceof Element ? e.target.closest('.dpad button[data-dir]') : null;
+  tapDir=key ? key.dataset.dir : null;
   const t=e.changedTouches[0]; tsx=t.clientX; tsy=t.clientY; swiped=false;
   e.preventDefault();
 },{passive:false});
-boardEl.addEventListener('touchmove',e=>{
+document.addEventListener('touchmove',e=>{
+  if(!tracking) return;
   e.preventDefault();
   if(swiped) return;
   const t=e.changedTouches[0];
@@ -880,14 +895,17 @@ boardEl.addEventListener('touchmove',e=>{
   swiped=true;
   move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
 },{passive:false});
-boardEl.addEventListener('touchend',e=>{
+document.addEventListener('touchend',e=>{
+  if(!tracking) return;
+  tracking=false;
   e.preventDefault();
   if(swiped) return;
   const t=e.changedTouches[0];
   const dx=t.clientX-tsx, dy=t.clientY-tsy;
-  if(Math.abs(dx)<12&&Math.abs(dy)<12) return;
+  if(Math.abs(dx)<12&&Math.abs(dy)<12){ if(tapDir) move(tapDir); return; }
   move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
 },{passive:false});
+document.addEventListener('touchcancel',()=>{ tracking=false; });
 
 /* ================= ボタン ================= */
 $('btnDpadMode').addEventListener('click',()=>{
