@@ -74,6 +74,13 @@ h1{font-size:24px;font-weight:800;letter-spacing:.08em;line-height:1.2}
 .btn-row .btn{flex:1}
 .nav-row .btn{font-size:12px;padding:8px 10px}
 .nav-row .stage{flex:1.4}
+#btnFav{flex:0 0 auto;padding:9px 14px;font-size:16px}
+#btnFav.on{background:var(--goal-soft);border-color:var(--goal);color:var(--goal)}
+.setbanner{
+  display:none;background:#fff;border:2px solid var(--goal);border-radius:var(--radius);
+  padding:9px 12px;font-size:12px;font-weight:700;margin-bottom:10px;text-align:center;line-height:1.7;
+}
+.setbanner .btn{margin-top:6px;width:100%;font-size:12px}
 
 .msg{
   display:none;background:var(--card);border:1px solid var(--line);
@@ -206,6 +213,11 @@ details p{margin-top:8px;line-height:1.8}
     <div class="tagline">全500面。手数は短く、進むほど「気づけるか」だけが問われます</div>
   </header>
 
+  <div class="setbanner" id="setBanner">
+    <span id="setBannerText"></span>
+    <button class="btn btn-sub" id="btnExport">★ を書き出す</button>
+  </div>
+
   <div class="progress">
     <div class="bar"><div class="fill" id="progFill"></div></div>
     <div class="label"><span id="progText">読み込み中…</span><span id="progPct"></span></div>
@@ -226,6 +238,7 @@ details p{margin-top:8px;line-height:1.8}
     <button class="btn btn-sub" id="btnUndo">↩ 1手戻す</button>
     <button class="btn btn-sub" id="btnReset">🔄 最初から</button>
     <button class="btn btn-sub" id="btnHint">💡 ヒント</button>
+    <button class="btn btn-sub" id="btnFav" title="この面を採用候補にする">☆</button>
   </div>
 
   <div class="msg" id="msg"></div>
@@ -363,17 +376,50 @@ const store={
   set(k,v){ try{ localStorage.setItem('warehouse-'+k,v); }catch(e){} }
 };
 // クリアした面は ID で覚える。面が入れ替わっても進行が壊れないように
+const PKEY=()=>SET==='picks'?'progress-picks':'progress';
 let progress={v:1, cleared:{}};
 (function(){
   try{
-    const raw=store.get('progress');
+    const raw=store.get(SET==='picks'?'progress-picks':'progress');
     if(raw){
       const o=JSON.parse(raw);
       if(o && o.cleared) progress=o;
     }
   }catch(e){}
 })();
-const saveProgress=()=>store.set('progress', JSON.stringify(progress));
+const saveProgress=()=>store.set(PKEY(), JSON.stringify(progress));
+
+// ★ 採用候補の印。面のIDで覚える
+let favs={};
+(function(){
+  try{ favs=JSON.parse(store.get('favs')||'{}')||{}; }catch(e){ favs={}; }
+})();
+const saveFavs=()=>store.set('favs', JSON.stringify(favs));
+function toggleFav(){
+  if(!puzzle) return;
+  const lv=puzzle.meta;
+  if(favs[lv.id]) delete favs[lv.id];
+  else favs[lv.id]={b:lv.b, p:lv.p, tr:lv.tr, from:(SET==='picks'?'よりぬき':'本編')+' 第'+(index+1)+'面'};
+  saveFavs();
+  updateFavButton();
+  showMsg(favs[lv.id] ? 'この面に★を付けました。あとで「★ を書き出す」から一覧を取り出せます。'
+                      : '★ を外しました。');
+}
+function updateFavButton(){
+  const on=puzzle && favs[puzzle.meta.id];
+  const b=$('btnFav');
+  b.textContent = on ? '★' : '☆';
+  b.classList.toggle('on', !!on);
+}
+// keep-levels.json にそのまま貼れる形で書き出す
+function exportFavs(){
+  const list=Object.keys(favs).map(id=>({b:favs[id].b, note:favs[id].from}));
+  if(!list.length){ showMsg('まだ★が付いていません。', true); return; }
+  const text=JSON.stringify(list, null, 1);
+  navigator.clipboard.writeText(text)
+    .then(()=>alert(`★ ${list.length}面をコピーしました。\nそのまま貼り付けて渡してください。`))
+    .catch(()=>prompt(`★ ${list.length}面。これをコピーして渡してください`, text));
+}
 const isCleared=lv=>lv && progress.cleared[lv.id]!==undefined;
 const bestOf=lv=>lv&&progress.cleared[lv.id];
 
@@ -403,13 +449,24 @@ function showLoading(text){
 }
 const hideLoading=()=>$('loading').classList.remove('show');
 
-fetch('levels.json')
+// ?set=picks で「よりぬき版」を遊べる。進行と★は別枠で保存する
+const QS=new URLSearchParams(location.search);
+const SET=QS.get('set')==='picks' ? 'picks' : '';
+const FILE=SET==='picks' ? 'levels-picks.json' : 'levels.json';
+
+fetch(FILE)
   .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
   .then(data=>{
     LEVELS=data.levels;
     hideLoading();
-    const q=new URLSearchParams(location.search);
-    const want=+q.get('lv');
+    if(SET==='picks'){
+      $('setBanner').style.display='block';
+      $('setBannerText').innerHTML=
+        `⭐ <b>よりぬき版</b>（${LEVELS.length}面）— 旧2000面から手応えのある面だけを抜き出したもの。<br>`
+        +`気に入った面は <b>☆</b> を押して印を付けてください。`;
+      document.title='倉庫パズル — よりぬき'+LEVELS.length+'面';
+    }
+    const want=+QS.get('lv');
     const start = (want>=1 && want<=LEVELS.length) ? want-1 : unlockedMax();
     startLevel(start);
     updateProgress();
@@ -438,7 +495,8 @@ function startLevel(i){
   buildBoard();
   updateStats();
   updateNav();
-  try{ history.replaceState(null,'','?lv='+(index+1)); }catch(e){}
+  updateFavButton();
+  try{ history.replaceState(null,'','?'+(SET?('set='+SET+'&'):'')+'lv='+(index+1)); }catch(e){}
 }
 
 let cellEls=[], outsideMask=null;
@@ -505,7 +563,8 @@ function updateStats(){
 function updateProgress(){
   const n=clearedCount(), total=LEVELS.length||1;
   $('progFill').style.width=(n/total*100)+'%';
-  $('progText').textContent=`クリア ${n} / ${total} 面`;
+  const favN=Object.keys(favs).length;
+  $('progText').textContent=`クリア ${n} / ${total} 面`+(favN?` ・ ★${favN}`:'');
   $('progPct').textContent=(n/total*100).toFixed(1)+'%';
 }
 function updateNav(){
@@ -746,6 +805,8 @@ $('btnPickClose').addEventListener('click',()=>$('pickOverlay').classList.remove
 $('btnUndo').addEventListener('click',undo);
 $('btnReset').addEventListener('click',resetLevel);
 $('btnHint').addEventListener('click',hint);
+$('btnFav').addEventListener('click',()=>{ toggleFav(); updateProgress(); });
+$('btnExport').addEventListener('click',exportFavs);
 $('btnShare').addEventListener('click',()=>{ if(shareData) shareLink(shareData.url, shareData.text); });
 $('btnNextStage').addEventListener('click',()=>{
   $('overlay').classList.remove('show');
