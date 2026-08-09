@@ -37,6 +37,9 @@ body{
 
 /* タイトルは絶対配置で中央に。左右のボタンの幅に影響されない */
 header{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:0 0 auto;min-height:34px}
+/* 右肩のボタンは縦に積む。幅を揃えて並びをそろえる */
+.hstack{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.hstack .iconbtn{text-align:center}
 h1{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   font-size:23px;font-weight:800;letter-spacing:.06em;color:var(--ink-soft);
@@ -48,10 +51,14 @@ h1{
   text-decoration:none;cursor:pointer;line-height:1.4;white-space:nowrap;
 }
 
-.stagebar{flex:0 0 auto;text-align:center;padding:10px 0 8px}
-.stageno{font-size:28px;font-weight:800;letter-spacing:.03em;line-height:1.1}
-.stageno small{font-size:12px;font-weight:700;color:var(--ink-soft);letter-spacing:.1em;margin-right:7px}
-.pushes{font-size:11px;color:var(--ink-soft);margin-top:3px;font-variant-numeric:tabular-nums}
+/* 「ステージ」と番号は縦に重ねて中央に。手数は左端に控えめに置く */
+.stagebar{flex:0 0 auto;position:relative;text-align:center;padding:10px 0 8px}
+.stagelabel{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.16em;line-height:1.2}
+.stageno{font-size:28px;font-weight:800;letter-spacing:.03em;line-height:1.15}
+.pushes{
+  position:absolute;left:0;top:50%;transform:translateY(-50%);
+  font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums;
+}
 
 /* 盤を囲むカードは無し。盤そのものだけを見せる */
 .board-wrap{flex:0 0 auto;align-self:center;position:relative}
@@ -89,7 +96,8 @@ h1{
 
 .spacer{flex:1 1 auto;min-height:0}
 
-.dpad{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:0 auto;width:min(216px,62vw)}
+/* 十字の形(3行3列・中央は空き)。3行になったぶん、盤に場所を残すよう少し細くする */
+.dpad{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:0 auto;width:min(186px,54vw)}
 .dpad button{
   aspect-ratio:1;border:1px solid var(--line);background:var(--card);border-radius:15px;
   font-size:20px;color:var(--ink);cursor:pointer;
@@ -98,7 +106,7 @@ h1{
 }
 .dpad button:active{transform:scale(.94);background:var(--floor)}
 .dpad .empty{visibility:hidden}
-body.dpad-mini .dpad{width:min(120px,36vw);gap:4px}
+body.dpad-mini .dpad{width:min(108px,33vw);gap:4px}
 body.dpad-mini .dpad button{border-radius:9px;font-size:12px;box-shadow:none}
 body.dpad-off .dpad{display:none}
 
@@ -126,7 +134,7 @@ body.dpad-off .dpad{display:none}
 .msg.warn{border-left-color:var(--error)}
 .boardnote{display:none;flex:0 0 auto;text-align:center;font-size:10.5px;color:var(--ink-soft);line-height:1.6;white-space:pre-line;margin-top:6px}
 body.debug .boardnote{display:block}
-.debugbar{display:none;flex:0 0 auto;gap:6px;justify-content:center;flex-wrap:wrap;padding-top:8px}
+.debugbar{display:none;flex:0 0 auto;gap:6px;justify-content:center;flex-wrap:wrap;padding-top:8px;padding-bottom:2px}
 body.debug .debugbar{display:flex}
 
 .banner{
@@ -175,22 +183,19 @@ body.debug .debugbar{display:flex}
 .rules b{color:var(--ink)}
 .picker{background:var(--card);border-radius:20px;padding:16px 14px 12px;width:min(400px,92vw);max-height:80vh;display:flex;flex-direction:column}
 .picker h2{font-size:14px;font-weight:800;margin-bottom:8px;text-align:center}
-.jumprow{display:flex;gap:6px;margin-bottom:8px}
-.jumprow input{
-  flex:1;border:1px solid var(--line);border-radius:999px;padding:6px 12px;
-  font:inherit;font-size:13px;color:var(--ink);background:var(--paper);min-width:0;
-}
-.jumprow .btn{flex:0 0 auto}
-.chapters{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
+.chapters{display:flex;gap:6px;justify-content:center;padding-bottom:8px;margin-bottom:8px}
 .chapters button{
   flex:0 0 auto;border:1px solid var(--line);background:var(--paper);border-radius:999px;
-  font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);padding:5px 10px;cursor:pointer;
+  font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);padding:5px 9px;cursor:pointer;
+  font-variant-numeric:tabular-nums;
 }
 .chapters button.active{background:var(--ink);color:#fff;border-color:var(--ink)}
-.grid-stages{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;overflow-y:auto;padding:2px;flex:1}
+/* 100面ぶんを横10×縦10で並べる */
+.grid-stages{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;overflow-y:auto;padding:2px;flex:1}
 .grid-stages button{
-  aspect-ratio:1;border:1px solid var(--line);background:var(--paper);border-radius:10px;
-  font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);cursor:pointer;font-variant-numeric:tabular-nums;
+  aspect-ratio:1;border:1px solid var(--line);background:var(--paper);border-radius:6px;
+  font:inherit;font-size:9px;font-weight:700;color:var(--ink-soft);cursor:pointer;font-variant-numeric:tabular-nums;
+  display:flex;align-items:center;justify-content:center;padding:0;
 }
 .grid-stages button.cleared{background:var(--done-soft);border-color:var(--done);color:var(--done)}
 .grid-stages button.current{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -204,14 +209,27 @@ body.debug .debugbar{display:flex}
   <header>
     <a class="iconbtn" href="../">◀ メニュー</a>
     <h1>倉庫パズル</h1>
-    <button class="iconbtn" id="btnRules" title="ルール">ルール</button>
+    <div class="hstack">
+      <button class="iconbtn" id="btnRules" title="ルール">ルール</button>
+      <button class="iconbtn" id="btnReset" title="このステージを最初から">最初から</button>
+    </div>
   </header>
 
   <div class="banner" id="banner"><span id="bannerText"></span></div>
 
+  <!-- デバッグ用のボタンはまとめてステージより上に置く -->
+  <div class="debugbar">
+    <button class="btn" id="btnUndo">↩ 戻す</button>
+    <button class="btn" id="btnHint">💡 ヒント</button>
+    <button class="btn" id="btnPick">選ぶ</button>
+    <button class="btn" id="btnPrev">◀</button>
+    <button class="btn" id="btnNext">▶</button>
+  </div>
+
   <div class="stagebar">
-    <div class="stageno"><small id="stageLabel">ステージ</small><span id="stageNo">--</span></div>
     <div class="pushes"><span id="pushes">0</span> 手</div>
+    <div class="stagelabel" id="stageLabel">ステージ</div>
+    <div class="stageno"><span id="stageNo">--</span></div>
   </div>
 
   <div class="board-wrap">
@@ -240,25 +258,18 @@ body.debug .debugbar{display:flex}
     <button data-dir="up" aria-label="上へ">↑</button>
     <button class="empty"></button>
     <button data-dir="left" aria-label="左へ">←</button>
-    <button data-dir="down" aria-label="下へ">↓</button>
+    <button class="empty"></button>
     <button data-dir="right" aria-label="右へ">→</button>
-  </div>
-
-  <div class="debugbar">
-    <button class="btn" id="btnUndo">↩ 戻す</button>
-    <button class="btn" id="btnHint">💡 ヒント</button>
-    <button class="btn" id="btnPick">選ぶ</button>
-    <button class="btn" id="btnPrev">◀</button>
-    <button class="btn" id="btnNext">▶</button>
+    <button class="empty"></button>
+    <button data-dir="down" aria-label="下へ">↓</button>
+    <button class="empty"></button>
   </div>
 
   <div class="footrow">
     <div class="left">
       <button class="btn" id="btnDpadMode" title="十字キーの表示">キー大</button>
     </div>
-    <div class="mid">
-      <button class="btn" id="btnReset">🔄 最初から</button>
-    </div>
+    <div class="mid"></div>
     <div class="right">
       <button class="btn" id="btnFav" style="display:none">☆</button>
       <button class="btn" id="btnExport" style="display:none">★</button>
@@ -286,7 +297,7 @@ body.debug .debugbar{display:flex}
       <p>🐧 を動かして、📦 をすべて<b>置き場</b>に運びます。</p>
       <p>置き場は<span class="sw goal"></span><b>オレンジのマス</b>です。荷物が乗ると<span class="sw done"></span><b>グリーン</b>に変わります。<b>全部グリーンになればクリア</b>です。</p>
       <p><b>箱は押すことしかできません。</b>引けません。一度に押せる箱は1つだけで、壁や別の箱が後ろにあると押せません。</p>
-      <p>角に押し込むなど、二度と動かせない置き方をすると<b>その面は詰みます</b>。おかしいと思ったら <b>🔄 最初から</b> でやり直してください。</p>
+      <p>角に押し込むなど、二度と動かせない置き方をすると<b>その面は詰みます</b>。おかしいと思ったら右上の <b>最初から</b> でやり直してください。</p>
       <p>操作は <b>矢印キー / WASD</b>、<b>画面のスワイプ</b>（どこでもかまいません）、<b>十字キー</b>のどれでも。十字キーは左下のボタンで<b>大 / 小 / 非表示</b>を切り替えられます。</p>
       <p>ステージは1面ずつ進みます。クリアすると、その面の<b>最短手数</b>が分かります。</p>
     </div>
@@ -297,10 +308,6 @@ body.debug .debugbar{display:flex}
 <div class="overlay" id="pickOverlay">
   <div class="picker">
     <h2>ステージを選ぶ（デバッグ）</h2>
-    <div class="jumprow">
-      <input type="number" id="jumpNo" min="1" placeholder="番号">
-      <button class="btn" id="btnJump">飛ぶ</button>
-    </div>
     <div class="chapters" id="chapters"></div>
     <div class="grid-stages" id="stageGrid"></div>
     <button class="btn" id="btnPickClose">とじる</button>
@@ -480,7 +487,7 @@ fetch(FILE)
       $('banner').style.display='block';
       $('bannerText').textContent='📨 送られてきたステージです。本編の進みには影響しません';
       $('btnBackHome').style.display='';
-      $('stageLabel').textContent='送られた';
+      $('stageLabel').textContent='送られたステージ';
     }
     const start=(WANT>=1&&WANT<=LEVELS.length) ? WANT-1 : unlockedMax();
     startLevel(start);
@@ -805,20 +812,11 @@ function nextStage(){
 
 /* ================= ステージ選択(デバッグ) ================= */
 let chapter=0;
-const CHAPTER=50;
+const CHAPTER=100;                 // 1グループ100面 = 10×10のマス目ぴったり
 function openPicker(){
   chapter=Math.floor(index/CHAPTER);
-  $('jumpNo').max=LEVELS.length;
-  $('jumpNo').value=index+1;
   renderPicker();
   $('pickOverlay').classList.add('show');
-  setTimeout(()=>$('jumpNo').select(),50);
-}
-function jumpTo(){
-  const n=+$('jumpNo').value;
-  if(!(n>=1&&n<=LEVELS.length)) return;
-  $('pickOverlay').classList.remove('show');
-  startLevel(n-1);
 }
 function renderPicker(){
   const chapters=Math.ceil(LEVELS.length/CHAPTER);
@@ -826,7 +824,7 @@ function renderPicker(){
   ch.innerHTML='';
   for(let c=0;c<chapters;c++){
     const b=document.createElement('button');
-    b.textContent=(c*CHAPTER+1)+'〜'+Math.min((c+1)*CHAPTER, LEVELS.length);
+    b.textContent=(c*CHAPTER+1)+'〜';
     if(c===chapter) b.classList.add('active');
     b.addEventListener('click',()=>{ chapter=c; renderPicker(); });
     ch.appendChild(b);
@@ -927,8 +925,6 @@ $('btnUndo').addEventListener('click',undo);
 $('btnHint').addEventListener('click',hint);
 $('btnPick').addEventListener('click',openPicker);
 $('btnPickClose').addEventListener('click',()=>$('pickOverlay').classList.remove('show'));
-$('btnJump').addEventListener('click',jumpTo);
-$('jumpNo').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); jumpTo(); } });
 $('btnPrev').addEventListener('click',()=>startLevel(index-1));
 $('btnNext').addEventListener('click',()=>startLevel(index+1));
 
