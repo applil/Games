@@ -165,6 +165,12 @@ body.debug .debugbar{display:flex}
 #btnShare{margin-bottom:8px}
 
 .rules p{font-size:12.5px;line-height:1.85;color:var(--ink-soft);margin-bottom:9px}
+.rules .sw{
+  display:inline-block;width:15px;height:15px;border-radius:4px;
+  vertical-align:-3px;margin:0 4px 0 1px;
+}
+.rules .sw.goal{background:var(--goal-soft)}
+.rules .sw.done{background:var(--done-soft)}
 .rules b{color:var(--ink)}
 .picker{background:var(--card);border-radius:20px;padding:16px 14px 12px;width:min(400px,92vw);max-height:80vh;display:flex;flex-direction:column}
 .picker h2{font-size:14px;font-weight:800;margin-bottom:8px;text-align:center}
@@ -276,7 +282,8 @@ body.debug .debugbar{display:flex}
   <div class="win-card" style="text-align:left">
     <div style="font-size:17px;font-weight:800;text-align:center;margin-bottom:12px">ルール</div>
     <div class="rules">
-      <p>🐧 を動かして、📦 をすべて 🟠 の置き場に運びます。</p>
+      <p>🐧 を動かして、📦 をすべて<b>置き場</b>に運びます。</p>
+      <p>置き場は<span class="sw goal"></span><b>オレンジのマス</b>です。荷物が乗ると<span class="sw done"></span><b>グリーン</b>に変わります。<b>全部グリーンになればクリア</b>です。</p>
       <p><b>箱は押すことしかできません。</b>引けません。一度に押せる箱は1つだけで、壁や別の箱が後ろにあると押せません。</p>
       <p>角に押し込むなど、二度と動かせない置き方をすると<b>その面は詰みます</b>。おかしいと思ったら <b>🔄 最初から</b> でやり直してください。</p>
       <p>操作は <b>矢印キー / WASD</b>、盤面の<b>スワイプ</b>、<b>十字キー</b>のどれでも。十字キーは左下のボタンで<b>大 / 小 / 非表示</b>を切り替えられます。</p>
