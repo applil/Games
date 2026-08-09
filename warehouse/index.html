@@ -137,6 +137,8 @@ body.dpad-off .footrow{position:static;padding-top:10px;align-items:center}
 .btn:active{transform:scale(.96)}
 .btn:disabled{opacity:.4;cursor:default}
 .btn-new{background:var(--ink);color:#fff;border-color:var(--ink)}
+/* ★は1つだけ。ふだんはグレー、記録するとオレンジ。数字はその面の見立て */
+#btnFav{color:var(--ink-soft);font-variant-numeric:tabular-nums}
 #btnFav.on{background:var(--goal-soft);border-color:var(--goal);color:var(--goal)}
 
 .msg{
@@ -149,6 +151,9 @@ body.dpad-off .footrow{position:static;padding-top:10px;align-items:center}
 body.debug .boardnote{display:block}
 .debugbar{display:none;flex:0 0 auto;gap:6px;justify-content:center;flex-wrap:wrap;padding-top:8px;padding-bottom:2px}
 body.debug .debugbar{display:flex}
+/* よりぬき版はステージの行き来だけ出す(戻す・ヒント・詰み表示はデバッグ専用のまま) */
+body.picks .debugbar{display:flex}
+body.picks #btnUndo, body.picks #btnHint{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -185,6 +190,8 @@ body.debug .debugbar{display:flex}
 .win-sub{font-size:12px;color:var(--ink-soft);margin-bottom:16px;line-height:1.8}
 .win-card .btn{width:100%;padding:10px 16px;font-size:13px}
 #btnShare{margin-bottom:8px}
+#btnFavWin{margin-bottom:8px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+#btnFavWin.on{background:var(--goal-soft);border-color:var(--goal);color:var(--goal)}
 
 .rules p{font-size:12.5px;line-height:1.85;color:var(--ink-soft);margin-bottom:9px}
 .rules .sw{
@@ -252,12 +259,13 @@ body.debug .debugbar{display:flex}
   <div class="boardnote" id="boardNote"></div>
 
   <div class="favpanel" id="favPanel">
-    <div class="q">このステージ、1〜500でいうとどのあたり？</div>
+    <div class="q" id="favQ">このステージ、どのあたり？</div>
     <div class="v"><span id="favVal">250</span> 面くらい</div>
     <input type="range" id="favRange" min="1" max="500" value="250">
     <div class="row">
       <button class="btn" id="favCancel">やめる</button>
       <button class="btn" id="favRemove">★を外す</button>
+      <button class="btn" id="btnExport">書き出す</button>
       <button class="btn btn-new" id="favOk">★ 記録</button>
     </div>
   </div>
@@ -278,8 +286,7 @@ body.debug .debugbar{display:flex}
     </div>
     <div class="mid"></div>
     <div class="right">
-      <button class="btn" id="btnFav" style="display:none">☆</button>
-      <button class="btn" id="btnExport" style="display:none">★</button>
+      <button class="btn" id="btnFav" style="display:none">★ --</button>
       <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
     </div>
   </div>
@@ -293,6 +300,7 @@ body.debug .debugbar{display:flex}
     <div class="win-verdict" id="winVerdict"></div>
     <div class="win-time" id="winPush">0手</div>
     <div class="win-sub" id="winSub"></div>
+    <button class="btn" id="btnFavWin" style="display:none">★ --</button>
     <button class="btn" id="btnShare">📨 結果を送る</button>
     <button class="btn btn-new" id="btnNextStage">次のステージへ</button>
   </div>
@@ -341,6 +349,9 @@ const WANT=+QS.get('lv')||0;
 const FILE=SET==='picks' ? 'levels-picks.json' : 'levels.json';
 let SHARED=false;                        // 共有リンクで開いた1面モード
 if(DEBUG) document.body.classList.add('debug');
+if(SET==='picks') document.body.classList.add('picks');
+// ステージを行き来できるモード。よりぬき版は好きな順に見たいので許す
+const NAV = DEBUG || SET==='picks';
 
 /* ================= 効果音 ================= */
 const AC = window.AudioContext || window.webkitAudioContext;
@@ -503,14 +514,20 @@ fetch(FILE)
     hideLoading();
     // 送られてきたリンクは、その1面だけを独立して遊べるようにする
     SHARED = !DEBUG && WANT>=1 && WANT<=LEVELS.length && SET!=='picks' && (WANT-1)!==unlockedMax();
+    // ★の見立ては「本編の何面くらいか」。目盛りは本編の面数に合わせる
+    {
+      const max = SET==='picks' ? 500 : LEVELS.length;
+      $('favRange').max=max;
+      $('favQ').textContent='このステージ、1〜'+max+'でいうとどのあたり？';
+    }
     if(SET==='picks'){
       $('banner').style.display='block';
-      $('bannerText').textContent='⭐ よりぬき版（'+LEVELS.length+'面）気に入った面は ☆ を押してください';
+      $('bannerText').textContent='⭐ よりぬき版（'+LEVELS.length+'面）気に入った面は ★ を押してください';
       $('btnFav').style.display='';
-      $('btnExport').style.display='';
+      $('btnFavWin').style.display='';
     }else if(DEBUG){
       $('btnFav').style.display='';
-      $('btnExport').style.display='';
+      $('btnFavWin').style.display='';
     }
     if(SHARED){
       $('banner').style.display='block';
@@ -579,7 +596,7 @@ function startLevel(i){
   layoutBoard();
   updateStats();
   updateFavButton();
-  if(DEBUG) updateNav();
+  if(NAV) updateNav();
   const q=(SET?('set='+SET+'&'):'')+(DEBUG?'debug=1&':'')+((SHARED||DEBUG)?('lv='+(index+1)):'');
   try{ history.replaceState(null,'', q?('?'+q.replace(/&$/,'')):location.pathname); }catch(e){}
 }
@@ -649,21 +666,33 @@ function updateNav(){
 function updateFavButton(){
   if(!puzzle) return;
   const f=favs[puzzle.meta.id];
-  const b=$('btnFav');
-  b.textContent = f ? ('★'+(f.place?' '+f.place:'')) : '☆';
-  b.classList.toggle('on', !!f);
+  // 記録してあればその見立ての面数、まだなら今のステージ番号を出す
+  const label='★ ' + ((f&&f.place) ? f.place : (index+1));
+  for(const id of ['btnFav','btnFavWin']){
+    const b=$(id);
+    b.textContent=label;
+    b.classList.toggle('on', !!f);
+    b.title = f ? ('★ 記録ずみ（'+f.place+'面くらい）') : '★を付ける';
+  }
 }
-function openFavPanel(){
+let favFromWin=false;
+function openFavPanel(fromWin){
   if(!puzzle) return;
+  favFromWin=!!fromWin;
+  if(favFromWin) $('overlay').classList.remove('show');   // クリア画面をいったん引っ込める
   const f=favs[puzzle.meta.id];
-  const def=f&&f.place ? f.place : (SET==='picks' ? 300 : index+1);
+  const def=f&&f.place ? f.place : (SET==='picks' ? Math.round(+$('favRange').max/2) : index+1);
   $('favRange').value=def;
   $('favVal').textContent=def;
   $('favRemove').style.display = f ? '' : 'none';
   $('favPanel').classList.add('show');
   layoutBoard();
 }
-function closeFavPanel(){ $('favPanel').classList.remove('show'); layoutBoard(); }
+function closeFavPanel(){
+  $('favPanel').classList.remove('show');
+  layoutBoard();
+  if(favFromWin){ favFromWin=false; $('overlay').classList.add('show'); }
+}
 function saveFav(){
   const lv=puzzle.meta;
   favs[lv.id]={b:lv.b, place:+$('favRange').value, from:(SET==='picks'?'よりぬき':'本編')+' 第'+(index+1)+'面'};
@@ -817,7 +846,7 @@ function checkWin(){
   // 送られてきた1面は、本編の進みには足さない
   if(!SHARED && (first||pushCount<prev)){ progress.cleared[lv.id]=pushCount; saveProgress(); }
   updateStats();
-  if(DEBUG) updateNav();
+  if(NAV) updateNav();
 
   const perfect=pushCount===lv.p;
   $('winTitle').textContent = SHARED ? 'クリア！' : ('ステージ'+(index+1)+' クリア！');
@@ -973,7 +1002,8 @@ $('btnDpadMode').addEventListener('click',()=>{
 $('btnRules').addEventListener('click',()=>$('rulesOverlay').classList.add('show'));
 $('btnRulesClose').addEventListener('click',()=>$('rulesOverlay').classList.remove('show'));
 $('btnReset').addEventListener('click',resetLevel);
-$('btnFav').addEventListener('click',openFavPanel);
+$('btnFav').addEventListener('click',()=>openFavPanel(false));
+$('btnFavWin').addEventListener('click',()=>openFavPanel(true));
 $('btnExport').addEventListener('click',exportFavs);
 $('favRange').addEventListener('input',e=>{ $('favVal').textContent=e.target.value; });
 $('favOk').addEventListener('click',saveFav);
