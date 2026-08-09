@@ -27,6 +27,10 @@ const SPICE_TO   = 700;            // ここまでで差し込みを終える
 const SPICE_RATE = 0.20;           // 差し込む割合(最大)
 const SPICE_JUMP = 4500;           // 何ランク先の候補から持ってくるか
 const POOL_X  = 20;                 // 目標数の何倍の候補を作ってから間引くか
+const BIG_COUNT  = 30;             // 301〜500 にばら撒く大きい面の数
+const BIG_FROM   = 301;            // ばら撒く区間
+const BIG_TO     = 500;
+const BIG_POOL   = 90;             // その候補を何面用意するか
 const EASE    = 0.75;              // <1 で易しい側の混雑を圧縮する(順位の進み方)
 const STATE_CAP  = 150000;         // 全状態がこれを超える盤は捨てる(生成が重くなるため)
                                    // 遊ぶ側はこの表を作らないので、実行時の負担には関係しない
@@ -150,6 +154,54 @@ function harvest(rng, out, seen, cfg){
   }
 }
 
+// 大きい盤だけを狙って採る。荷物は2〜3個(それ以上は全状態が爆発する)
+function harvestBig(rng, out, seen){
+  const size = rng()<0.5 ? '巨大' : '超巨大';
+  const layout=S.buildShape(rng,{size});
+  if(!layout) return;
+  const {grid,w}=layout;
+  const floors=[];
+  for(let i=0;i<grid.length;i++) if(!grid[i]) floors.push(i);
+  if(floors.length<24||floors.length>320) return;
+  const nbox = floors.length>140 ? 2 : (2+(rng()*2|0));
+  const gp=S.pickGoals(layout, floors, nbox, rng);
+  if(!gp) return;
+  const goals=gp.goals;
+  const dist=solvableStates(grid,w,goals,STATE_CAP);
+  if(!dist) return;
+  const policies=greedyPolicies(grid,w,goals);
+  // 大きい盤は運搬距離が長いので、深い局面を狙う
+  const deep=[];
+  for(const [k,d] of dist){
+    if(d<8||d>60) continue;
+    const rep=k.charCodeAt(0);
+    const boxes=[];
+    for(let i=1;i<k.length;i++) boxes.push(k.charCodeAt(i));
+    deep.push({boxes,rep,d});
+  }
+  if(!deep.length) return;
+  deep.sort((a,b)=>b.d-a.d);
+  const take=deep.slice(0, Math.max(1, Math.round(deep.length*0.25)));
+  for(let t=0;t<3;t++){
+    const c=take[rng()*take.length|0];
+    const r=regionRep(grid,w,new Set(c.boxes),c.rep);
+    const a=analyse(grid,w,goals,dist,{boxes:c.boxes,rep:c.rep,cells:r.cells},rng,policies);
+    if(!a) continue;
+    const rows=toXSB({grid,w:layout.w,h:layout.h,boxes:c.boxes,goals,player:c.rep});
+    const key=canonical(rows);
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      id:hashId(key), b:rows.join('/'), p:a.pushes,
+      s:+a.score.toFixed(1), k:+(a.score+Math.min(a.pushes,16)*LEN_BONUS).toFixed(1),
+      tr:Math.round(a.trapRatio*100), f:a.forced, g:a.greedyDied, og:a.offGoal?1:0,
+      sh:layout.shape, sz:layout.size, ar:layout.aspect, gp:gp.pattern,
+      sp:'-', pl:'-', cl:layout.clutter, st:dist.size, big:1,
+    });
+    break;                          // 同じ盤から1面だけ
+  }
+}
+
 /* ================= 生成 ================= */
 console.log(`面プールを作ります (目標 ${TOTAL} 面)`);
 const rng=mulberry32(SEED);
@@ -166,6 +218,16 @@ while(levels.length<POOL_TARGET && attempts<POOL_TARGET*200){
   }
 }
 console.log(`  候補 ${levels.length} 面 / 試行 ${attempts} 回 / ${((Date.now()-t0)/1000).toFixed(0)}秒`);
+
+// 大きい盤を別枠で用意する
+const tBig=Date.now();
+let bigTries=0;
+const bigStart=levels.length;
+while(levels.length-bigStart<BIG_POOL && bigTries<BIG_POOL*80){
+  bigTries++;
+  harvestBig(rng, levels, seen);
+}
+console.log(`  大きい盤の候補 ${levels.length-bigStart} 面 / 試行 ${bigTries} 回 / ${((Date.now()-tBig)/1000).toFixed(0)}秒`);
 
 /* ================= 難易度の設計 =================
    難しさを4つのパラメータに分けて、面ごとに独立に振る。
@@ -219,6 +281,8 @@ function chooseFor(spec, pool, used, recent){
   for(let i=0;i<pool.length;i++){
     if(used[i]) continue;
     const l=pool[i];
+    if(spec.big && !l.big) continue;          // 大きい面の枠
+    if(!spec.big && l.big) continue;          // 大きい面は指定の枠だけに出す
     // バイナリは指定があれば必須条件
     if(spec.greedy===true  && l.g<3) continue;
     if(spec.greedy===false && l.g>=3) continue;
@@ -239,6 +303,16 @@ function chooseFor(spec, pool, used, recent){
 }
 
 const srng=mulberry32(SEED^0x5bf03635);
+// 大きい面を入れるステージをあらかじめ決める(301〜500 に散らす)
+const bigSlots=new Set();
+{
+  const span=BIG_TO-BIG_FROM+1;
+  const step=span/BIG_COUNT;
+  for(let i=0;i<BIG_COUNT;i++){
+    const at=Math.round(BIG_FROM-1 + i*step + srng()*step);
+    if(at>=0&&at<TOTAL) bigSlots.add(at);
+  }
+}
 const pool=levels.slice();
 const used=new Uint8Array(pool.length);
 const picked=[];
@@ -246,10 +320,13 @@ const recent=[];
 let missed=0;
 for(let i=0;i<TOTAL;i++){
   let spec=specFor(i, TOTAL, srng);
+  // 大きい面の枠は、広さを最優先にして条件を緩める
+  // (広い盤は罠が少なく段取りで難しくなるので、小さい盤の指標では測れない)
+  if(bigSlots.has(i)) spec=Object.assign({}, spec, {big:true, greedy:null, twist:null, trap:20});
   let idx=chooseFor(spec, pool, used, recent);
   if(idx==null){                       // 条件を満たす面が無ければ順に緩める
     missed++;
-    for(const relax of [{twist:null},{greedy:null,twist:null}]){
+    for(const relax of [{twist:null},{greedy:null,twist:null},{greedy:null,twist:null,big:false}]){
       idx=chooseFor(Object.assign({},spec,relax), pool, used, recent);
       if(idx!=null) break;
     }
@@ -300,6 +377,15 @@ const tally=(key)=>{
   for(const l of levels) c[l[key]]=(c[l[key]]||0)+1;
   return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${v}`).join(' ');
 };
+const bigAt=levels.map((l,i)=>l.big?i+1:0).filter(Boolean);
+console.log(`\n大きい面: ${bigAt.length}面 → ステージ ${bigAt.join(', ')}`);
+if(bigAt.length){
+  const bs=levels.filter(l=>l.big);
+  const area=l=>(l.b.split('/')[0].length-2)*(l.b.split('/').length-2);
+  console.log(`  広さ ${Math.min(...bs.map(area))}〜${Math.max(...bs.map(area))}マス / `
+    +`手数 ${Math.min(...bs.map(l=>l.p))}〜${Math.max(...bs.map(l=>l.p))}手 / `
+    +`荷物 ${Math.min(...bs.map(l=>(l.b.match(/[$*]/g)||[]).length))}〜${Math.max(...bs.map(l=>(l.b.match(/[$*]/g)||[]).length))}個`);
+}
 console.log('\n型の散らばり:');
 console.log('  形      ', tally('sh'));
 console.log('  大きさ  ', tally('sz'), '/ 縦横比', tally('ar'));

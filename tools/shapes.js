@@ -290,11 +290,26 @@ function addClutter(L, rng){
 
 /* ================= 大きさと縦横比 ================= */
 // 小/中/大 × 縦長/正方/横長 を独立に振る
-const SIZE_RANGE={'小':[3,4], '中':[5,6], '大':[6,8], '特大':[9,10], '超特大':[11,12]};
-function pickSize(rng, minW, minH){
+const SIZE_RANGE={'小':[3,4], '中':[5,6], '大':[6,8], '特大':[9,10], '超特大':[11,12],
+                  '巨大':[13,16], '超巨大':[17,20]};
+// 巨大サイズは指定されたときだけ使う(ふつうの抽選には混ぜない)
+const HUGE=['巨大','超巨大'];
+function pickSize(rng, minW, minH, forceSize){
+  if(forceSize && SIZE_RANGE[forceSize]){
+    const base=SIZE_RANGE[forceSize];
+    const aspect=pick(['縦長','正方','横長'],rng);
+    let W=randInt(base[0],base[1],rng), H=randInt(base[0],base[1],rng);
+    if(aspect==='縦長') W=Math.max(4, W-randInt(1, Math.max(1,(W/2)|0), rng));
+    if(aspect==='横長') H=Math.max(4, H-randInt(1, Math.max(1,(H/2)|0), rng));
+    return {W:Math.max(W,minW||0), H:Math.max(H,minH||0), size:forceSize, aspect};
+  }
+  return pickSizeNormal(rng, minW, minH);
+}
+function pickSizeNormal(rng, minW, minH){
   // その形が成立する大きさの中から選ぶ。
   // (先に大きさを引くと、大きい盤でしか作れない形に引っぱられて大ばかりになる)
-  const ok=Object.keys(SIZE_RANGE).filter(k=>SIZE_RANGE[k][1]>=(minW||0)&&SIZE_RANGE[k][1]>=(minH||0));
+  const ok=Object.keys(SIZE_RANGE).filter(k=>HUGE.indexOf(k)<0
+    && SIZE_RANGE[k][1]>=(minW||0) && SIZE_RANGE[k][1]>=(minH||0));
   // 大きい盤は荷物を減らさないと全状態の列挙が重い。出現も少なめにする
   const WEIGHT={'小':3,'中':4,'大':4,'特大':2,'超特大':1};
   const weighted=[];
@@ -313,8 +328,9 @@ function pickSize(rng, minW, minH){
 // 形を先に選んでから、その形が成立する大きさを引く。
 // (先に大きさを引くと、小さい盤でも作れる「空洞」「まだら」ばかりになる)
 function buildShape(rng, opts){
+  opts=opts||{};
   const shape=pick(SHAPES,rng);
-  const {W,H,size,aspect}=pickSize(rng, shape.min[0], shape.min[1]);
+  const {W,H,size,aspect}=pickSize(rng, shape.min[0], shape.min[1], opts.size);
   const L=shape.build(rng,W,H);
   L.shape=shape.name;
   addClutter(L, rng);
@@ -469,7 +485,7 @@ function matchesPlayer(pattern, prof){
 }
 
 module.exports={
-  SHAPES, GOAL_PATTERNS, START_PATTERNS, PLAYER_PATTERNS, CLUTTERS,
+  SHAPES, GOAL_PATTERNS, START_PATTERNS, PLAYER_PATTERNS, CLUTTERS, SIZE_RANGE, HUGE,
   buildShape, pickSize, pickGoals, startProfile, matchesStart,
   playerProfile, matchesPlayer,
   keepLargest, crop, floorCount, bfsOrder, openness, manhattan,

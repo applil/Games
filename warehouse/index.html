@@ -475,20 +475,46 @@ fetch(FILE)
   })
   .catch(e=>showLoading('面の読み込みに失敗しました ('+e.message+')'));
 
+/* ================= 全状態の表(デバッグ用・裏で計算) ================= */
+let tableWorker=null, tableReq=0, hintPending=false;
+if(DEBUG){
+  try{
+    tableWorker=new Worker('table-worker.js');
+    tableWorker.onmessage=e=>{
+      if(e.data.id!==tableReq) return;              // 古い面の結果は捨てる
+      dist = e.data.entries ? new Map(e.data.entries) : null;
+      updateStats();
+      if(hintPending){ hintPending=false; hint(); }
+      else if(dist) checkDead();
+    };
+    tableWorker.onerror=()=>{ tableWorker=null; };
+  }catch(err){ tableWorker=null; }
+}
+function requestTable(){
+  const id=++tableReq;
+  if(tableWorker){
+    tableWorker.postMessage({id, grid:puzzle.grid, w:puzzle.w, goals:puzzle.goals, cap:3000000});
+  }else{
+    // Worker が使えない環境ではその場で作る
+    dist=solvableStates(puzzle.grid, puzzle.w, puzzle.goals, 3000000);
+  }
+}
+
 /* ================= 面の開始 ================= */
 function startLevel(i){
   index=Math.max(0, Math.min(LEVELS.length-1, i));
   const lv=LEVELS[index];
   puzzle=parseBoard(lv.b);
   puzzle.meta=lv;
-  // 全状態の表は詰み判定とヒントにしか使わない。通常プレイでは作らない
-  // (大きい盤ほど作るのに時間がかかるので、遊ぶ側の負担をゼロにする)
-  dist = DEBUG ? solvableStates(puzzle.grid, puzzle.w, puzzle.goals, 3000000) : null;
+  // 全状態の表は詰み判定とヒントにしか使わない。通常プレイでは作らない。
+  // デバッグ時も裏で作る(大きい盤だと数秒かかるため、画面は止めない)
+  dist=null;
+  if(DEBUG) requestTable();
   goalSet=new Set(puzzle.goals);
   boxes=puzzle.boxes.slice();
   player=puzzle.player;
   undoStack=[]; pushCount=0; moveCount=0;
-  finished=false; deadShown=false;
+  finished=false; deadShown=false; hintPending=false;
   $('overlay').classList.remove('show');
   $('favPanel').classList.remove('show');
   hideMsg();
@@ -553,6 +579,7 @@ function updateStats(){
     if(lv.og) tags.push('置き場からどける');
     if(lv.f>=2) tags.push('一本道あり');
     $('boardNote').textContent='最短'+lv.p+'手 / 罠率'+lv.tr+'% / 自己ベスト'+(b==null?'--':b+'手')
+      +' / 表'+(dist?dist.size+'状態':'計算中…')
       +'\n'+(lv.sh||'-')+' '+(lv.sz||'')+' '+(lv.gp||'')+' '+tags.join(' ');
   }
 }
@@ -666,7 +693,7 @@ function resetLevel(){
 
 /* ================= 詰み検知(デバッグのみ) ================= */
 function checkDead(){
-  if(!dist) return;
+  if(!dist) return;      // 表がまだ届いていない間は詰み表示なし
   if(dist.has(stateKeyNow())){ if(deadShown){ deadShown=false; hideMsg(); } return; }
   if(deadShown) return;
   deadShown=true; SFX.dead();
@@ -681,7 +708,12 @@ function clearHint(){
   for(const el of cellEls) el.classList.remove('hintbox');
 }
 function hint(){
-  if(!puzzle||finished||!dist) return;
+  if(!puzzle||finished) return;
+  if(!dist){                                   // まだ計算中。届いたら自動で出す
+    hintPending=true;
+    showMsg('全状態を計算しています… 少し待ってください');
+    return;
+  }
   clearHint();
   const d=remainingPushes();
   if(d===null){ showMsg('この配置からはもう完成できません。', true); return; }
