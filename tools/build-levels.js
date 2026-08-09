@@ -27,6 +27,9 @@ const SPICE_RATE = 0.20;           // 差し込む割合(最大)
 const SPICE_JUMP = 4500;           // 何ランク先の候補から持ってくるか
 const POOL_X  = 5;                 // 目標数の何倍の候補を作ってから間引くか
 const EASE    = 0.75;              // <1 で易しい側の混雑を圧縮する(順位の進み方)
+const DEPTH_MAX  = 24;             // 採用する最短手数の上限
+const DEPTH_BIAS = 2.2;            // 深い(手数の長い)局面を選ぶ重み。大きいほど長い面が増える
+const LEN_BONUS  = 0.6;            // 並べ替えのとき、手数1手あたりに足す難易度
 
 /* ================= 盤面の文字表現 (XSB) ================= */
 // # 壁 / 空白 床 / $ 荷物 / . 置き場 / * 置き場の上の荷物 / @ 人 / + 置き場の上の人
@@ -99,35 +102,49 @@ function hashId(str){
 
 /* ================= 1盤面から候補を集める ================= */
 function harvest(rng, out, seen, cfg){
-  const W=3+(rng()*4|0), H=3+(rng()*4|0);          // 3x3 〜 6x6
+  const W=3+(rng()*5|0), H=3+(rng()*5|0);          // 3x3 〜 7x7
   const layout=randomLayout(rng,W,H,0.04+rng()*0.30);
   if(!layout) return;
   const {grid,w}=layout;
   const floors=[];
   for(let i=0;i<grid.length;i++) if(!grid[i]) floors.push(i);
   const nbox=2+(rng()*3|0);                        // 2〜4個
-  if(floors.length<nbox*3+2||floors.length>30) return;
+  if(floors.length<nbox*3+2||floors.length>34) return;
 
   // 置き場も完全ランダム
   const pool=floors.slice();
   for(let i=pool.length-1;i>0;i--){ const j=rng()*(i+1)|0; [pool[i],pool[j]]=[pool[j],pool[i]]; }
   const goals=pool.slice(0,nbox).sort((a,b)=>a-b);
 
-  const dist=solvableStates(grid,w,goals,200000);
+  const dist=solvableStates(grid,w,goals,300000);
   if(!dist) return;
   const policies=greedyPolicies(grid,w,goals);
 
-  // 解ける配置のうち、手数が短めのものから無作為に評価する
-  const cands=[];
+  // 解ける配置を手数ごとに分ける。浅い局面のほうが圧倒的に数が多いので、
+  // 無作為に採ると3手の面ばかりになる。手数で層別にして深い側を厚く採る。
+  const byDepth=new Map();
   for(const [k,d] of dist){
-    if(d<3||d>16) continue;
+    if(d<3||d>DEPTH_MAX) continue;
     const rep=k.charCodeAt(0);
     const boxes=[];
     for(let i=1;i<k.length;i++) boxes.push(k.charCodeAt(i));
-    cands.push({boxes,rep,d});
+    if(!byDepth.has(d)) byDepth.set(d,[]);
+    byDepth.get(d).push({boxes,rep,d});
   }
-  if(!cands.length) return;
-  for(let i=cands.length-1;i>0;i--){ const j=rng()*(i+1)|0; [cands[i],cands[j]]=[cands[j],cands[i]]; }
+  if(!byDepth.size) return;
+  const depths=[...byDepth.keys()];
+  const weights=depths.map(d=>Math.pow(d,DEPTH_BIAS));
+  const wsum=weights.reduce((a,b)=>a+b,0);
+  const drawDepth=()=>{
+    let r=rng()*wsum;
+    for(let i=0;i<depths.length;i++){ r-=weights[i]; if(r<0) return depths[i]; }
+    return depths[depths.length-1];
+  };
+  const cands=[];
+  for(let t=0;t<10;t++){
+    const bucket=byDepth.get(drawDepth());
+    cands.push(bucket[rng()*bucket.length|0]);
+  }
 
   // 同じ壁の面ばかり増やさないよう、何通りか評価して上下から1つずつ採る
   const scored=[];
@@ -151,6 +168,7 @@ function harvest(rng, out, seen, cfg){
       b: rows.join('/'),
       p: a.pushes,
       s: +a.score.toFixed(1),
+      k: +(a.score + Math.min(a.pushes, 16)*LEN_BONUS).toFixed(1),   // 並べ替え用
       tr: Math.round(a.trapRatio*100),
       f: a.forced,
       g: a.greedyDied,
@@ -178,7 +196,7 @@ console.log(`  候補 ${levels.length} 面 / 試行 ${attempts} 回 / ${((Date.n
 
 /* ================= 難易度順に並べ、順位を等間隔に抜く ================= */
 // スコアが同じ面は手数の少ない順(短いほど取りつきやすい)
-levels.sort((a,b)=>(a.s-b.s)||(a.p-b.p));
+levels.sort((a,b)=>(a.k-b.k)||(a.p-b.p));
 
 // 候補は易しい側に固まるので、順位を進める速さに指数を掛けて混雑を圧縮する。
 // 指数 <1 だと序盤ほど順位が速く進むので、同じ手応えの面が延々と続かない。
