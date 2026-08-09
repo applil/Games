@@ -19,7 +19,12 @@ const {randomLayout, solvableStates, regionRep, greedyPolicies, analyse, mulberr
 const TOTAL   = +(process.argv[2]||2000);
 const OUTPUT  = process.argv[3]||path.join(__dirname,'..','warehouse','levels.json');
 const SEED    = 20260809;          // 並びを再現できるよう固定
-const WINDOW  = 40;                // 局所シャッフルの窓幅 = 難易度のばらけ具合
+const WINDOW  = 40;                // 局所シャッフルの窓幅 = 隣り合う面のばらけ具合
+const KEEP_EASY  = 12;             // 冒頭のこの面数は並べ替えず、いちばん易しいまま残す
+const SPICE_FROM = 20;             // ここから難しい面を差し込み始める
+const SPICE_TO   = 700;            // ここまでで差し込みを終える
+const SPICE_RATE = 0.20;           // 差し込む割合(最大)
+const SPICE_JUMP = 4500;           // 何ランク先の候補から持ってくるか
 const POOL_X  = 5;                 // 目標数の何倍の候補を作ってから間引くか
 const EASE    = 0.75;              // <1 で易しい側の混雑を圧縮する(順位の進み方)
 
@@ -178,27 +183,61 @@ levels.sort((a,b)=>(a.s-b.s)||(a.p-b.p));
 // 候補は易しい側に固まるので、順位を進める速さに指数を掛けて混雑を圧縮する。
 // 指数 <1 だと序盤ほど順位が速く進むので、同じ手応えの面が延々と続かない。
 // 順位ベースなので、スコア空間で切るのと違って同じ面が二度出ることがない。
-if(levels.length>TOTAL){
+const pool=levels.slice();          // 選抜前の全候補(難易度順)。差し込みに使う
+const pickedIdx=[];                 // levels[i] が pool の何番目か
+const usedIdx=new Set();
+if(pool.length>TOTAL){
   const picked=[];
   let last=-1;
   for(let i=0;i<TOTAL;i++){
     const t=Math.pow(i/(TOTAL-1), EASE);
-    let idx=Math.round(t*(levels.length-1));
+    let idx=Math.round(t*(pool.length-1));
     if(idx<=last) idx=last+1;                 // 必ず前へ進める(重複防止)
-    idx=Math.min(idx, levels.length-1-(TOTAL-1-i));
-    picked.push(levels[idx]);
+    idx=Math.min(idx, pool.length-1-(TOTAL-1-i));
+    picked.push(pool[idx]);
+    pickedIdx.push(idx);
+    usedIdx.add(idx);
     last=idx;
   }
   levels.length=0;
   levels.push(...picked);
 }else{
   console.log(`⚠ 候補が ${levels.length} 面しかありません`);
+  levels.forEach((_,i)=>{ pickedIdx.push(i); usedIdx.add(i); });
 }
 
-// 各要素を最大 WINDOW 個先までの範囲だけで入れ替える。
-// これで平均も下限も単調に上がりつつ、隣り合う面の難易度はばらける。
+/* --- 序盤に歯ごたえのある面を差し込む ---
+   窓を広げて後ろから引っ張ると、押し出された易しい面が終盤まで残ってしまう。
+   そこで【選ばれなかった候補】から難しい面を持ってきて置き換える。
+   こうすると後半の顔ぶれは一切変わらず、下限が下がらない。 */
 const srng=mulberry32(SEED^0x5bf03635);
-for(let i=0;i<levels.length;i++){
+let spiced=0;
+if(pool.length>TOTAL){
+  for(let i=SPICE_FROM;i<Math.min(SPICE_TO, levels.length);i++){
+    // 差し込む割合は序盤で最大、SPICE_TO に近づくほど0へ
+    const t=(i-SPICE_FROM)/(SPICE_TO-SPICE_FROM);
+    if(srng() > SPICE_RATE*(1-t)) continue;
+    // その面より SPICE_JUMP ランクほど先の、まだ使っていない候補を探す
+    let target=Math.min(pool.length-1, pickedIdx[i]+Math.round(SPICE_JUMP*(0.5+srng())));
+    let found=-1;
+    for(let d=0; d<pool.length; d++){
+      if(target+d<pool.length && !usedIdx.has(target+d)){ found=target+d; break; }
+      if(target-d>=0 && !usedIdx.has(target-d)){ found=target-d; break; }
+    }
+    if(found<0) continue;
+    usedIdx.delete(pickedIdx[i]);
+    usedIdx.add(found);
+    pickedIdx[i]=found;
+    levels[i]=pool[found];
+    spiced++;
+  }
+}
+console.log(`  序盤に差し込んだ歯ごたえのある面: ${spiced}面`);
+
+// 各要素を最大 WINDOW 個先までの範囲だけで入れ替える局所シャッフル。
+// 前へしか動かないので、差し込んだ面を除けば平均も下限も単調に上がる。
+// 冒頭 KEEP_EASY 面は動かさない(1面目が難しくなるのを防ぐ)
+for(let i=KEEP_EASY;i<levels.length;i++){
   const span=Math.min(WINDOW, levels.length-i);
   const j=i+(srng()*span|0);
   [levels[i],levels[j]]=[levels[j],levels[i]];
@@ -219,7 +258,7 @@ console.log(`\n${OUTPUT} に ${levels.length} 面を書き出しました (${(by
 /* ================= 並びの確認 ================= */
 const bucket=200;
 console.log('\n並びの確認 (200面ごと):');
-console.log('  区間        平均スコア  最低スコア  平均手数  荷物平均  罠率  素直に詰む');
+console.log('  区間        平均スコア  最低  最高  平均手数  罠率  素直に全滅する面');
 for(let i=0;i<levels.length;i+=bucket){
   const seg=levels.slice(i,i+bucket);
   const avg=seg.reduce((s,x)=>s+x.s,0)/seg.length;
@@ -227,10 +266,25 @@ for(let i=0;i<levels.length;i+=bucket){
   const ap=seg.reduce((s,x)=>s+x.p,0)/seg.length;
   const ab=seg.reduce((s,x)=>s+(x.b.match(/[$*]/g)||[]).length,0)/seg.length;
   const atr=seg.reduce((s,x)=>s+x.tr,0)/seg.length;
-  const ag=seg.reduce((s,x)=>s+x.g,0)/seg.length;
+  const mx=Math.max(...seg.map(x=>x.s));
+  const g3=seg.filter(x=>x.g>=3).length;
   console.log(`  ${String(i+1).padStart(4)}-${String(Math.min(i+bucket,levels.length)).padEnd(5)} `
-    +`${avg.toFixed(1).padStart(9)} ${min.toFixed(1).padStart(11)} `
-    +`${ap.toFixed(1).padStart(9)} ${ab.toFixed(1).padStart(9)} `
-    +`${atr.toFixed(0).padStart(5)}% ${ag.toFixed(1).padStart(9)}/3`);
+    +`${avg.toFixed(1).padStart(9)} ${min.toFixed(1).padStart(6)} ${mx.toFixed(1).padStart(5)} `
+    +`${ap.toFixed(1).padStart(9)} ${atr.toFixed(0).padStart(4)}% `
+    +`${String(g3).padStart(9)}/${seg.length}`);
 }
+
+// 序盤の様子は20面ごとにも出す
+console.log('\n序盤の様子 (20面ごと):');
+console.log('  区間      平均  最低  最高  素直に全滅');
+for(let i=0;i<Math.min(200,levels.length);i+=20){
+  const seg=levels.slice(i,i+20);
+  const avg=seg.reduce((s,x)=>s+x.s,0)/seg.length;
+  const min=Math.min(...seg.map(x=>x.s));
+  const mx=Math.max(...seg.map(x=>x.s));
+  const g3=seg.filter(x=>x.g>=3).length;
+  console.log(`  ${String(i+1).padStart(3)}-${String(i+20).padEnd(4)} `
+    +`${avg.toFixed(1).padStart(7)} ${min.toFixed(1).padStart(5)} ${mx.toFixed(1).padStart(5)} ${String(g3).padStart(7)}/20`);
+}
+
 module.exports={toXSB,fromXSB,canonical,hashId};
