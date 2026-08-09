@@ -782,6 +782,7 @@ function move(name){
   if(checkWin()) return;
   if(DEBUG) checkDead();
 }
+const SLIDE_MS=110;                       // .cell .fig の transition と合わせる
 // 移動したマスの絵を、1マスぶん手前に置いてから定位置へ戻す
 function slide(i, d){
   const fig=cellEls[i] && cellEls[i].firstChild;
@@ -900,13 +901,17 @@ function checkWin(){
     text:'「倉庫パズル」ステージ'+(index+1)+'を'+pushCount+'手でクリア！(最短'+lv.p+'手)',
   };
 
-  boardEl.classList.add('celebrate');
-  cellEls.forEach((el,i)=>{ el.firstChild.style.animationDelay=(((i/puzzle.w|0)+(i%puzzle.w))*45)+'ms'; });
+  // お祝いの animation は fig の transform を奪うので、
+  // 最後の一手が滑り終わるのを待ってから始める(でないと決め手だけ瞬間移動して見える)
   setTimeout(()=>{
-    boardEl.classList.remove('celebrate');
-    cellEls.forEach(el=>{ el.firstChild.style.animationDelay=''; });
-    $('overlay').classList.add('show');
-  },1100);
+    boardEl.classList.add('celebrate');
+    cellEls.forEach((el,i)=>{ el.firstChild.style.animationDelay=(((i/puzzle.w|0)+(i%puzzle.w))*45)+'ms'; });
+    setTimeout(()=>{
+      boardEl.classList.remove('celebrate');
+      cellEls.forEach(el=>{ el.firstChild.style.animationDelay=''; });
+      $('overlay').classList.add('show');
+    },1100);
+  }, SLIDE_MS+20);
   return true;
 }
 function nextStage(){
