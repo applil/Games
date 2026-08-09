@@ -15,6 +15,7 @@ const fs=require('fs');
 const path=require('path');
 const E=require(path.join(__dirname,'..','warehouse','engine.js')).WarehouseEngine;
 const {randomLayout, solvableStates, regionRep, greedyPolicies, analyse, mulberry32, keyOf, pushesFrom}=E;
+const S=require(path.join(__dirname,'shapes.js'));
 
 const TOTAL   = +(process.argv[2]||2000);
 const OUTPUT  = process.argv[3]||path.join(__dirname,'..','warehouse','levels.json');
@@ -102,8 +103,8 @@ function hashId(str){
 
 /* ================= 1盤面から候補を集める ================= */
 function harvest(rng, out, seen, cfg){
-  const W=3+(rng()*5|0), H=3+(rng()*5|0);          // 3x3 〜 7x7
-  const layout=randomLayout(rng,W,H,0.04+rng()*0.30);
+  // 形・大きさ・縦横比を型から抽選する(まだらな部屋ばかりにならないように)
+  const layout=S.buildShape(rng,{});
   if(!layout) return;
   const {grid,w}=layout;
   const floors=[];
@@ -111,10 +112,10 @@ function harvest(rng, out, seen, cfg){
   const nbox=2+(rng()*3|0);                        // 2〜4個
   if(floors.length<nbox*3+2||floors.length>34) return;
 
-  // 置き場も完全ランダム
-  const pool=floors.slice();
-  for(let i=pool.length-1;i>0;i--){ const j=rng()*(i+1)|0; [pool[i],pool[j]]=[pool[j],pool[i]]; }
-  const goals=pool.slice(0,nbox).sort((a,b)=>a-b);
+  // 置き場の配置も型から抽選する
+  const gp=S.pickGoals(layout, floors, nbox, rng);
+  if(!gp) return;
+  const goals=gp.goals;
 
   const dist=solvableStates(grid,w,goals,300000);
   if(!dist) return;
@@ -140,15 +141,41 @@ function harvest(rng, out, seen, cfg){
     for(let i=0;i<depths.length;i++){ r-=weights[i]; if(r<0) return depths[i]; }
     return depths[depths.length-1];
   };
-  const cands=[];
-  for(let t=0;t<10;t++){
+
+  // 荷物の初期位置(近い/遠い/混在/動かしにくい)と
+  // 人の立ち位置(広い場所/荷物のそば/通路の途中/初手が一択/初手が多彩)も型から狙う
+  const wantStart=S.START_PATTERNS[rng()*S.START_PATTERNS.length|0];
+  const wantPlayer=S.PLAYER_PATTERNS[rng()*S.PLAYER_PATTERNS.length|0];
+  const maxDist=Math.max(...floors.map(c=>S.manhattan(w,c,goals[0])));
+  const both=[], onlyBox=[], onlyPl=[], any=[];
+  for(let t=0;t<90 && both.length<8;t++){
     const bucket=byDepth.get(drawDepth());
-    cands.push(bucket[rng()*bucket.length|0]);
+    const c=bucket[rng()*bucket.length|0];
+    const reg=regionRep(grid,w,new Set(c.boxes),c.rep);
+    const moves=pushesFrom(grid,w,c.boxes.slice().sort((x,y)=>x-y),reg.cells);
+    const alive=moves.filter(m=>dist.has(m.key)).length;
+    const okBox=S.matchesStart(wantStart, S.startProfile(layout,goals,c.boxes), maxDist);
+    const okPl =S.matchesPlayer(wantPlayer, S.playerProfile(layout,c.boxes,c.rep,moves.length,alive));
+    if(okBox&&okPl) both.push(c);
+    else if(okBox&&onlyBox.length<8) onlyBox.push(c);
+    else if(okPl&&onlyPl.length<8) onlyPl.push(c);
+    else if(any.length<8) any.push(c);
   }
+  // 両方そろわなければ片方だけ。どちらを優先するかは毎回入れ替える
+  // (荷物の型を常に優先すると、人の立ち位置がいつも「そのまま」になる)
+  const boxFirst=rng()<0.5;
+  const second = boxFirst ? onlyBox : onlyPl;
+  const third  = boxFirst ? onlyPl : onlyBox;
+  const list = both.length?both : second.length?second : third.length?third : any;
+  const usedBox = both.length || (second===onlyBox&&second.length) || (third===onlyBox&&!second.length&&third.length);
+  const usedPl  = both.length || (second===onlyPl &&second.length) || (third===onlyPl &&!second.length&&third.length);
+  const useStart  = usedBox ? wantStart  : 'そのまま';
+  const usePlayer = usedPl  ? wantPlayer : 'そのまま';
+  if(!list.length) return;
 
   // 同じ壁の面ばかり増やさないよう、何通りか評価して上下から1つずつ採る
   const scored=[];
-  for(const c of cands.slice(0,8)){
+  for(const c of list.slice(0,8)){
     const r=regionRep(grid,w,new Set(c.boxes),c.rep);
     const a=analyse(grid,w,goals,dist,{boxes:c.boxes,rep:c.rep,cells:r.cells},rng,policies);
     if(a) scored.push({c,a});
@@ -173,6 +200,13 @@ function harvest(rng, out, seen, cfg){
       f: a.forced,
       g: a.greedyDied,
       og: a.offGoal?1:0,
+      sh: layout.shape,        // 形
+      sz: layout.size,         // 大きさ
+      ar: layout.aspect,       // 縦横比
+      gp: gp.pattern,          // 置き場の配置
+      sp: useStart,            // 荷物の初期位置の性格
+      pl: usePlayer,           // 人の立ち位置
+      cl: layout.clutter,      // 仕切りの密度
     });
   }
 }
@@ -291,6 +325,20 @@ for(let i=0;i<levels.length;i+=bucket){
     +`${ap.toFixed(1).padStart(9)} ${atr.toFixed(0).padStart(4)}% `
     +`${String(g3).padStart(9)}/${seg.length}`);
 }
+
+// 型の散らばり
+const tally=(key)=>{
+  const c={};
+  for(const l of levels) c[l[key]]=(c[l[key]]||0)+1;
+  return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}:${v}`).join(' ');
+};
+console.log('\n型の散らばり:');
+console.log('  形      ', tally('sh'));
+console.log('  大きさ  ', tally('sz'), '/ 縦横比', tally('ar'));
+console.log('  置き場  ', tally('gp'));
+console.log('  仕切り  ', tally('cl'));
+console.log('  荷物配置', tally('sp'));
+console.log('  人の位置', tally('pl'));
 
 // 序盤の様子は20面ごとにも出す
 console.log('\n序盤の様子 (20面ごと):');
