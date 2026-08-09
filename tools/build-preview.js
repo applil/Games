@@ -5,7 +5,7 @@
  *
  * 外部ファイルを一切読みに行かないようにする:
  *   - engine.js を埋め込む
- *   - levels.json / levels-picks.json を埋め込み、fetch を差し替える
+ *   - levels.json を埋め込み、読み込み口を差し替える
  *   - table-worker.js は Blob から起動する(デバッグモードのみ使う)
  * さらに、Artifact は <head> を自前で用意するので、head の中身は本文側に移す。
  */
@@ -19,7 +19,6 @@ let html=read('index.html');
 const engine=read('engine.js');
 const worker=read('table-worker.js');
 const levels=read('levels.json');
-const picks=read('levels-picks.json');
 
 const must=(before,after,what)=>{
   if(before===after) throw new Error('差し替えられませんでした: '+what);
@@ -40,8 +39,7 @@ html=must(html, html.replace(/<\/head>\s*<body>\s*/,''), '</head><body>');
 html=swap(html, '<script src="engine.js"></script>', '<script>\n'+engine+'\n</script>', 'engine.js');
 
 // 3. 面データを埋め込んで fetch を差し替える
-const embed='<script>\nwindow.__EMBED={'
-  +'"levels.json":'+levels+',"levels-picks.json":'+picks+'};\n</script>\n';
+const embed='<script>\nwindow.__EMBED={"levels.json":'+levels+'};\n</script>\n';
 html=swap(html,
   "  return fetch(name).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); });",
   "  return window.__EMBED[name] ? Promise.resolve(window.__EMBED[name])\n"

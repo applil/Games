@@ -152,9 +152,6 @@ body.dpad-off .footrow{position:static;padding-top:10px;align-items:center}
 body.debug .boardnote{display:block}
 .debugbar{display:none;flex:0 0 auto;gap:6px;justify-content:center;flex-wrap:wrap;padding-top:8px;padding-bottom:2px}
 body.debug .debugbar{display:flex}
-/* よりぬき版はステージの行き来だけ出す(戻す・ヒント・詰み表示はデバッグ専用のまま) */
-body.picks .debugbar{display:flex}
-body.picks #btnUndo, body.picks #btnHint{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -336,21 +333,18 @@ body.picks #btnUndo, body.picks #btnHint{display:none}
 /* ================= 動作モード =================
    ふつうは進むだけ。戻る手段も、詰み表示もヒントも出さない。
      ?debug=1   … 戻す/ヒント/詰み表示/ステージ選択を出す
-     ?set=picks … よりぬき版(別の面リスト・別の進行)
      ?lv=N      … 送られてきた1面だけを独立して遊ぶ(本編の進行に影響しない) */
 const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
 const debugSaved=(()=>{ try{ return localStorage.getItem('warehouse-debug')==='1'; }catch(e){ return false; } })();
 const DEBUG=QS.get('debug')==='1' || (QS.get('debug')!=='0' && debugSaved);
-const SET=QS.get('set')==='picks' ? 'picks' : '';
 const WANT=+QS.get('lv')||0;
-const FILE=SET==='picks' ? 'levels-picks.json' : 'levels.json';
+const FILE='levels.json';
 let SHARED=false;                        // 共有リンクで開いた1面モード
 if(DEBUG) document.body.classList.add('debug');
-if(SET==='picks') document.body.classList.add('picks');
-// ステージを行き来できるモード。よりぬき版は好きな順に見たいので許す
-const NAV = DEBUG || SET==='picks';
+// ステージを行き来できるモード
+const NAV = DEBUG;
 
 /* ================= 効果音 ================= */
 const AC = window.AudioContext || window.webkitAudioContext;
@@ -415,7 +409,7 @@ const store={
   get(k){ try{ return localStorage.getItem('warehouse-'+k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem('warehouse-'+k,v); }catch(e){} }
 };
-const PKEY = SET==='picks' ? 'progress-picks' : 'progress';
+const PKEY = 'progress';
 let progress={v:1, cleared:{}};
 (function(){
   try{ const raw=store.get(PKEY); if(raw){ const o=JSON.parse(raw); if(o&&o.cleared) progress=o; } }catch(e){}
@@ -522,21 +516,10 @@ loadJSON(FILE)
     LEVELS=data.levels;
     hideLoading();
     // 送られてきたリンクは、その1面だけを独立して遊べるようにする
-    SHARED = !DEBUG && WANT>=1 && WANT<=LEVELS.length && SET!=='picks' && (WANT-1)!==unlockedMax();
-    // ★の見立ては「本編の何面くらいか」。目盛りは本編の面数に合わせる。
-    // よりぬき版は本編のリストを持っていないので、面数だけ後から取りに行く
+    SHARED = !DEBUG && WANT>=1 && WANT<=LEVELS.length && (WANT-1)!==unlockedMax();
+    // ★の見立ての目盛りは面数に合わせる
     setFavRange(LEVELS.length);
-    if(SET==='picks'){
-      loadJSON('levels.json')
-        .then(d=>{ if(d&&d.count) setFavRange(d.count); })
-        .catch(()=>{});
-    }
-    if(SET==='picks'){
-      $('banner').style.display='block';
-      $('bannerText').textContent='⭐ よりぬき版（'+LEVELS.length+'面）気に入った面は ★ を押してください';
-      $('btnFav').style.display='';
-      $('btnFavWin').style.display='';
-    }else if(DEBUG){
+    if(DEBUG){
       $('btnFav').style.display='';
       $('btnFavWin').style.display='';
     }
@@ -609,7 +592,7 @@ function startLevel(i){
   updateStats();
   updateFavButton();
   if(NAV) updateNav();
-  const q=(SET?('set='+SET+'&'):'')+(DEBUG?'debug=1&':'')+((SHARED||DEBUG)?('lv='+(index+1)):'');
+  const q=(DEBUG?'debug=1&':'')+((SHARED||DEBUG)?('lv='+(index+1)):'');
   try{ history.replaceState(null,'', q?('?'+q.replace(/&$/,'')):location.pathname); }catch(e){}
 }
 
@@ -690,7 +673,7 @@ function updateFavButton(){
 function toggleFav(fromWin){
   if(!puzzle) return;
   if(favs[puzzle.meta.id]){ removeFav(); return; }
-  const def = SET==='picks' ? Math.round(+$('favRange').max/2) : index+1;
+  const def = index+1;
   saveFav(def);
   favFromWin=!!fromWin;
   if(favFromWin) $('overlay').classList.remove('show');   // クリア画面をいったん引っ込める
@@ -711,7 +694,7 @@ function closeFavPanel(){
 }
 function saveFav(place){
   const lv=puzzle.meta;
-  favs[lv.id]={b:lv.b, place:+place, from:(SET==='picks'?'よりぬき':'本編')+' 第'+(index+1)+'面'};
+  favs[lv.id]={b:lv.b, place:+place, from:'第'+(index+1)+'面'};
   saveFavs(); updateFavButton();
 }
 function removeFav(){
@@ -897,7 +880,7 @@ function checkWin(){
   const last=index>=LEVELS.length-1;
   $('btnNextStage').textContent = SHARED ? '本編へ' : (last ? 'とじる' : '次のステージへ');
   shareData={
-    url: location.origin+location.pathname+'?'+(SET?('set='+SET+'&'):'')+'lv='+(index+1),
+    url: location.origin+location.pathname+'?lv='+(index+1),
     text:'「倉庫パズル」ステージ'+(index+1)+'を'+pushCount+'手でクリア！(最短'+lv.p+'手)',
   };
 
