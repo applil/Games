@@ -20,6 +20,7 @@ const BANDS=[[1,4],[5,20],[21,50],[51,100],[101,200],[201,300],[301,400],[401,45
 console.log('区間        手数  罠率  素直に全滅  一本道/どけ  荷物  最大盤');
 for(const [a,b] of BANDS){
   const s=L.slice(a-1,b);
+  if(!s.length) continue;                      // 面数より後ろの区間は飛ばす
   const twisty=s.filter(l=>l.f>=2||l.og).length;
   const died=s.filter(l=>l.g>=3).length;
   const sizes=s.map(l=>{const r=l.b.split('/');return r[0].length*r.length;});
