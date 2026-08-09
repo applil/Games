@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>倉庫パズル — 自動生成</title>
+<title>倉庫パズル — 2000面</title>
 <style>
 :root{
   --ink:#1c2b46;
@@ -36,43 +36,44 @@ body{
 }
 .app{width:100%;max-width:430px;padding:20px 16px 40px}
 
-header{text-align:center;margin-bottom:14px;position:relative}
+header{text-align:center;margin-bottom:12px;position:relative}
 .home{
   position:absolute;left:0;top:2px;
   background:var(--card);border:1px solid var(--line);border-radius:999px;
   padding:6px 12px;font-size:12px;font-weight:700;color:var(--ink-soft);
   text-decoration:none;
 }
-h1{font-size:26px;font-weight:800;letter-spacing:.08em;line-height:1.2}
-.tagline{font-size:12px;color:var(--ink-soft);margin-top:6px;letter-spacing:.04em;line-height:1.6}
+h1{font-size:24px;font-weight:800;letter-spacing:.08em;line-height:1.2}
+.tagline{font-size:11.5px;color:var(--ink-soft);margin-top:6px;letter-spacing:.04em;line-height:1.6}
 
-.stats{display:flex;gap:8px;margin-bottom:12px}
+.progress{margin:12px 0 10px}
+.progress .bar{height:6px;background:var(--line);border-radius:999px;overflow:hidden}
+.progress .fill{height:100%;background:var(--done);width:0;transition:width .4s}
+.progress .label{
+  display:flex;justify-content:space-between;
+  font-size:11px;color:var(--ink-soft);margin-top:5px;font-variant-numeric:tabular-nums;
+}
+
+.stats{display:flex;gap:8px;margin-bottom:10px}
 .stat{
   flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   padding:8px 6px;text-align:center;
 }
 .stat .label{font-size:10px;color:var(--ink-soft);letter-spacing:.06em}
 .stat .value{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
-.stat .value small{font-size:11px;font-weight:700;color:var(--ink-soft)}
 
-.controls{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
-.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
-.seg button{
-  flex:1;border:0;background:transparent;border-radius:999px;
-  font:inherit;font-size:12px;font-weight:700;color:var(--ink-soft);
-  padding:7px 0;cursor:pointer;transition:background .15s,color .15s;
-}
-.seg button.active{background:var(--ink);color:#fff}
 .btn{
   border:0;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;
   padding:9px 16px;font-size:13px;transition:transform .1s,filter .15s;
 }
 .btn:active{transform:scale(.96)}
-.btn:disabled{opacity:.45;cursor:default}
+.btn:disabled{opacity:.4;cursor:default}
 .btn-new{background:var(--ink);color:#fff}
 .btn-sub{background:var(--card);border:1px solid var(--line);color:var(--ink)}
 .btn-row{display:flex;gap:8px;margin-bottom:8px}
 .btn-row .btn{flex:1}
+.nav-row .btn{font-size:12px;padding:8px 10px}
+.nav-row .stage{flex:1.4}
 
 .msg{
   display:none;background:var(--card);border:1px solid var(--line);
@@ -85,21 +86,17 @@ h1{font-size:26px;font-weight:800;letter-spacing:.08em;line-height:1.2}
 .board-wrap{
   background:var(--card);border:1px solid var(--line);border-radius:20px;
   padding:12px;box-shadow:0 8px 30px rgba(28,43,70,.07);
-  position:relative;
+  position:relative;min-height:120px;
 }
 .board{display:grid;gap:2px;user-select:none}
 .cell{
   aspect-ratio:1;position:relative;border-radius:4px;
   display:flex;align-items:center;justify-content:center;
-  font-size:clamp(14px,4.6vw,24px);line-height:1;
+  font-size:clamp(16px,5.6vw,30px);line-height:1;
   background:var(--floor);
   transition:background .12s;
 }
-.cell.wall{
-  background:var(--wall);
-  box-shadow:inset 0 2px 0 var(--wall-top);
-  border-radius:5px;
-}
+.cell.wall{background:var(--wall);box-shadow:inset 0 2px 0 var(--wall-top);border-radius:5px}
 .cell.void{background:transparent}
 .cell.goal::before{
   content:'';position:absolute;width:36%;height:36%;border-radius:50%;
@@ -113,7 +110,6 @@ h1{font-size:26px;font-weight:800;letter-spacing:.08em;line-height:1.2}
 @keyframes bump{50%{transform:scale(.82)}}
 .board.celebrate .cell .fig{animation:winwave .9s ease both}
 @keyframes winwave{35%{transform:scale(1.25) rotate(10deg)}}
-
 .arrowtag{
   position:absolute;top:0;right:2px;z-index:2;
   font-size:14px;font-weight:800;color:var(--done);
@@ -121,20 +117,20 @@ h1{font-size:26px;font-weight:800;letter-spacing:.08em;line-height:1.2}
 }
 
 .loading{
-  position:absolute;inset:0;background:rgba(255,255,255,.86);
+  position:absolute;inset:0;background:rgba(255,255,255,.9);
   display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;
   border-radius:20px;font-size:13px;font-weight:700;color:var(--ink-soft);z-index:5;
 }
 .loading.show{display:flex}
 .loading .spin{font-size:28px;animation:spin 1.1s linear infinite}
-.loading .note{font-size:11px;font-weight:600;color:var(--ink-soft);min-height:14px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 .boardnote{
   margin-top:8px;text-align:center;font-size:11px;color:var(--ink-soft);
-  letter-spacing:.03em;line-height:1.7;white-space:pre-line;
+  letter-spacing:.03em;line-height:1.7;white-space:pre-line;min-height:2.4em;
 }
-.dpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px auto 0;max-width:230px}
+
+.dpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px auto 0;max-width:230px}
 .dpad button{
   aspect-ratio:1;border:1px solid var(--line);background:var(--card);border-radius:16px;
   font-size:22px;color:var(--ink);cursor:pointer;
@@ -154,7 +150,7 @@ details p{margin-top:8px;line-height:1.8}
 .overlay{
   position:fixed;inset:0;background:rgba(28,43,70,.45);
   display:flex;align-items:center;justify-content:center;z-index:10;
-  opacity:0;pointer-events:none;transition:opacity .25s;
+  opacity:0;pointer-events:none;transition:opacity .25s;padding:20px;
 }
 .overlay.show{opacity:1;pointer-events:auto}
 .win-card{
@@ -164,15 +160,39 @@ details p{margin-top:8px;line-height:1.8}
 .overlay.show .win-card{transform:translateY(0)}
 .win-emoji{font-size:42px;margin-bottom:6px}
 .win-title{font-size:20px;font-weight:800}
-.win-verdict{font-size:17px;font-weight:800;margin:6px 0 2px}
+.win-verdict{font-size:16px;font-weight:800;margin:6px 0 2px}
 .win-time{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;margin:6px 0 2px}
 .win-sub{font-size:12px;color:var(--ink-soft);margin-bottom:16px;line-height:1.8}
 .win-card .btn{width:100%}
 #btnShare{margin-bottom:8px}
-.banner{
-  display:none;background:#fff;border:2px solid var(--goal);border-radius:var(--radius);
-  padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:12px;text-align:center;line-height:1.7;
+
+/* 面えらび */
+.picker{
+  background:var(--card);border-radius:20px;padding:18px 16px 14px;
+  width:min(400px,92vw);max-height:80vh;display:flex;flex-direction:column;
 }
+.picker h2{font-size:15px;font-weight:800;margin-bottom:4px;text-align:center}
+.picker .sub{font-size:11px;color:var(--ink-soft);text-align:center;margin-bottom:10px;line-height:1.6}
+.chapters{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
+.chapters button{
+  flex:0 0 auto;border:1px solid var(--line);background:var(--paper);border-radius:999px;
+  font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);padding:5px 10px;cursor:pointer;
+}
+.chapters button.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.grid-stages{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;
+  overflow-y:auto;padding:2px;flex:1;
+}
+.grid-stages button{
+  aspect-ratio:1;border:1px solid var(--line);background:var(--paper);border-radius:10px;
+  font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);cursor:pointer;
+  font-variant-numeric:tabular-nums;
+}
+.grid-stages button.cleared{background:var(--done-soft);border-color:var(--done);color:var(--done)}
+.grid-stages button.current{background:var(--ink);border-color:var(--ink);color:#fff}
+.grid-stages button.locked{opacity:.35;cursor:default}
+.picker .btn{margin-top:10px}
+
 @media (prefers-reduced-motion: reduce){
   *{animation:none!important;transition:none!important}
 }
@@ -183,43 +203,36 @@ details p{margin-top:8px;line-height:1.8}
   <header>
     <a class="home" href="../">◀ メニュー</a>
     <h1>🐧📦 倉庫パズル</h1>
-    <div class="tagline">小さい盤・完全ランダム配置<br>手数は短く、でも素直に押すと詰みます</div>
+    <div class="tagline">全2000面。手数は短く、進むほど「気づけるか」だけが問われます</div>
   </header>
 
-  <div class="banner" id="chBanner">📨 挑戦状が届きました！同じ問題を、より少ない押し回数でクリアできるかな？</div>
+  <div class="progress">
+    <div class="bar"><div class="fill" id="progFill"></div></div>
+    <div class="label"><span id="progText">読み込み中…</span><span id="progPct"></span></div>
+  </div>
 
   <div class="stats">
-    <div class="stat"><div class="label">タイム</div><div class="value" id="timer">0:00</div></div>
+    <div class="stat"><div class="label">面</div><div class="value" id="stageNo">--</div></div>
     <div class="stat"><div class="label">押した回数</div><div class="value" id="pushes">0</div></div>
-    <div class="stat"><div class="label">最短 / ベスト</div><div class="value" id="best">--</div></div>
+    <div class="stat"><div class="label">最短 / 自己ベスト</div><div class="value" id="best">--</div></div>
   </div>
 
-  <div class="controls">
-    <div class="seg" id="diffSeg" role="group" aria-label="難易度">
-      <button data-d="easy">やさしい</button>
-      <button data-d="normal" class="active">ふつう</button>
-      <button data-d="hard">むずかしい</button>
-    </div>
-  </div>
-
-  <div class="btn-row">
-    <button class="btn btn-new" id="btnNew">新しい問題</button>
-    <button class="btn btn-sub" id="btnHint">💡 ヒント</button>
+  <div class="btn-row nav-row">
+    <button class="btn btn-sub" id="btnPrev">◀ 前</button>
+    <button class="btn btn-sub stage" id="btnPick">面を選ぶ</button>
+    <button class="btn btn-sub" id="btnNext">次 ▶</button>
   </div>
   <div class="btn-row">
     <button class="btn btn-sub" id="btnUndo">↩ 1手戻す</button>
     <button class="btn btn-sub" id="btnReset">🔄 最初から</button>
+    <button class="btn btn-sub" id="btnHint">💡 ヒント</button>
   </div>
 
   <div class="msg" id="msg"></div>
 
   <div class="board-wrap">
     <div class="board" id="board" role="img" aria-label="倉庫パズルの盤面"></div>
-    <div class="loading" id="loading">
-      <div class="spin">📦</div>
-      <div>問題を作っています…</div>
-      <div class="note"></div>
-    </div>
+    <div class="loading" id="loading"><div class="spin">📦</div><div id="loadingText">面を読み込んでいます…</div></div>
   </div>
 
   <div class="boardnote" id="boardNote"></div>
@@ -240,38 +253,37 @@ details p{margin-top:8px;line-height:1.8}
     ・壁や別の箱が後ろにあると押せません<br>
     ・操作は<b>矢印キー / WASD</b>、盤面の<b>スワイプ</b>、下の<b>十字ボタン</b>のどれでもOK<br>
     ・取り返しがつかない配置になった瞬間に教えます。<b>↩ 1手戻す</b>でやり直してね<br>
-    ・スコアは<b>押した回数</b>。表示される「最短」は、この問題を解くのに必要な理論上の最小押し回数です<br>
-    ・手数は短めです。詰まるのは手順が長いからではなく、<b>最初の一手に気づけるか</b>だからです</p>
+    ・面は全員共通の固定順。1面から順に進み、クリアすると次が開きます</p>
   </details>
 
   <details>
-    <summary>問題はどう作られている？</summary>
-    <p>壁も置き場も<b>完全にランダム</b>に置きます。設計された構造がないぶん、いかにもパズルらしい整った配置にはなりません。<br>
-    そのうえで、その盤面で<b>ありうる配置をすべて列挙</b>し、完成状態から逆にたどって「そこから完成させられる配置」の集合を丸ごと求めます。盤が小さいので全部数え切れます。ランダムに置いた配置が解けるかどうかは、この集合に入っているかどうかで<b>厳密に決まります</b>。<br>
-    難易度は手数では測っていません。全配置の残り手数が分かっているので、<b>「打てる手のうち何割が指した瞬間に詰む手か」「正解が1手しかない場面がいくつあるか」「置き場から荷物を一度どける必要があるか」</b>を正確に数えられます。さらに「置き場に近づける」式の素直な手筋を3種類走らせて、<b>全部詰む問題だけ</b>を「むずかしい」として出題しています。<br>
-    この表があるので、ゲーム中の<b>詰み判定とヒントも経験則ではなく厳密</b>です。</p>
+    <summary>面はどう並んでいる？</summary>
+    <p>壁も置き場も荷物も<b>完全にランダム</b>に置いた盤面を1万通り作り、それぞれについて<b>ありうる配置をすべて列挙</b>して「そこから完成させられる配置」の集合を丸ごと求めています。盤が小さいので全部数え切れるので、解けるかどうかは探索の運ではなく<b>判定で確定</b>します。<br>
+    難易度は手数では測っていません。<b>打てる手のうち何割が指した瞬間に詰む手か</b>、<b>正解が1手しかない場面がいくつあるか</b>、<b>置き場から荷物を一度どける必要があるか</b>、そして<b>「置き場へ寄せる」式の素直な手筋3種類が通用するか</b>を数えています。<br>
+    そのスコア順に並べたあと、前後40面の範囲だけで入れ替えています。だから隣り合う面の手応えはばらつきますが、<b>平均も最低難易度も進むほど上がり</b>、後半に簡単な面は出てきません。序盤は素直に押せば解けますが、1200面あたりから素直な手筋は全部詰みます。<br>
+    出題している2000面はすべて、生成器とは別経路の全探索で<b>解けることと最短手数を検証済み</b>です。</p>
   </details>
 </div>
 
 <div class="overlay" id="overlay">
   <div class="win-card">
     <div class="win-emoji">📦🎉🐧</div>
-    <div class="win-title">クリア！</div>
+    <div class="win-title" id="winTitle">クリア！</div>
     <div class="win-verdict" id="winVerdict"></div>
     <div class="win-time" id="winPush">0手</div>
     <div class="win-sub" id="winSub"></div>
-    <button class="btn btn-sub" id="btnShare">📨 友達に挑戦状を送る</button>
-    <button class="btn btn-new" id="btnNext">次の問題へ</button>
+    <button class="btn btn-sub" id="btnShare">📨 結果を送る</button>
+    <button class="btn btn-new" id="btnNextStage">次の面へ</button>
   </div>
 </div>
 
-<div class="overlay" id="resOverlay">
-  <div class="win-card">
-    <div class="win-emoji">🏁</div>
-    <div class="win-title">対戦結果が届きました</div>
-    <div class="win-verdict" id="resVerdict"></div>
-    <div class="win-sub" id="resSub"></div>
-    <button class="btn btn-new" id="btnResClose">とじる</button>
+<div class="overlay" id="pickOverlay">
+  <div class="picker">
+    <h2>面を選ぶ</h2>
+    <div class="sub" id="pickSub"></div>
+    <div class="chapters" id="chapters"></div>
+    <div class="grid-stages" id="stageGrid"></div>
+    <button class="btn btn-sub" id="btnPickClose">とじる</button>
   </div>
 </div>
 
@@ -309,10 +321,8 @@ const SFX = {
 };
 
 /* ================= 共有リンク ================= */
-// (乱数まわりは engine.js 側で定義済み)
 const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const dec = s => { try{ return JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/'))))); }catch(e){ return null; } };
-
 async function shareLink(url, text){
   if(navigator.share){
     try{ await navigator.share({text, url}); return; }catch(e){ if(e.name==='AbortError') return; }
@@ -325,141 +335,110 @@ async function shareLink(url, text){
   }
 }
 
-/* ================= 生成エンジン ================= */
-// 盤面生成とソルバー本体は engine.js が定義している(生成ワーカーと共用)。
-// generate / DIFF / solvableStates などはそこで宣言済みのものをそのまま使う。
+/* ================= 盤面テキスト(XSB)の読み込み ================= */
+// # 壁 / 空白 床 / $ 荷物 / . 置き場 / * 置き場の上の荷物 / @ 人 / + 置き場の上の人
+function parseBoard(board){
+  const rows=board.split('/');
+  const h=rows.length, w=Math.max.apply(null, rows.map(r=>r.length));
+  const grid=new Uint8Array(w*h).fill(1);
+  const boxes=[], goals=[];
+  let player=-1;
+  for(let y=0;y<h;y++){
+    const row=rows[y].padEnd(w,'#');
+    for(let x=0;x<w;x++){
+      const c=row[x], i=y*w+x;
+      if(c==='#') continue;
+      grid[i]=0;
+      if(c==='$'||c==='*') boxes.push(i);
+      if(c==='.'||c==='*'||c==='+') goals.push(i);
+      if(c==='@'||c==='+') player=i;
+    }
+  }
+  return {grid, w, h, boxes:boxes.sort((a,b)=>a-b), goals:goals.sort((a,b)=>a-b), player};
+}
 
-const DIFF_LABEL={easy:'やさしい',normal:'ふつう',hard:'むずかしい'};
-
-/* ================= ゲーム状態 / UI ================= */
-const $=id=>document.getElementById(id);
-const boardEl=$('board');
-
-let difficulty='normal', currentSeed=0;
-let puzzle=null, dist=null;   // dist: この盤面で「解ける状態 → 残り最短手数」の完全な表
-let boxes=[], player=0, goalSet=new Set();
-let undoStack=[], pushCount=0, moveCount=0, hintCount=0;
-let startTime=0, timerId=null, finished=false, deadShown=false;
-
+/* ================= 進行状況 ================= */
 const store={
   get(k){ try{ return localStorage.getItem('warehouse-'+k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem('warehouse-'+k,v); }catch(e){} }
 };
-const bestKey=()=>'best-'+difficulty;
-const getBest=()=>{ const v=store.get(bestKey()); return v==null?null:+v; };
-const fmt=ms=>{ const s=Math.floor(ms/1000); return (s/60|0)+':'+String(s%60).padStart(2,'0'); };
-
-/* ---- 生成ワーカー ----
-   むずかしいは盤面によって数秒かかるので、生成は別スレッドに投げる。
-   さらに1問先を裏で作り置きして、「次の問題へ」を待たせないようにする。 */
-const randomSeed=()=>(Math.random()*0x100000000)>>>0;
-let reqId=0;
-const pending=new Map();     // 生成依頼中: id -> resolve
-const prefetched={};         // 難易度ごとの作り置き: {seed, puzzle}
-const prefetching={};
-
-// ワーカーは2本。待たせている生成(now)と、裏の作り置き(pre)が
-// 同じキューに並ぶと、作り置きの後ろで待たされてしまうため分けている
-function spawnWorker(){
+// クリアした面は ID で覚える。面が入れ替わっても進行が壊れないように
+let progress={v:1, cleared:{}};
+(function(){
   try{
-    const w=new Worker('worker.js');
-    w.onmessage=e=>{
-      const done=pending.get(e.data.id);
-      if(done){ pending.delete(e.data.id); done(e.data); }
-    };
-    w.onerror=()=>{ w.dead=true; };      // 読み込みに失敗したらメインスレッドで作る
-    return w;
-  }catch(e){ return null; }
-}
-const workers={now:spawnWorker(), pre:spawnWorker()};
+    const raw=store.get('progress');
+    if(raw){
+      const o=JSON.parse(raw);
+      if(o && o.cleared) progress=o;
+    }
+  }catch(e){}
+})();
+const saveProgress=()=>store.set('progress', JSON.stringify(progress));
+const isCleared=lv=>lv && progress.cleared[lv.id]!==undefined;
+const bestOf=lv=>lv&&progress.cleared[lv.id];
 
-function requestPuzzle(difficulty, seed, lane){
-  const w=workers[lane||'now'];
-  if(!w||w.dead){
-    // Worker が使えない環境(file:// など)ではその場で生成する
-    return Promise.resolve({difficulty, seed, puzzle:generate(seed, DIFF[difficulty])});
-  }
-  const id=++reqId;
-  return new Promise(resolve=>{
-    pending.set(id,resolve);
-    w.postMessage({id, difficulty, seed});
-  });
-}
+/* ================= ゲーム状態 ================= */
+const $=id=>document.getElementById(id);
+const boardEl=$('board');
 
-// 次の1問を裏で用意しておく
-function prefetch(diff){
-  if(prefetched[diff]||prefetching[diff]) return;
-  const w=workers.pre;
-  if(!w||w.dead) return;                 // 同期生成しかできない環境では先読みしない
-  prefetching[diff]=true;
-  const seed=randomSeed();
-  requestPuzzle(diff,seed,'pre').then(res=>{
-    prefetching[diff]=false;
-    if(res&&res.puzzle) prefetched[diff]={seed, puzzle:res.puzzle};
-  }).catch(()=>{ prefetching[diff]=false; });
-}
-// 他の難易度も、少し落ち着いてから裏で用意しておく
-function prefetchOthers(){
-  setTimeout(()=>{
-    for(const d of Object.keys(DIFF)) if(d!==difficulty) prefetch(d);
-  },3000);
-}
+let LEVELS=[];              // levels.json の中身
+let index=0;                // いま遊んでいる面(0始まり)
+let puzzle=null, dist=null; // dist: 解ける状態 → 残り最短手数 の完全な表
+let boxes=[], player=0, goalSet=new Set();
+let undoStack=[], pushCount=0, moveCount=0, hintCount=0;
+let finished=false, deadShown=false;
 
-let loadTimer=null;
-function showLoading(){
-  const el=$('loading'), note=el.querySelector('.note');
-  const t0=Date.now();
-  note.textContent='';
-  el.classList.add('show');
-  clearInterval(loadTimer);
-  // 数秒かかる盤面もあるので、待っている間は経過秒を出す
-  loadTimer=setInterval(()=>{
-    const s=Math.floor((Date.now()-t0)/1000);
-    if(s>=2) note.textContent=`${s}秒 — 手ごたえのある盤面を探しています`;
-  },250);
+// 到達できる最大の面 = クリア済みの数(=次の未クリア面まで開く)
+function unlockedMax(){
+  let n=0;
+  while(n<LEVELS.length && isCleared(LEVELS[n])) n++;
+  return Math.min(n, LEVELS.length-1);
 }
-function hideLoading(){ clearInterval(loadTimer); $('loading').classList.remove('show'); }
+const clearedCount=()=>Object.keys(progress.cleared).length;
 
-function newGame(seed){
-  $('overlay').classList.remove('show');
-  hideMsg();
-  // シード指定(挑戦状)がなく作り置きがあれば、それを即座に使う
-  if(seed==null && prefetched[difficulty]){
-    const {seed:s, puzzle:p}=prefetched[difficulty];
-    prefetched[difficulty]=null;
-    startPuzzle(s,p);
-    prefetch(difficulty);
-    prefetchOthers();
-    return;
-  }
-  const useSeed = seed!=null ? (seed>>>0) : randomSeed();
-  showLoading();
-  requestPuzzle(difficulty, useSeed).then(res=>{
+/* ================= 読み込み ================= */
+function showLoading(text){
+  if(text) $('loadingText').textContent=text;
+  $('loading').classList.add('show');
+}
+const hideLoading=()=>$('loading').classList.remove('show');
+
+fetch('levels.json')
+  .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data=>{
+    LEVELS=data.levels;
     hideLoading();
-    if(!res||!res.puzzle){ showMsg('問題を作れませんでした。もう一度お試しください。', true); return; }
-    startPuzzle(useSeed, res.puzzle);
-    prefetch(difficulty);
-    prefetchOthers();
+    const q=new URLSearchParams(location.search);
+    const want=+q.get('lv');
+    const start = (want>=1 && want<=LEVELS.length) ? want-1 : unlockedMax();
+    startLevel(start);
+    updateProgress();
+  })
+  .catch(e=>{
+    showLoading('面の読み込みに失敗しました');
+    $('boardNote').textContent='levels.json を読み込めませんでした ('+e.message+')';
   });
-}
 
-function startPuzzle(seed, p){
-  currentSeed=seed>>>0;
-  puzzle=p;
-  // 盤が小さいので、その面の解ける状態を全部洗い出しておく。
+/* ================= 面の開始 ================= */
+function startLevel(i){
+  index=Math.max(0, Math.min(LEVELS.length-1, i));
+  const lv=LEVELS[index];
+  puzzle=parseBoard(lv.b);
+  puzzle.meta=lv;
+  // 盤が小さいので、解ける状態を全部洗い出しておく。
   // これで詰み判定もヒントも(経験則ではなく)厳密になる
-  dist=solvableStates(p.grid, p.w, p.goals, 500000);
-  goalSet=new Set(p.goals);
-  boxes=p.boxes.slice();
-  player=p.player;
+  dist=solvableStates(puzzle.grid, puzzle.w, puzzle.goals, 500000);
+  goalSet=new Set(puzzle.goals);
+  boxes=puzzle.boxes.slice();
+  player=puzzle.player;
   undoStack=[]; pushCount=0; moveCount=0; hintCount=0;
   finished=false; deadShown=false;
+  $('overlay').classList.remove('show');
+  hideMsg();
   buildBoard();
   updateStats();
-  startTime=Date.now();
-  clearInterval(timerId);
-  timerId=setInterval(()=>{ if(!finished) $('timer').textContent=fmt(Date.now()-startTime); },250);
-  $('timer').textContent='0:00';
+  updateNav();
+  try{ history.replaceState(null,'','?lv='+(index+1)); }catch(e){}
 }
 
 let cellEls=[], outsideMask=null;
@@ -493,7 +472,6 @@ function buildBoard(){
   }
   paint();
 }
-
 function paint(){
   const boxSet=new Set(boxes);
   for(let i=0;i<cellEls.length;i++){
@@ -505,32 +483,53 @@ function paint(){
   }
 }
 
+/* ================= 表示の更新 ================= */
 function updateStats(){
-  $('pushes').textContent=pushCount;
-  const b=getBest();
-  $('best').textContent = puzzle ? `${puzzle.pushes}手 / ${b==null?'--':b+'手'}` : '--';
-  if(puzzle){
-    const st=puzzle.stats||{};
-    const parts=[`${puzzle.W}×${puzzle.H}`, `荷物 ${puzzle.boxes.length}個`, `最短 ${puzzle.pushes}手`];
+  const lv=puzzle&&puzzle.meta;
+  $('stageNo').textContent = lv ? (index+1) : '--';
+  $('pushes').textContent = pushCount;
+  const b=bestOf(lv);
+  $('best').textContent = lv ? `${lv.p}手 / ${b==null?'--':b+'手'}` : '--';
+  if(lv){
     const tags=[];
-    if(st.greedyDied>=3) tags.push('素直に押すと詰みます');
-    else if(st.greedyDied>=2) tags.push('素直な手筋はだいたい詰みます');
-    if(st.offGoal) tags.push('置き場から一度どける手が要ります');
-    if(st.firstOnly) tags.push('初手が一択');
-    else if(st.forced>=2) tags.push('正解が一本道の場面あり');
-    let text=parts.join(' ・ ');
-    if(st.trapRatio!=null) text+=` ・ 打てる手の${Math.round(st.trapRatio*100)}%が詰み手`;
+    if(lv.g>=3) tags.push('素直に押すと詰みます');
+    else if(lv.g>=2) tags.push('素直な手筋はだいたい詰みます');
+    else if(lv.g===0) tags.push('素直に押していけば解けます');
+    if(lv.og) tags.push('置き場から一度どける手が要ります');
+    if(lv.f>=2) tags.push('正解が一本道の場面あり');
+    let text=`最短 ${lv.p}手 ・ 打てる手の${lv.tr}%が詰み手`;
     if(tags.length) text+='\n'+tags.join(' / ');
     $('boardNote').textContent=text;
   }
 }
+function updateProgress(){
+  const n=clearedCount(), total=LEVELS.length||1;
+  $('progFill').style.width=(n/total*100)+'%';
+  $('progText').textContent=`クリア ${n} / ${total} 面`;
+  $('progPct').textContent=(n/total*100).toFixed(1)+'%';
+}
+function updateNav(){
+  $('btnPrev').disabled = index<=0;
+  $('btnNext').disabled = index>=Math.min(unlockedMax(), LEVELS.length-1);
+}
 
-/* ---- 移動 ---- */
+/* ================= 局面のキー ================= */
+function stateKeyNow(){
+  const b=boxes.slice().sort((x,y)=>x-y);
+  const r=regionRep(puzzle.grid, puzzle.w, new Set(b), player);
+  return keyOf(b, r.rep);
+}
+function remainingPushes(){
+  if(!dist) return null;
+  const d=dist.get(stateKeyNow());
+  return d===undefined ? null : d;
+}
+
+/* ================= 移動 ================= */
 function dirOffset(name){
   const w=puzzle.w;
   return name==='up'?-w : name==='down'?w : name==='left'?-1 : 1;
 }
-
 function move(name){
   if(!puzzle||finished) return;
   ensureAudio();
@@ -559,25 +558,11 @@ function move(name){
   if(checkWin()) return;
   checkDead();
 }
-
-// いまの局面(荷物の位置＋プレイヤーの到達領域)を表のキーに変換する
-function stateKeyNow(){
-  const b=boxes.slice().sort((x,y)=>x-y);
-  const r=regionRep(puzzle.grid, puzzle.w, new Set(b), player);
-  return keyOf(b, r.rep);
-}
-function remainingPushes(){
-  if(!dist) return null;
-  const d=dist.get(stateKeyNow());
-  return d===undefined ? null : d;
-}
-
 function bump(i){
   const el=cellEls[i];
   el.classList.add('bump');
   setTimeout(()=>el.classList.remove('bump'),200);
 }
-
 function undo(){
   if(!undoStack.length||finished) return;
   const s=undoStack.pop();
@@ -586,8 +571,7 @@ function undo(){
   deadShown=false;
   SFX.undo();
 }
-
-function resetPuzzle(){
+function resetLevel(){
   if(!puzzle||finished) return;
   boxes=puzzle.boxes.slice(); player=puzzle.player;
   undoStack=[]; pushCount=0; moveCount=0;
@@ -595,7 +579,7 @@ function resetPuzzle(){
   paint(); updateStats(); clearHint(); hideMsg();
 }
 
-/* ---- 詰み検知(この盤面の全状態が分かっているので厳密) ---- */
+/* ================= 詰み検知(全状態が分かっているので厳密) ================= */
 function checkDead(){
   if(!dist) return;
   if(dist.has(stateKeyNow())){ if(deadShown){ deadShown=false; hideMsg(); } return; }
@@ -605,7 +589,7 @@ function checkDead(){
   showMsg('この配置からはもう完成できません。↩ 1手戻す か 🔄 最初から でやり直してね。', true);
 }
 
-/* ---- ヒント: いまの配置から最短手順の1手目を教える ---- */
+/* ================= ヒント ================= */
 let hintEls=[];
 function clearHint(){
   for(const el of hintEls) el.remove();
@@ -616,7 +600,7 @@ function hint(){
   if(!puzzle||finished) return;
   ensureAudio();
   clearHint();
-  if(!dist){ showMsg('この盤面ではヒントを出せません。', true); return; }
+  if(!dist){ showMsg('この面ではヒントを出せません。', true); return; }
   const d=remainingPushes();
   if(d===null){
     showMsg('この配置からはもう完成できません。↩ 1手戻す でやり直してね。', true);
@@ -626,7 +610,6 @@ function hint(){
   hintCount++;
   const b=boxes.slice().sort((x,y)=>x-y);
   const r=regionRep(puzzle.grid, puzzle.w, new Set(b), player);
-  // 残り手数が1つ減る手＝最短手順の一手
   const next=pushesFrom(puzzle.grid, puzzle.w, b, r.cells).filter(mv=>dist.get(mv.key)===d-1);
   if(!next.length){ showMsg('この配置からはもう完成できません。', true); return; }
   const m={from:next[0].box, dir:next[0].dir};
@@ -653,75 +636,83 @@ function showMsg(text, warn){
 }
 function hideMsg(){ clearTimeout(msgTimer); $('msg').style.display='none'; }
 
-/* ---- クリア判定 ---- */
+/* ================= クリア ================= */
 function checkWin(){
   if(!boxes.every(b=>goalSet.has(b))) return false;
   finished=true;
-  clearInterval(timerId);
   clearHint(); hideMsg();
   SFX.win();
-  const ms=Date.now()-startTime;
-  const b=getBest();
-  if(b==null||pushCount<b) store.set(bestKey(),pushCount);
-  updateStats();
+  const lv=puzzle.meta;
+  const prev=bestOf(lv);
+  const first=prev===undefined;
+  if(first||pushCount<prev){ progress.cleared[lv.id]=pushCount; saveProgress(); }
+  updateStats(); updateProgress(); updateNav();
+
+  const perfect = pushCount===lv.p;
+  $('winTitle').textContent=`第${index+1}面 クリア！`;
+  $('winVerdict').textContent = perfect ? '✨ 最短クリア！' : '';
   $('winPush').textContent=pushCount+'手';
-  const perfect = pushCount===puzzle.pushes;
-  if(challenge){
-    const op=challenge.p;
-    $('winVerdict').textContent = pushCount<op ? '🏆 あなたの勝ち！' : pushCount>op ? '😢 まけた…' : '🤝 引き分け！';
-    $('winSub').innerHTML=`あなた ${pushCount}手 / 相手 ${op}手<br>最短は ${puzzle.pushes}手 ・ タイム ${fmt(ms)}`;
-    $('btnShare').textContent='📨 結果を送り返す';
-    shareData={
-      url: location.origin+location.pathname+'?r='+enc({op:challenge.p, mp:pushCount, ot:challenge.t, mt:ms}),
-      text:'「倉庫パズル」の対戦結果が届きました！📦',
-    };
-  }else{
-    $('winVerdict').textContent = perfect ? '✨ 最短クリア！' : '';
-    $('winSub').innerHTML=`最短 ${puzzle.pushes}手 のところ ${pushCount}手<br>${DIFF_LABEL[difficulty]} ・ タイム ${fmt(ms)}${hintCount?` ・ ヒント${hintCount}回`:''}`;
-    $('btnShare').textContent='📨 友達に挑戦状を送る';
-    shareData={
-      url: location.origin+location.pathname+'?c='+enc({d:difficulty, s:currentSeed, p:pushCount, t:ms}),
-      text:`「倉庫パズル」${DIFF_LABEL[difficulty]}を${pushCount}手でクリア！同じ問題で勝負しよう📦🐧`,
-    };
-  }
+  $('winSub').innerHTML=`最短 ${lv.p}手 のところ ${pushCount}手`
+    +(first?'':`<br>自己ベスト ${Math.min(prev,pushCount)}手`)
+    +`<br>クリア ${clearedCount()} / ${LEVELS.length} 面`;
+  const last=index>=LEVELS.length-1;
+  $('btnNextStage').textContent = last ? 'とじる' : '次の面へ';
+  shareData={
+    url: location.origin+location.pathname+'?lv='+(index+1),
+    text:`「倉庫パズル」第${index+1}面を${pushCount}手でクリア！(最短${lv.p}手) 📦🐧`,
+  };
+
   boardEl.classList.add('celebrate');
   cellEls.forEach((el,i)=>{ el.firstChild.style.animationDelay=(((i/puzzle.w|0)+(i%puzzle.w))*45)+'ms'; });
   setTimeout(()=>{
     boardEl.classList.remove('celebrate');
     cellEls.forEach(el=>{ el.firstChild.style.animationDelay=''; });
     $('overlay').classList.add('show');
-  },1500);
+  },1200);
   return true;
 }
+let shareData=null;
 
-/* ---- 挑戦状 ---- */
-let challenge=null, shareData=null;
-(function(){
-  const q=new URLSearchParams(location.search);
-  const c=q.get('c');
-  if(c){
-    const o=dec(c);
-    if(o && DIFF[o.d] && typeof o.s==='number' && typeof o.p==='number') challenge=o;
+/* ================= 面えらび ================= */
+let chapter=0;
+const CHAPTER=100;
+function openPicker(){
+  chapter=Math.floor(index/CHAPTER);
+  renderPicker();
+  $('pickOverlay').classList.add('show');
+}
+function renderPicker(){
+  const max=unlockedMax();
+  const chapters=Math.ceil(LEVELS.length/CHAPTER);
+  $('pickSub').textContent=`クリアした面は何度でも遊べます（現在 ${clearedCount()} 面クリア）`;
+  const ch=$('chapters');
+  ch.innerHTML='';
+  for(let c=0;c<chapters;c++){
+    const b=document.createElement('button');
+    b.textContent=`${c*CHAPTER+1}〜${Math.min((c+1)*CHAPTER, LEVELS.length)}`;
+    if(c===chapter) b.classList.add('active');
+    if(c*CHAPTER>max) b.disabled=true, b.style.opacity=.35;
+    b.addEventListener('click',()=>{ chapter=c; renderPicker(); });
+    ch.appendChild(b);
   }
-  const r=q.get('r');
-  if(r){
-    const o=dec(r);
-    if(o && typeof o.op==='number' && typeof o.mp==='number'){
-      // 受け取るのは挑戦状を送った本人: op=自分の手数, mp=相手の手数
-      $('resVerdict').textContent = o.op<o.mp ? '🏆 あなたの勝ち！' : o.op>o.mp ? '😢 相手の勝ち…' : '🤝 引き分け！';
-      $('resSub').innerHTML=`あなた ${o.op}手 / 相手 ${o.mp}手`;
-      $('resOverlay').classList.add('show');
-    }
+  const grid=$('stageGrid');
+  grid.innerHTML='';
+  const from=chapter*CHAPTER, to=Math.min(from+CHAPTER, LEVELS.length);
+  for(let i=from;i<to;i++){
+    const b=document.createElement('button');
+    b.textContent=i+1;
+    if(isCleared(LEVELS[i])) b.classList.add('cleared');
+    if(i===index) b.classList.add('current');
+    if(i>max){ b.classList.add('locked'); b.disabled=true; }
+    else b.addEventListener('click',()=>{
+      $('pickOverlay').classList.remove('show');
+      startLevel(i);
+    });
+    grid.appendChild(b);
   }
-})();
-function leaveChallenge(){
-  if(!challenge) return;
-  challenge=null;
-  $('chBanner').style.display='none';
-  try{ window.history.replaceState(null,'',location.pathname); }catch(e){}
 }
 
-/* ---- 入力 ---- */
+/* ================= 入力 ================= */
 const KEYMAP={
   ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
   w:'up', s:'down', a:'left', d:'right', W:'up', S:'down', A:'left', D:'right',
@@ -736,7 +727,6 @@ document.addEventListener('keydown',e=>{
 document.querySelectorAll('.dpad button[data-dir]').forEach(b=>{
   b.addEventListener('click',()=>move(b.dataset.dir));
 });
-// 盤面のスワイプ操作
 let tsx=0, tsy=0;
 boardEl.addEventListener('touchstart',e=>{
   const t=e.changedTouches[0]; tsx=t.clientX; tsy=t.clientY;
@@ -748,40 +738,19 @@ boardEl.addEventListener('touchend',e=>{
   move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
 },{passive:true});
 
-/* ---- 各ボタン ---- */
-$('btnNew').addEventListener('click',()=>{ leaveChallenge(); newGame(); });
-$('btnNext').addEventListener('click',()=>{ leaveChallenge(); newGame(); });
-$('btnHint').addEventListener('click',hint);
+/* ================= ボタン ================= */
+$('btnPrev').addEventListener('click',()=>startLevel(index-1));
+$('btnNext').addEventListener('click',()=>startLevel(index+1));
+$('btnPick').addEventListener('click',openPicker);
+$('btnPickClose').addEventListener('click',()=>$('pickOverlay').classList.remove('show'));
 $('btnUndo').addEventListener('click',undo);
-$('btnReset').addEventListener('click',resetPuzzle);
+$('btnReset').addEventListener('click',resetLevel);
+$('btnHint').addEventListener('click',hint);
 $('btnShare').addEventListener('click',()=>{ if(shareData) shareLink(shareData.url, shareData.text); });
-$('btnResClose').addEventListener('click',()=>{
-  $('resOverlay').classList.remove('show');
-  try{ window.history.replaceState(null,'',location.pathname); }catch(e){}
+$('btnNextStage').addEventListener('click',()=>{
+  $('overlay').classList.remove('show');
+  if(index<LEVELS.length-1) startLevel(index+1);
 });
-
-const savedD=store.get('diff');
-if(DIFF[savedD]) difficulty=savedD;
-if(challenge) difficulty=challenge.d;
-document.querySelectorAll('#diffSeg button').forEach(b=>{
-  b.classList.toggle('active', b.dataset.d===difficulty);
-  b.addEventListener('click',()=>{
-    document.querySelectorAll('#diffSeg button').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    difficulty=b.dataset.d;
-    store.set('diff',difficulty);
-    leaveChallenge();
-    newGame();
-    prefetch(difficulty);
-  });
-});
-
-if(challenge){
-  $('chBanner').style.display='block';
-  newGame(challenge.s);
-}else{
-  newGame();
-}
 </script>
 </body>
 </html>

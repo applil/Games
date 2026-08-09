@@ -351,5 +351,9 @@ const DIFF={
 /* ================= 外部に公開 ================= */
 // ページからも生成ワーカーからも同じファイルを読み込む
 (function(root){
-  root.WarehouseEngine={generate, DIFF, solvableStates, regionRep, regionsOf, pushesFrom, keyOf, mulberry32};
+  root.WarehouseEngine={
+    generate, DIFF, solvableStates, regionRep, regionsOf, pushesFrom, keyOf, mulberry32,
+    // 面プールを作るツールから使う内部関数
+    randomLayout, greedyPolicies, analyse, shuffle, randInt,
+  };
 })(typeof self!=='undefined'?self:this);
