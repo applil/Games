@@ -126,8 +126,13 @@ h1{font-size:26px;font-weight:800;letter-spacing:.08em;line-height:1.2}
 }
 .loading.show{display:flex}
 .loading .spin{font-size:28px;animation:spin 1.1s linear infinite}
+.loading .note{font-size:11px;font-weight:600;color:var(--ink-soft);min-height:14px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+.boardnote{
+  margin-top:8px;text-align:center;font-size:11px;color:var(--ink-soft);
+  letter-spacing:.03em;line-height:1.6;
+}
 .dpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px auto 0;max-width:230px}
 .dpad button{
   aspect-ratio:1;border:1px solid var(--line);background:var(--card);border-radius:16px;
@@ -209,8 +214,14 @@ details p{margin-top:8px;line-height:1.8}
 
   <div class="board-wrap">
     <div class="board" id="board" role="img" aria-label="倉庫番の盤面"></div>
-    <div class="loading" id="loading"><div class="spin">📦</div><div>問題を作っています…</div></div>
+    <div class="loading" id="loading">
+      <div class="spin">📦</div>
+      <div>問題を作っています…</div>
+      <div class="note"></div>
+    </div>
   </div>
+
+  <div class="boardnote" id="boardNote"></div>
 
   <div class="dpad">
     <button class="empty"></button>
@@ -260,6 +271,7 @@ details p{margin-top:8px;line-height:1.8}
   </div>
 </div>
 
+<script src="engine.js"></script>
 <script>
 'use strict';
 
@@ -292,17 +304,8 @@ const SFX = {
   win(){ [523.25,659.25,783.99,1046.5,1318.51].forEach((f,i)=>beep(f, i===4?0.34:0.13, i*0.11, 'square', 0.07)); },
 };
 
-/* ================= 乱数・共有リンク ================= */
-function mulberry32(a){
-  return function(){
-    a|=0; a=a+0x6D2B79F5|0;
-    let t=Math.imul(a^a>>>15,1|a);
-    t=t+Math.imul(t^t>>>7,61|t)^t;
-    return ((t^t>>>14)>>>0)/4294967296;
-  };
-}
-const shuffle=(a,rng)=>{ for(let i=a.length-1;i>0;i--){const j=rng()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
-
+/* ================= 共有リンク ================= */
+// (乱数まわりは engine.js 側で定義済み)
 const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const dec = s => { try{ return JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/'))))); }catch(e){ return null; } };
 
@@ -318,375 +321,10 @@ async function shareLink(url, text){
   }
 }
 
-/* ================= 盤面(壁)の生成 ================= */
-// grid: 1 = 壁, 0 = 床。外周は必ず壁。
-function buildLayout(rng, W, H, wallRatio){
-  const w=W+2, h=H+2;
-  const grid=new Uint8Array(w*h).fill(1);
-  const inner=[];
-  for(let y=1;y<=H;y++) for(let x=1;x<=W;x++){ grid[y*w+x]=0; inner.push(y*w+x); }
-  shuffle(inner,rng);
-  let quota=Math.round(W*H*wallRatio);
-  for(const i of inner){
-    if(quota<=0) break;
-    if(grid[i]) continue;
-    // 4割は2マス続きにして、点在する柱だけでなく仕切りも生む
-    const seg=[i];
-    if(rng()<0.4){
-      const d=[1,-1,w,-w][rng()*4|0];
-      if(grid[i+d]===0) seg.push(i+d);
-    }
-    for(const s of seg) grid[s]=1;
-    if(!floorsConnected(grid,w)) for(const s of seg) grid[s]=0;
-    else quota-=seg.length;
-  }
-  return {grid,w,h,W,H};
-}
-function floorCells(grid){ const o=[]; for(let i=0;i<grid.length;i++) if(!grid[i]) o.push(i); return o; }
-function floorsConnected(grid,w){
-  let start=-1, total=0;
-  for(let i=0;i<grid.length;i++) if(!grid[i]){ total++; if(start<0) start=i; }
-  if(start<0) return false;
-  const seen=new Uint8Array(grid.length); seen[start]=1;
-  const st=[start]; let n=1;
-  while(st.length){
-    const c=st.pop();
-    for(const d of [1,-1,w,-w]){ const q=c+d; if(!grid[q]&&!seen[q]){ seen[q]=1; n++; st.push(q); } }
-  }
-  return n===total;
-}
+/* ================= 生成エンジン ================= */
+// 盤面生成とソルバー本体は engine.js が定義している(生成ワーカーと共用)。
+// generate / DIFF / makeCtx / makeSolver はそこで宣言済みのものをそのまま使う。
 
-/* ================= 探索用の共通コンテキスト ================= */
-// Set の再確保を避けるため、世代スタンプ付きの型付き配列を使い回す
-function makeCtx(layout){
-  const size=layout.grid.length;
-  return {
-    grid:layout.grid, w:layout.w, size,
-    boxMark:new Int32Array(size), boxGen:0,
-    regMark:new Int32Array(size), regGen:0,
-    queue:new Int32Array(size),
-  };
-}
-function setBoxes(ctx, boxes){
-  ctx.boxGen++;
-  for(const b of boxes) ctx.boxMark[b]=ctx.boxGen;
-}
-const isBox=(ctx,c)=>ctx.boxMark[c]===ctx.boxGen;
-// プレイヤーの到達領域を塗り、代表セル(最小index)を返す
-function fillRegion(ctx, from){
-  const {grid,w,regMark,queue}=ctx;
-  const gen=++ctx.regGen;
-  regMark[from]=gen;
-  queue[0]=from;
-  let head=0, tail=1, rep=from;
-  while(head<tail){
-    const c=queue[head++];
-    if(c<rep) rep=c;
-    for(const d of [1,-1,w,-w]){
-      const q=c+d;
-      if(grid[q]||isBox(ctx,q)||regMark[q]===gen) continue;
-      regMark[q]=gen; queue[tail++]=q;
-    }
-  }
-  return rep;
-}
-const inRegion=(ctx,c)=>ctx.regMark[c]===ctx.regGen;
-// 状態キー: プレイヤー領域の代表セル + 箱位置(昇順)
-function stateKey(boxes, rep){
-  let s=String.fromCharCode(rep);
-  for(let i=0;i<boxes.length;i++) s+=String.fromCharCode(boxes[i]);
-  return s;
-}
-
-/* ================= 単純デッドロック(箱が二度と動かせないマス) ================= */
-// ゴールから「引き」で辿り着ける床だけが、箱の乗ってよいマス
-function aliveCells(grid,w,goals){
-  const alive=new Uint8Array(grid.length);
-  const q=goals.slice();
-  for(const g of goals) alive[g]=1;
-  while(q.length){
-    const c=q.pop();
-    for(const d of [1,-1,w,-w]){
-      const p=c+d, back=c+2*d;
-      if(grid[p]||grid[back]||alive[p]) continue;
-      alive[p]=1; q.push(p);
-    }
-  }
-  return alive;
-}
-
-/* ================= 逆生成: ゴール状態から「引き」で巻き戻す ================= */
-// 引きだけで作った盤面は、辿った手順を逆再生すれば必ず解ける
-function reverseSearch(ctx, layout, goals, opts, rng, hval){
-  const {grid,w}=ctx;
-  const dirs=[1,-1,w,-w];
-  const goalSet=new Uint8Array(grid.length);
-  for(const g of goals) goalSet[g]=1;
-  const start=goals.slice().sort((a,b)=>a-b);
-  const seen=new Set();
-  const cands=[];
-  let layer=[];
-  // プレイヤーの初期領域ごとに別々の出発状態を作る
-  setBoxes(ctx,start);
-  const covered=new Uint8Array(grid.length);
-  for(let c=0;c<grid.length;c++){
-    if(grid[c]||isBox(ctx,c)||covered[c]) continue;
-    const rep=fillRegion(ctx,c);
-    for(let k=0;k<grid.length;k++) if(inRegion(ctx,k)) covered[k]=1;
-    const key=stateKey(start,rep);
-    if(seen.has(key)) continue;
-    seen.add(key);
-    layer.push({boxes:start, player:rep, depth:0, turns:0, lastBox:-1, lastDir:0, h:0});
-  }
-  let expanded=0;
-  // 全探索すると深さ20超で状態数が爆発するので、各深さで幅を絞るビームサーチにする
-  while(layer.length && expanded<opts.maxNodes && cands.length<opts.maxCands){
-    const next=[];
-    for(const st of layer){
-      if(++expanded>=opts.maxNodes) break;
-      if(st.depth>=opts.maxDepth) continue;
-      setBoxes(ctx,st.boxes);
-      fillRegion(ctx,st.player);
-      // 親のマークを使い切って合法手を洗い出してから、子の状態を作る
-      const pulls=[];
-      for(const b of st.boxes){
-        for(const d of dirs){
-          const p=b+d, q=b+2*d;      // p: プレイヤーの立ち位置, q: 引いた後の立ち位置
-          if(grid[p]||isBox(ctx,p)) continue;
-          if(grid[q]||isBox(ctx,q)) continue;
-          if(!inRegion(ctx,p)) continue;
-          pulls.push(b,d,p,q);
-        }
-      }
-      for(let k=0;k<pulls.length;k+=4){
-        const b=pulls[k], d=pulls[k+1], p=pulls[k+2], q=pulls[k+3];
-        const boxes=st.boxes.slice();
-        boxes[boxes.indexOf(b)]=p;
-        boxes.sort((x,y)=>x-y);
-        setBoxes(ctx,boxes);
-        const rep=fillRegion(ctx,q);
-        const key=stateKey(boxes,rep);
-        if(seen.has(key)) continue;
-        seen.add(key);
-        const turns=st.turns+((st.lastBox===b&&st.lastDir===d)?0:1);
-        const ns={boxes, player:rep, depth:st.depth+1, turns, lastBox:p, lastDir:d, h:hval(boxes)};
-        next.push(ns);
-        // h は押し回数の下界。これが目標値以上なら「十分に難しい」ことが保証される
-        let onGoal=0;
-        for(const x of boxes) if(goalSet[x]) onGoal++;
-        if(onGoal===0 && ns.h>=opts.minH) cands.push(ns);
-      }
-    }
-    // 難しそうな状態を優先しつつ、一部はランダムに残して問題の多様性を保つ
-    if(next.length>opts.beam){
-      next.sort((a,b)=>(b.h+b.turns*0.5)-(a.h+a.turns*0.5));
-      const keep=Math.floor(opts.beam*0.6);
-      layer=next.slice(0,keep).concat(shuffle(next.slice(keep),rng).slice(0,opts.beam-keep));
-    }else{
-      layer=next;
-    }
-  }
-  return cands;
-}
-
-/* ================= 前向きソルバ (A*, 最小「押し」回数) ================= */
-function makeSolver(ctx, layout, goals){
-  const {grid,w}=ctx;
-  const dirs=[1,-1,w,-w];
-  const goalSet=new Uint8Array(grid.length);
-  for(const g of goals) goalSet[g]=1;
-  const alive=aliveCells(grid,w,goals);
-  // ゴールごとの床上距離マップ。箱↔ゴールを1対1に割り当てたときの最小和を下界に使う
-  // (押し1回で箱は1マスしか動かないので許容的なヒューリスティック)
-  const gdist=goals.map(g=>{
-    const dist=new Int32Array(grid.length).fill(-1);
-    dist[g]=0;
-    const q=[g];
-    for(let i=0;i<q.length;i++){
-      const c=q[i];
-      for(const d of dirs){ const n=c+d; if(grid[n]||dist[n]>=0) continue; dist[n]=dist[c]+1; q.push(n); }
-    }
-    return dist;
-  });
-  const perms=(n=>{                       // 箱は数個なので全順列でよい
-    const out=[]; const a=[...Array(n).keys()];
-    (function rec(k){
-      if(k===n){ out.push(a.slice()); return; }
-      for(let i=k;i<n;i++){ [a[k],a[i]]=[a[i],a[k]]; rec(k+1); [a[k],a[i]]=[a[i],a[k]]; }
-    })(0);
-    return out;
-  })(goals.length);
-  function hval(boxes){
-    let best=Infinity;
-    for(const perm of perms){
-      let s=0, ok=true;
-      for(let i=0;i<boxes.length;i++){
-        const v=gdist[perm[i]][boxes[i]];
-        if(v<0){ ok=false; break; }
-        s+=v;
-        if(s>=best){ ok=false; break; }
-      }
-      if(ok&&s<best) best=s;
-    }
-    return best;
-  }
-
-  // 2x2 が壁と箱で埋まったらその箱はもう動かせない(全部ゴール上なら可)
-  // 呼び出し時点で ctx のマークが対象の箱配置になっていること
-  function frozen(b){
-    for(const off of [0,-1,-w,-w-1]){
-      const o=b+off;
-      let boxCount=0, filled=true, allGoal=true;
-      for(const c of [o,o+1,o+w,o+w+1]){
-        if(grid[c]) continue;
-        if(isBox(ctx,c)){ boxCount++; if(!goalSet[c]) allGoal=false; }
-        else { filled=false; break; }
-      }
-      if(filled&&boxCount>0&&!allGoal) return true;
-    }
-    return false;
-  }
-  // プレイ中の「詰み」判定(軽い検査だけ)
-  function isDead(boxes){
-    setBoxes(ctx,boxes);
-    for(const b of boxes){
-      if(!alive[b]) return true;
-      if(frozen(b)) return true;
-    }
-    return false;
-  }
-
-  // f 値の小さい順に取り出す二分ヒープ
-  function heapPush(h,node){
-    h.push(node);
-    let i=h.length-1;
-    while(i>0){ const p=(i-1)>>1; if(h[p].f<=h[i].f) break; [h[p],h[i]]=[h[i],h[p]]; i=p; }
-  }
-  function heapPop(h){
-    const top=h[0], last=h.pop();
-    if(h.length){ h[0]=last; let i=0;
-      for(;;){ const l=2*i+1, r=l+1; let m=i;
-        if(l<h.length&&h[l].f<h[m].f) m=l;
-        if(r<h.length&&h[r].f<h[m].f) m=r;
-        if(m===i) break; [h[m],h[i]]=[h[i],h[m]]; i=m; }
-    }
-    return top;
-  }
-
-  function solve(boxes0, player, limitNodes){
-    const start=boxes0.slice().sort((a,b)=>a-b);
-    if(start.every(b=>goalSet[b])) return {pushes:0, lines:0, moves:[]};
-    const h0=hval(start);
-    if(h0===Infinity) return null;
-    setBoxes(ctx,start);
-    const rep0=fillRegion(ctx,player);
-    const k0=stateKey(start,rep0);
-    const open=[]; heapPush(open,{boxes:start, player:rep0, g:0, f:h0, key:k0, prev:null, move:null});
-    const best=new Map([[k0,0]]);
-    const closed=new Set();
-    let nodes=0;
-    while(open.length){
-      const cur=heapPop(open);
-      if(closed.has(cur.key)) continue;
-      closed.add(cur.key);
-      if(++nodes>limitNodes) return null;
-      if(cur.boxes.every(b=>goalSet[b])){
-        const moves=[]; let n=cur;
-        while(n.move){ moves.unshift(n.move); n=n.prev; }
-        let lines=0, lb=-1, ld=0;
-        for(const m of moves){ if(m.from!==lb||m.dir!==ld) lines++; lb=m.to; ld=m.dir; }
-        return {pushes:moves.length, lines, moves};
-      }
-      setBoxes(ctx,cur.boxes);
-      fillRegion(ctx,cur.player);
-      const cands=[];
-      for(const b of cur.boxes){
-        for(const d of dirs){
-          const from=b-d, to=b+d;    // from に立って d 方向へ押す
-          if(grid[from]||isBox(ctx,from)) continue;
-          if(grid[to]||isBox(ctx,to)) continue;
-          if(!inRegion(ctx,from)) continue;
-          if(!alive[to]) continue;
-          cands.push(b,d,to);
-        }
-      }
-      const g=cur.g+1;
-      for(let k=0;k<cands.length;k+=3){
-        const b=cands[k], d=cands[k+1], to=cands[k+2];
-        const boxes=cur.boxes.slice();
-        boxes[boxes.indexOf(b)]=to;
-        boxes.sort((x,y)=>x-y);
-        const hh=hval(boxes);
-        if(hh===Infinity) continue;
-        setBoxes(ctx,boxes);
-        if(frozen(to)) continue;
-        const rep=fillRegion(ctx,b);
-        const key=stateKey(boxes,rep);
-        if(best.has(key)&&best.get(key)<=g) continue;
-        best.set(key,g);
-        heapPush(open,{boxes, player:rep, g, f:g+hh, key, prev:cur, move:{from:b, to, dir:d}});
-      }
-    }
-    return null;
-  }
-  return {solve, alive, hval, isDead};
-}
-
-/* ================= 置き場の配置 ================= */
-// 本物の倉庫番のように置き場を一箇所へ固める。散らすより箱の移動距離が伸びる
-function pickGoals(layout, floors, count, rng){
-  const {grid,w}=layout;
-  const anchor=floors[rng()*floors.length|0];
-  const order=[anchor];
-  const seen=new Uint8Array(grid.length); seen[anchor]=1;
-  for(let i=0;i<order.length;i++){
-    const c=order[i];
-    for(const d of [1,-1,w,-w]){ const n=c+d; if(grid[n]||seen[n]) continue; seen[n]=1; order.push(n); }
-  }
-  const pool=order.slice(0, Math.min(order.length, Math.max(count+2, count*3)));
-  if(pool.length<count) return null;
-  return shuffle(pool,rng).slice(0,count).sort((a,b)=>a-b);
-}
-
-/* ================= 生成本体 ================= */
-function generate(seed, cfg){
-  const rng=mulberry32(seed);
-  let fallback=null;
-  for(let attempt=0; attempt<cfg.tries; attempt++){
-    const layout=buildLayout(rng,cfg.W,cfg.H,cfg.wallRatio);
-    const ctx=makeCtx(layout);
-    const floors=floorCells(layout.grid);
-    if(floors.length<cfg.boxes*4+6) continue;
-    const goals=pickGoals(layout,floors,cfg.boxes,rng);
-    if(!goals) continue;
-    const solver=makeSolver(ctx,layout,goals);
-    const cands=reverseSearch(ctx,layout,goals,{
-      maxNodes:cfg.maxNodes, maxDepth:cfg.maxDepth,
-      minH:cfg.minPush, beam:cfg.beam, maxCands:cfg.maxCands
-    },rng,solver.hval);
-    if(!cands.length) continue;
-    // 下界の大きい(=手数がかかる)候補から順に、実際に解いて条件を確かめる
-    cands.sort((a,b)=>(b.h*2+b.turns)-(a.h*2+a.turns));
-    for(const c of cands.slice(0,cfg.candidates)){
-      const sol=solver.solve(c.boxes,c.player,cfg.solveNodes);
-      if(!sol) continue;
-      const puzzle={
-        grid:layout.grid, w:layout.w, h:layout.h, W:cfg.W, H:cfg.H,
-        boxes:c.boxes, goals, player:c.player, pushes:sol.pushes, lines:sol.lines
-      };
-      if(sol.pushes>=cfg.minPush&&sol.lines>=cfg.minLines) return puzzle;
-      if(!fallback||sol.pushes*2+sol.lines>fallback.pushes*2+fallback.lines) fallback=puzzle;
-    }
-  }
-  return fallback;
-}
-
-// 難易度設定: 盤面サイズ・箱の数と、要求する最小押し回数 / 方向転換の回数
-const DIFF={
-  easy:  {W:6,H:6,boxes:2,wallRatio:0.16,minPush:9, minLines:5, tries:30,candidates:6,beam:120,maxCands:300,maxNodes:12000,maxDepth:24,solveNodes:20000},
-  normal:{W:7,H:7,boxes:3,wallRatio:0.18,minPush:16,minLines:9, tries:30,candidates:8,beam:150,maxCands:400,maxNodes:20000,maxDepth:32,solveNodes:40000},
-  hard:  {W:8,H:8,boxes:4,wallRatio:0.18,minPush:24,minLines:13,tries:30,candidates:8,beam:180,maxCands:400,maxNodes:30000,maxDepth:40,solveNodes:60000},
-};
 const DIFF_LABEL={easy:'やさしい',normal:'ふつう',hard:'むずかしい'};
 
 /* ================= ゲーム状態 / UI ================= */
@@ -707,31 +345,116 @@ const bestKey=()=>'best-'+difficulty;
 const getBest=()=>{ const v=store.get(bestKey()); return v==null?null:+v; };
 const fmt=ms=>{ const s=Math.floor(ms/1000); return (s/60|0)+':'+String(s%60).padStart(2,'0'); };
 
+/* ---- 生成ワーカー ----
+   むずかしいは盤面によって数秒かかるので、生成は別スレッドに投げる。
+   さらに1問先を裏で作り置きして、「次の問題へ」を待たせないようにする。 */
+const randomSeed=()=>(Math.random()*0x100000000)>>>0;
+let reqId=0;
+const pending=new Map();     // 生成依頼中: id -> resolve
+const prefetched={};         // 難易度ごとの作り置き: {seed, puzzle}
+const prefetching={};
+
+// ワーカーは2本。待たせている生成(now)と、裏の作り置き(pre)が
+// 同じキューに並ぶと、作り置きの後ろで待たされてしまうため分けている
+function spawnWorker(){
+  try{
+    const w=new Worker('worker.js');
+    w.onmessage=e=>{
+      const done=pending.get(e.data.id);
+      if(done){ pending.delete(e.data.id); done(e.data); }
+    };
+    w.onerror=()=>{ w.dead=true; };      // 読み込みに失敗したらメインスレッドで作る
+    return w;
+  }catch(e){ return null; }
+}
+const workers={now:spawnWorker(), pre:spawnWorker()};
+
+function requestPuzzle(difficulty, seed, lane){
+  const w=workers[lane||'now'];
+  if(!w||w.dead){
+    // Worker が使えない環境(file:// など)ではその場で生成する
+    return Promise.resolve({difficulty, seed, puzzle:generate(seed, DIFF[difficulty])});
+  }
+  const id=++reqId;
+  return new Promise(resolve=>{
+    pending.set(id,resolve);
+    w.postMessage({id, difficulty, seed});
+  });
+}
+
+// 次の1問を裏で用意しておく
+function prefetch(diff){
+  if(prefetched[diff]||prefetching[diff]) return;
+  const w=workers.pre;
+  if(!w||w.dead) return;                 // 同期生成しかできない環境では先読みしない
+  prefetching[diff]=true;
+  const seed=randomSeed();
+  requestPuzzle(diff,seed,'pre').then(res=>{
+    prefetching[diff]=false;
+    if(res&&res.puzzle) prefetched[diff]={seed, puzzle:res.puzzle};
+  }).catch(()=>{ prefetching[diff]=false; });
+}
+// 他の難易度も、少し落ち着いてから裏で用意しておく
+function prefetchOthers(){
+  setTimeout(()=>{
+    for(const d of Object.keys(DIFF)) if(d!==difficulty) prefetch(d);
+  },3000);
+}
+
+let loadTimer=null;
+function showLoading(){
+  const el=$('loading'), note=el.querySelector('.note');
+  const t0=Date.now();
+  note.textContent='';
+  el.classList.add('show');
+  clearInterval(loadTimer);
+  // 数秒かかる盤面もあるので、待っている間は経過秒を出す
+  loadTimer=setInterval(()=>{
+    const s=Math.floor((Date.now()-t0)/1000);
+    if(s>=2) note.textContent=`${s}秒 — 手ごたえのある盤面を探しています`;
+  },250);
+}
+function hideLoading(){ clearInterval(loadTimer); $('loading').classList.remove('show'); }
+
 function newGame(seed){
-  currentSeed = seed!=null ? (seed>>>0) : ((Math.random()*0x100000000)>>>0);
-  $('loading').classList.add('show');
   $('overlay').classList.remove('show');
   hideMsg();
-  // 生成は数百ms かかることがあるので、ローディング表示を描画してから走らせる
-  requestAnimationFrame(()=>setTimeout(()=>{
-    const p=generate(currentSeed, DIFF[difficulty]);
-    $('loading').classList.remove('show');
-    if(!p){ showMsg('問題を作れませんでした。もう一度お試しください。', true); return; }
-    puzzle=p;
-    ctx=makeCtx(p);
-    solver=makeSolver(ctx,p,p.goals);
-    goalSet=new Set(p.goals);
-    boxes=p.boxes.slice();
-    player=p.player;
-    undoStack=[]; pushCount=0; moveCount=0; hintCount=0;
-    finished=false; deadShown=false;
-    buildBoard();
-    updateStats();
-    startTime=Date.now();
-    clearInterval(timerId);
-    timerId=setInterval(()=>{ if(!finished) $('timer').textContent=fmt(Date.now()-startTime); },250);
-    $('timer').textContent='0:00';
-  },20));
+  // シード指定(挑戦状)がなく作り置きがあれば、それを即座に使う
+  if(seed==null && prefetched[difficulty]){
+    const {seed:s, puzzle:p}=prefetched[difficulty];
+    prefetched[difficulty]=null;
+    startPuzzle(s,p);
+    prefetch(difficulty);
+    prefetchOthers();
+    return;
+  }
+  const useSeed = seed!=null ? (seed>>>0) : randomSeed();
+  showLoading();
+  requestPuzzle(difficulty, useSeed).then(res=>{
+    hideLoading();
+    if(!res||!res.puzzle){ showMsg('問題を作れませんでした。もう一度お試しください。', true); return; }
+    startPuzzle(useSeed, res.puzzle);
+    prefetch(difficulty);
+    prefetchOthers();
+  });
+}
+
+function startPuzzle(seed, p){
+  currentSeed=seed>>>0;
+  puzzle=p;
+  ctx=makeCtx(p);
+  solver=makeSolver(ctx,p,p.goals);
+  goalSet=new Set(p.goals);
+  boxes=p.boxes.slice();
+  player=p.player;
+  undoStack=[]; pushCount=0; moveCount=0; hintCount=0;
+  finished=false; deadShown=false;
+  buildBoard();
+  updateStats();
+  startTime=Date.now();
+  clearInterval(timerId);
+  timerId=setInterval(()=>{ if(!finished) $('timer').textContent=fmt(Date.now()-startTime); },250);
+  $('timer').textContent='0:00';
 }
 
 let cellEls=[];
@@ -765,6 +488,12 @@ function updateStats(){
   $('pushes').textContent=pushCount;
   const b=getBest();
   $('best').textContent = puzzle ? `${puzzle.pushes}手 / ${b==null?'--':b+'手'}` : '--';
+  if(puzzle){
+    const parts=[`荷物 ${puzzle.boxes.length}個`, `${puzzle.W}×${puzzle.H}`];
+    if(puzzle.style) parts.push(`壁: ${puzzle.style}`);
+    if(puzzle.goalStyle) parts.push(`置き場: ${puzzle.goalStyle}`);
+    $('boardNote').textContent=parts.join(' ・ ');
+  }
 }
 
 /* ---- 移動 ---- */
@@ -995,6 +724,7 @@ document.querySelectorAll('#diffSeg button').forEach(b=>{
     store.set('diff',difficulty);
     leaveChallenge();
     newGame();
+    prefetch(difficulty);
   });
 });
 
