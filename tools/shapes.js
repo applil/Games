@@ -267,8 +267,8 @@ const CLUTTERS=[
   {name:'ふつう',     ratio:0.08},
   {name:'仕切り多め', ratio:0.18},
 ];
-function addClutter(L, rng){
-  const c=pick(CLUTTERS,rng);
+function addClutter(L, rng, force){
+  const c = force ? (CLUTTERS.find(x=>x.name===force)||pick(CLUTTERS,rng)) : pick(CLUTTERS,rng);
   L.clutter=c.name;
   if(!c.ratio) return L;
   const cells=[];
@@ -291,16 +291,19 @@ function addClutter(L, rng){
 /* ================= 大きさと縦横比 ================= */
 // 小/中/大 × 縦長/正方/横長 を独立に振る
 const SIZE_RANGE={'小':[3,4], '中':[5,6], '大':[6,8], '特大':[9,10], '超特大':[11,12],
-                  '巨大':[13,16], '超巨大':[17,20]};
+                  '巨大':[13,14], '超巨大':[15,16]};
 // 巨大サイズは指定されたときだけ使う(ふつうの抽選には混ぜない)
 const HUGE=['巨大','超巨大'];
-function pickSize(rng, minW, minH, forceSize){
+function pickSize(rng, minW, minH, forceSize, extreme){
   if(forceSize && SIZE_RANGE[forceSize]){
     const base=SIZE_RANGE[forceSize];
-    const aspect=pick(['縦長','正方','横長'],rng);
+    // extreme のときは正方形を外して、思い切り扁平にする
+    const aspect=extreme ? pick(['縦長','横長'],rng) : pick(['縦長','正方','横長'],rng);
     let W=randInt(base[0],base[1],rng), H=randInt(base[0],base[1],rng);
-    if(aspect==='縦長') W=Math.max(4, W-randInt(1, Math.max(1,(W/2)|0), rng));
-    if(aspect==='横長') H=Math.max(4, H-randInt(1, Math.max(1,(H/2)|0), rng));
+    const cut=(v)=>extreme ? Math.max(3, Math.round(v*(0.22+rng()*0.28)))     // 3〜7割まで潰す
+                           : Math.max(4, v-randInt(1, Math.max(1,(v/2)|0), rng));
+    if(aspect==='縦長') W=cut(W);
+    if(aspect==='横長') H=cut(H);
     return {W:Math.max(W,minW||0), H:Math.max(H,minH||0), size:forceSize, aspect};
   }
   return pickSizeNormal(rng, minW, minH);
@@ -329,11 +332,15 @@ function pickSizeNormal(rng, minW, minH){
 // (先に大きさを引くと、小さい盤でも作れる「空洞」「まだら」ばかりになる)
 function buildShape(rng, opts){
   opts=opts||{};
-  const shape=pick(SHAPES,rng);
-  const {W,H,size,aspect}=pickSize(rng, shape.min[0], shape.min[1], opts.size);
+  // extreme のときは輪郭がはっきり出る形だけを使う
+  const EXTREME_SHAPES=['L字','U字','十字・T字','空洞','回廊','ドーナツ','2部屋'];
+  const pool = opts.extreme ? SHAPES.filter(x=>EXTREME_SHAPES.indexOf(x.name)>=0) : SHAPES;
+  const shape=pick(pool,rng);
+  const {W,H,size,aspect}=pickSize(rng, shape.min[0], shape.min[1], opts.size, opts.extreme);
   const L=shape.build(rng,W,H);
   L.shape=shape.name;
-  addClutter(L, rng);
+  // extreme のときは中身も極端に(がらんどう or 仕切り多め)
+  addClutter(L, rng, opts.extreme ? pick(['がらんどう','仕切り多め'],rng) : null);
   if(!keepLargest(L)) return null;
   const out=crop(L);
   if(!out) return null;
