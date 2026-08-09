@@ -95,11 +95,16 @@ h1{
 
 .spacer{flex:1 1 auto;min-height:0}
 
-/* 十字の形(3行3列・中央は空き)。上下は詰めて、左右だけ間をあける */
+/* ↑と↓は縦に隙間なく重ね、←と→はその継ぎ目の高さに置く */
 .dpad{
-  flex:0 0 auto;display:grid;grid-template-columns:repeat(3,1fr);
+  flex:0 0 auto;display:grid;
+  grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,auto);
   column-gap:7px;row-gap:0;margin:0 auto;width:min(186px,54vw);
 }
+.dpad button[data-dir="up"]   {grid-area:1/2/2/3}
+.dpad button[data-dir="down"] {grid-area:2/2/3/3}
+.dpad button[data-dir="left"] {grid-area:1/1/3/2;align-self:center}
+.dpad button[data-dir="right"]{grid-area:1/3/3/4;align-self:center}
 .dpad button{
   aspect-ratio:1;border:1px solid var(--line);background:var(--card);border-radius:15px;
   font-size:20px;color:var(--ink);cursor:pointer;
@@ -117,7 +122,9 @@ body.dpad-off .dpad{display:none}
 .footrow{
   position:absolute;left:0;right:0;bottom:0;
   display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;
+  pointer-events:none;                 /* 十字キーの上に重なるので、箱では受けない */
 }
+.footrow>*{pointer-events:auto}
 /* 十字キーを隠しているときは、重ねる相手がいないので普通に流す */
 body.dpad-off .footrow{position:static;padding-top:10px;align-items:center}
 .footrow .left{justify-self:start;display:flex;gap:6px}
@@ -259,15 +266,10 @@ body.debug .debugbar{display:flex}
 
   <div class="bottomarea">
   <div class="dpad">
-    <button class="empty"></button>
     <button data-dir="up" aria-label="上へ">↑</button>
-    <button class="empty"></button>
-    <button data-dir="left" aria-label="左へ">←</button>
-    <button class="empty"></button>
-    <button data-dir="right" aria-label="右へ">→</button>
-    <button class="empty"></button>
     <button data-dir="down" aria-label="下へ">↓</button>
-    <button class="empty"></button>
+    <button data-dir="left" aria-label="左へ">←</button>
+    <button data-dir="right" aria-label="右へ">→</button>
   </div>
 
   <div class="footrow">
@@ -330,7 +332,10 @@ body.debug .debugbar{display:flex}
      ?set=picks … よりぬき版(別の面リスト・別の進行)
      ?lv=N      … 送られてきた1面だけを独立して遊ぶ(本編の進行に影響しない) */
 const QS=new URLSearchParams(location.search);
-const DEBUG=QS.get('debug')==='1';
+// クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
+// 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
+const debugSaved=(()=>{ try{ return localStorage.getItem('warehouse-debug')==='1'; }catch(e){ return false; } })();
+const DEBUG=QS.get('debug')==='1' || (QS.get('debug')!=='0' && debugSaved);
 const SET=QS.get('set')==='picks' ? 'picks' : '';
 const WANT=+QS.get('lv')||0;
 const FILE=SET==='picks' ? 'levels-picks.json' : 'levels.json';
@@ -448,6 +453,14 @@ function applyDpadMode(){
 
 /* ================= 盤の大きさ =================
    十字キーまで画面に収まるよう、余った高さからマスの大きさを決める */
+// 右肩に縦に並ぶ「ルール」と「最初から」は、文字数が違っても同じ幅にそろえる
+function alignHeaderButtons(){
+  const a=$('btnRules'), b=$('btnReset');
+  if(!a||!b) return;
+  a.style.minWidth=b.style.minWidth='';                 // 素の幅を測り直す
+  const w=Math.ceil(Math.max(a.getBoundingClientRect().width, b.getBoundingClientRect().width));
+  a.style.minWidth=b.style.minWidth=w+'px';
+}
 // 手数の中心を「◀ メニュー」の中心にそろえる。ボタンの幅は文字数で変わるので実測する
 function alignPushes(){
   const menu=document.querySelector('header .iconbtn');
@@ -457,6 +470,7 @@ function alignPushes(){
   document.documentElement.style.setProperty('--pushx', (m.left+m.width/2-b.left)+'px');
 }
 function layoutBoard(){
+  alignHeaderButtons();
   alignPushes();
   if(!puzzle) return;
   const app=document.querySelector('.app');
@@ -881,7 +895,24 @@ document.querySelectorAll('.dpad button[data-dir]').forEach(b=>{
 });
 // スワイプは画面のどこでも受け付ける。ページごとスクロールしないよう既定の動作を止める。
 // ただしボタン類とモーダルの上では、押せなくなってしまうので受け付けない
-let tsx=0, tsy=0, swiped=false, tracking=false, tapDir=null;
+let tsx=0, tsy=0, swiped=false, tracking=false, tapDir=null, tapLabel=false;
+
+// 「ステージ」の文字を5回つづけて叩くとデバッグ表示を切り替える(クエリが使えない場所むけ)
+let debugTaps=0, debugTapAt=0;
+function bumpDebugTap(){
+  const now=Date.now();
+  debugTaps = (now-debugTapAt<800) ? debugTaps+1 : 1;
+  debugTapAt=now;
+  if(debugTaps<5) return;
+  debugTaps=0;
+  try{ localStorage.setItem('warehouse-debug', DEBUG?'0':'1'); }catch(e){}
+  // 遊んでいる間に URL は ?debug=1&lv=N に書き換わっている。
+  // クエリの指定が残っていると保存値に勝ってしまうので、必ず消してから読み直す
+  const u=new URL(location.href);
+  u.searchParams.delete('debug');
+  location.href=u.pathname+(u.search||'');
+}
+document.querySelector('.stagelabel').addEventListener('click',bumpDebugTap);
 const swipeBlocked=t=>{
   if(!(t instanceof Element)) return false;
   if(t.closest('.dpad button[data-dir]')) return false;   // 十字キーの上でもスワイプできる
@@ -895,6 +926,7 @@ document.addEventListener('touchstart',e=>{
   // 十字キーの上で始まった場合、動かさずに離したら「押した」ことにする
   const key=e.target instanceof Element ? e.target.closest('.dpad button[data-dir]') : null;
   tapDir=key ? key.dataset.dir : null;
+  tapLabel=e.target instanceof Element && !!e.target.closest('.stagelabel');
   const t=e.changedTouches[0]; tsx=t.clientX; tsy=t.clientY; swiped=false;
   e.preventDefault();
 },{passive:false});
@@ -915,7 +947,11 @@ document.addEventListener('touchend',e=>{
   if(swiped) return;
   const t=e.changedTouches[0];
   const dx=t.clientX-tsx, dy=t.clientY-tsy;
-  if(Math.abs(dx)<12&&Math.abs(dy)<12){ if(tapDir) move(tapDir); return; }
+  if(Math.abs(dx)<12&&Math.abs(dy)<12){
+    if(tapDir) move(tapDir);
+    else if(tapLabel) bumpDebugTap();
+    return;
+  }
   move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
 },{passive:false});
 document.addEventListener('touchcancel',()=>{ tracking=false; });
