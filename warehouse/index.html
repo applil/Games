@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>倉庫パズル — 500面</title>
+<title>倉庫パズル</title>
 <style>
 :root{
   --ink:#1c2b46;
@@ -19,10 +19,10 @@
   --done-soft:#e2f5eb;
   --line:#dce5f2;
   --error:#e5484d;
-  --radius:16px;
+  --cell:36px;
 }
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-html,body{height:100%}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 body{
   font-family:'Hiragino Maru Gothic ProN','Zen Maru Gothic','Hiragino Kaku Gothic ProN','Yu Gothic',system-ui,sans-serif;
   color:var(--ink);
@@ -30,77 +30,33 @@ body{
     radial-gradient(120% 90% at -10% -10%, rgba(255,159,28,.12), transparent 55%),
     radial-gradient(120% 90% at 110% 110%, rgba(63,76,102,.12), transparent 55%),
     var(--paper);
-  min-height:100%;
-  display:flex;
-  justify-content:center;
+  display:flex;justify-content:center;
 }
-.app{width:100%;max-width:430px;padding:20px 16px 40px}
+.app{width:100%;max-width:430px;padding:10px 14px 12px;display:flex;flex-direction:column;height:100dvh}
 
-header{text-align:center;margin-bottom:12px;position:relative}
-.home{
-  position:absolute;left:0;top:2px;
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:0 0 auto}
+h1{font-size:15px;font-weight:800;letter-spacing:.1em;color:var(--ink-soft)}
+.iconbtn{
   background:var(--card);border:1px solid var(--line);border-radius:999px;
-  padding:6px 12px;font-size:12px;font-weight:700;color:var(--ink-soft);
-  text-decoration:none;
-}
-h1{font-size:24px;font-weight:800;letter-spacing:.08em;line-height:1.2}
-.tagline{font-size:11.5px;color:var(--ink-soft);margin-top:6px;letter-spacing:.04em;line-height:1.6}
-
-.progress{margin:12px 0 10px}
-.progress .bar{height:6px;background:var(--line);border-radius:999px;overflow:hidden}
-.progress .fill{height:100%;background:var(--done);width:0;transition:width .4s}
-.progress .label{
-  display:flex;justify-content:space-between;
-  font-size:11px;color:var(--ink-soft);margin-top:5px;font-variant-numeric:tabular-nums;
+  padding:5px 11px;font:inherit;font-size:12px;font-weight:700;color:var(--ink-soft);
+  text-decoration:none;cursor:pointer;line-height:1.4;white-space:nowrap;
 }
 
-.stats{display:flex;gap:8px;margin-bottom:10px}
-.stat{
-  flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-  padding:8px 6px;text-align:center;
-}
-.stat .label{font-size:10px;color:var(--ink-soft);letter-spacing:.06em}
-.stat .value{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
-
-.btn{
-  border:0;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;
-  padding:9px 16px;font-size:13px;transition:transform .1s,filter .15s;
-}
-.btn:active{transform:scale(.96)}
-.btn:disabled{opacity:.4;cursor:default}
-.btn-new{background:var(--ink);color:#fff}
-.btn-sub{background:var(--card);border:1px solid var(--line);color:var(--ink)}
-.btn-row{display:flex;gap:8px;margin-bottom:8px}
-.btn-row .btn{flex:1}
-.nav-row .btn{font-size:12px;padding:8px 10px}
-.nav-row .stage{flex:1.4}
-#btnFav{flex:0 0 auto;padding:9px 14px;font-size:16px}
-#btnFav.on{background:var(--goal-soft);border-color:var(--goal);color:var(--goal)}
-.setbanner{
-  display:none;background:#fff;border:2px solid var(--goal);border-radius:var(--radius);
-  padding:9px 12px;font-size:12px;font-weight:700;margin-bottom:10px;text-align:center;line-height:1.7;
-}
-.setbanner .btn{margin-top:6px;width:100%;font-size:12px}
-
-.msg{
-  display:none;background:var(--card);border:1px solid var(--line);
-  border-left:4px solid var(--done);border-radius:var(--radius);
-  padding:10px 12px;font-size:12.5px;line-height:1.7;
-  margin:2px 0 12px;
-}
-.msg.warn{border-left-color:var(--error)}
+.stagebar{flex:0 0 auto;text-align:center;padding:10px 0 8px}
+.stageno{font-size:28px;font-weight:800;letter-spacing:.03em;line-height:1.1}
+.stageno small{font-size:12px;font-weight:700;color:var(--ink-soft);letter-spacing:.1em;margin-right:7px}
+.pushes{font-size:11px;color:var(--ink-soft);margin-top:3px;font-variant-numeric:tabular-nums}
 
 .board-wrap{
-  background:var(--card);border:1px solid var(--line);border-radius:20px;
-  padding:12px;box-shadow:0 8px 30px rgba(28,43,70,.07);
-  position:relative;min-height:120px;
+  flex:0 0 auto;align-self:center;
+  background:var(--card);border:1px solid var(--line);border-radius:18px;
+  padding:10px;box-shadow:0 8px 30px rgba(28,43,70,.07);position:relative;
 }
-.board{display:grid;gap:2px;user-select:none}
+.board{display:grid;gap:2px;user-select:none;touch-action:none}
 .cell{
-  aspect-ratio:1;position:relative;border-radius:4px;
+  width:var(--cell);height:var(--cell);position:relative;border-radius:4px;
   display:flex;align-items:center;justify-content:center;
-  font-size:clamp(16px,5.6vw,30px);line-height:1;
-  background:var(--floor);
+  font-size:calc(var(--cell)*0.62);line-height:1;background:var(--floor);
   transition:background .12s;
 }
 .cell.wall{background:var(--wall);box-shadow:inset 0 2px 0 var(--wall-top);border-radius:5px}
@@ -118,41 +74,71 @@ h1{font-size:24px;font-weight:800;letter-spacing:.08em;line-height:1.2}
 .board.celebrate .cell .fig{animation:winwave .9s ease both}
 @keyframes winwave{35%{transform:scale(1.25) rotate(10deg)}}
 .arrowtag{
-  position:absolute;top:0;right:2px;z-index:2;
-  font-size:14px;font-weight:800;color:var(--done);
-  text-shadow:0 0 3px #fff,0 0 3px #fff;
+  position:absolute;top:0;right:2px;z-index:2;font-size:14px;font-weight:800;
+  color:var(--done);text-shadow:0 0 3px #fff,0 0 3px #fff;
 }
 
 .loading{
   position:absolute;inset:0;background:rgba(255,255,255,.9);
   display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;
-  border-radius:20px;font-size:13px;font-weight:700;color:var(--ink-soft);z-index:5;
+  border-radius:18px;font-size:13px;font-weight:700;color:var(--ink-soft);z-index:5;
 }
 .loading.show{display:flex}
 .loading .spin{font-size:28px;animation:spin 1.1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-.boardnote{
-  margin-top:8px;text-align:center;font-size:11px;color:var(--ink-soft);
-  letter-spacing:.03em;line-height:1.7;white-space:pre-line;min-height:2.4em;
-}
+.spacer{flex:1 1 auto;min-height:0}
 
-.dpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px auto 0;max-width:230px}
+.dpad{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:0 auto;width:min(216px,62vw)}
 .dpad button{
-  aspect-ratio:1;border:1px solid var(--line);background:var(--card);border-radius:16px;
-  font-size:22px;color:var(--ink);cursor:pointer;
+  aspect-ratio:1;border:1px solid var(--line);background:var(--card);border-radius:15px;
+  font-size:20px;color:var(--ink);cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 3px 10px rgba(28,43,70,.06);
+  box-shadow:0 3px 10px rgba(28,43,70,.06);touch-action:manipulation;
 }
 .dpad button:active{transform:scale(.94);background:var(--floor)}
 .dpad .empty{visibility:hidden}
+body.dpad-mini .dpad{width:min(120px,36vw);gap:4px}
+body.dpad-mini .dpad button{border-radius:9px;font-size:12px;box-shadow:none}
+body.dpad-off .dpad{display:none}
 
-details{
-  margin-top:16px;background:var(--card);border:1px solid var(--line);
-  border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--ink-soft);
+.footrow{flex:0 0 auto;display:flex;gap:8px;justify-content:center;align-items:center;padding-top:10px}
+.btn{
+  border:1px solid var(--line);border-radius:999px;font:inherit;font-weight:700;cursor:pointer;
+  padding:7px 14px;font-size:12px;background:var(--card);color:var(--ink-soft);
 }
-summary{cursor:pointer;font-weight:700;color:var(--ink);font-size:13px}
-details p{margin-top:8px;line-height:1.8}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn-new{background:var(--ink);color:#fff;border-color:var(--ink)}
+#btnFav.on{background:var(--goal-soft);border-color:var(--goal);color:var(--goal)}
+
+.msg{
+  display:none;flex:0 0 auto;background:var(--card);border:1px solid var(--line);
+  border-left:4px solid var(--done);border-radius:12px;
+  padding:8px 10px;font-size:12px;line-height:1.6;margin-top:6px;
+}
+.msg.warn{border-left-color:var(--error)}
+.boardnote{display:none;flex:0 0 auto;text-align:center;font-size:10.5px;color:var(--ink-soft);line-height:1.6;white-space:pre-line;margin-top:6px}
+body.debug .boardnote{display:block}
+.debugbar{display:none;flex:0 0 auto;gap:6px;justify-content:center;flex-wrap:wrap;padding-top:8px}
+body.debug .debugbar{display:flex}
+
+.banner{
+  flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
+  padding:7px 10px;font-size:11.5px;font-weight:700;margin-top:6px;text-align:center;line-height:1.6;
+}
+
+/* ★を付けるときに「1〜500でいうと何面くらいか」も記録する */
+.favpanel{
+  display:none;flex:0 0 auto;background:var(--card);border:1px solid var(--goal);
+  border-radius:12px;padding:10px 12px;margin-top:6px;text-align:center;
+}
+.favpanel.show{display:block}
+.favpanel .q{font-size:11.5px;font-weight:700;color:var(--ink-soft)}
+.favpanel .v{font-size:20px;font-weight:800;margin:2px 0 4px;font-variant-numeric:tabular-nums}
+.favpanel input[type=range]{width:100%;accent-color:var(--goal)}
+.favpanel .row{display:flex;gap:6px;margin-top:8px}
+.favpanel .row .btn{flex:1}
 
 .overlay{
   position:fixed;inset:0;background:rgba(28,43,70,.45);
@@ -161,94 +147,73 @@ details p{margin-top:8px;line-height:1.8}
 }
 .overlay.show{opacity:1;pointer-events:auto}
 .win-card{
-  background:var(--card);border-radius:24px;padding:30px 26px;text-align:center;
+  background:var(--card);border-radius:24px;padding:28px 26px;text-align:center;
   width:min(320px,86vw);transform:translateY(12px);transition:transform .25s;
 }
 .overlay.show .win-card{transform:translateY(0)}
-.win-emoji{font-size:42px;margin-bottom:6px}
-.win-title{font-size:20px;font-weight:800}
-.win-verdict{font-size:16px;font-weight:800;margin:6px 0 2px}
-.win-time{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;margin:6px 0 2px}
+.win-emoji{font-size:40px;margin-bottom:6px}
+.win-title{font-size:19px;font-weight:800}
+.win-verdict{font-size:16px;font-weight:800;margin:6px 0 2px;color:var(--done)}
+.win-time{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;margin:6px 0 2px}
 .win-sub{font-size:12px;color:var(--ink-soft);margin-bottom:16px;line-height:1.8}
-.win-card .btn{width:100%}
+.win-card .btn{width:100%;padding:10px 16px;font-size:13px}
 #btnShare{margin-bottom:8px}
 
-/* 面えらび */
-.picker{
-  background:var(--card);border-radius:20px;padding:18px 16px 14px;
-  width:min(400px,92vw);max-height:80vh;display:flex;flex-direction:column;
-}
-.picker h2{font-size:15px;font-weight:800;margin-bottom:4px;text-align:center}
-.picker .sub{font-size:11px;color:var(--ink-soft);text-align:center;margin-bottom:10px;line-height:1.6}
+.picker{background:var(--card);border-radius:20px;padding:16px 14px 12px;width:min(400px,92vw);max-height:80vh;display:flex;flex-direction:column}
+.picker h2{font-size:14px;font-weight:800;margin-bottom:8px;text-align:center}
 .chapters{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
 .chapters button{
   flex:0 0 auto;border:1px solid var(--line);background:var(--paper);border-radius:999px;
   font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);padding:5px 10px;cursor:pointer;
 }
 .chapters button.active{background:var(--ink);color:#fff;border-color:var(--ink)}
-.grid-stages{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;
-  overflow-y:auto;padding:2px;flex:1;
-}
+.grid-stages{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;overflow-y:auto;padding:2px;flex:1}
 .grid-stages button{
   aspect-ratio:1;border:1px solid var(--line);background:var(--paper);border-radius:10px;
-  font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);cursor:pointer;
-  font-variant-numeric:tabular-nums;
+  font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);cursor:pointer;font-variant-numeric:tabular-nums;
 }
 .grid-stages button.cleared{background:var(--done-soft);border-color:var(--done);color:var(--done)}
 .grid-stages button.current{background:var(--ink);border-color:var(--ink);color:#fff}
-.grid-stages button.nextup{border-color:var(--goal);color:var(--goal);background:var(--goal-soft)}
-.picker .btn{margin-top:10px}
+.picker .btn{margin-top:10px;width:100%}
 
-@media (prefers-reduced-motion: reduce){
-  *{animation:none!important;transition:none!important}
-}
+@media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
 </style>
 </head>
 <body>
 <div class="app">
   <header>
-    <a class="home" href="../">◀ メニュー</a>
-    <h1>🐧📦 倉庫パズル</h1>
-    <div class="tagline">全500面。手数は短く、進むほど「気づけるか」だけが問われます</div>
+    <a class="iconbtn" href="../">◀ メニュー</a>
+    <h1>倉庫パズル</h1>
+    <button class="iconbtn" id="btnDpadMode" title="十字キーの表示">⬆ 大</button>
   </header>
 
-  <div class="setbanner" id="setBanner">
-    <span id="setBannerText"></span>
-    <button class="btn btn-sub" id="btnExport">★ を書き出す</button>
-  </div>
+  <div class="banner" id="banner"><span id="bannerText"></span></div>
 
-  <div class="progress">
-    <div class="bar"><div class="fill" id="progFill"></div></div>
-    <div class="label"><span id="progText">読み込み中…</span><span id="progPct"></span></div>
+  <div class="stagebar">
+    <div class="stageno"><small id="stageLabel">ステージ</small><span id="stageNo">--</span></div>
+    <div class="pushes"><span id="pushes">0</span> 手</div>
   </div>
-
-  <div class="stats">
-    <div class="stat"><div class="label">面</div><div class="value" id="stageNo">--</div></div>
-    <div class="stat"><div class="label">押した回数</div><div class="value" id="pushes">0</div></div>
-    <div class="stat"><div class="label">最短 / 自己ベスト</div><div class="value" id="best">--</div></div>
-  </div>
-
-  <div class="btn-row nav-row">
-    <button class="btn btn-sub" id="btnPrev">◀ 前</button>
-    <button class="btn btn-sub stage" id="btnPick">面を選ぶ</button>
-    <button class="btn btn-sub" id="btnNext">次 ▶</button>
-  </div>
-  <div class="btn-row">
-    <button class="btn btn-sub" id="btnUndo">↩ 1手戻す</button>
-    <button class="btn btn-sub" id="btnReset">🔄 最初から</button>
-    <button class="btn btn-sub" id="btnHint">💡 ヒント</button>
-    <button class="btn btn-sub" id="btnFav" title="この面を採用候補にする">☆</button>
-  </div>
-
-  <div class="msg" id="msg"></div>
 
   <div class="board-wrap">
     <div class="board" id="board" role="img" aria-label="倉庫パズルの盤面"></div>
-    <div class="loading" id="loading"><div class="spin">📦</div><div id="loadingText">面を読み込んでいます…</div></div>
+    <div class="loading" id="loading"><div class="spin">📦</div><div id="loadingText">読み込み中…</div></div>
   </div>
 
+  <div class="msg" id="msg"></div>
   <div class="boardnote" id="boardNote"></div>
+
+  <div class="favpanel" id="favPanel">
+    <div class="q">このステージ、1〜500でいうとどのあたり？</div>
+    <div class="v"><span id="favVal">250</span> 面くらい</div>
+    <input type="range" id="favRange" min="1" max="500" value="250">
+    <div class="row">
+      <button class="btn" id="favCancel">やめる</button>
+      <button class="btn" id="favRemove">★を外す</button>
+      <button class="btn btn-new" id="favOk">★ 記録</button>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
 
   <div class="dpad">
     <button class="empty"></button>
@@ -259,23 +224,20 @@ details p{margin-top:8px;line-height:1.8}
     <button data-dir="right" aria-label="右へ">→</button>
   </div>
 
-  <details>
-    <summary>ルール</summary>
-    <p>・🐧 を動かして、📦 をすべて 🟠 の置き場に運びます<br>
-    ・箱は<b>押すことだけ</b>できます（引けません）。1回に押せる箱は1つだけ<br>
-    ・壁や別の箱が後ろにあると押せません<br>
-    ・操作は<b>矢印キー / WASD</b>、盤面の<b>スワイプ</b>、下の<b>十字ボタン</b>のどれでもOK<br>
-    ・取り返しがつかない配置になった瞬間に教えます。<b>↩ 1手戻す</b>でやり直してね<br>
-    ・面は全員共通の固定順です。<b>面を選ぶ</b>から、まだ解いていない面にも自由に飛べます（実験中）</p>
-  </details>
+  <div class="debugbar">
+    <button class="btn" id="btnUndo">↩ 戻す</button>
+    <button class="btn" id="btnHint">💡 ヒント</button>
+    <button class="btn" id="btnPick">選ぶ</button>
+    <button class="btn" id="btnPrev">◀</button>
+    <button class="btn" id="btnNext">▶</button>
+  </div>
 
-  <details>
-    <summary>面はどう並んでいる？</summary>
-    <p>盤の形（空洞・回廊・迷路・L字・U字・ドーナツ・2部屋…）、仕切りの多さ、置き場の配り方、荷物と人の初期位置を、それぞれ独立に抽選して盤面を作ります。同じ顔の面が続かないよう、隣り合う面で型が重ならないようにも選んでいます。<br>
-    そのうえで、その盤で<b>ありうる配置をすべて列挙</b>し、「そこから完成させられる配置」の集合を丸ごと求めます。盤が小さいので全部数え切れるので、解けるかどうかは探索の運ではなく<b>判定で確定</b>します。<br>
-    難易度は4つに分けて測っています。<b>手数</b>、<b>打てる手のうち何割が指した瞬間に詰む手か</b>、<b>「置き場へ寄せる」式の素直な手筋3種類が通用するか</b>、<b>正解が一本道の場面があるか／置き場から荷物を一度どける必要があるか</b>。前2つは数値として、後2つは当たる確率として、面が進むほど少しずつ上げています。1面ごとにゆらぎを載せているので、隣どうしの手応えは揺れます。<br>
-    出題している500面はすべて、生成器とは別経路の全探索で<b>解けることと最短手数を検証済み</b>です。</p>
-  </details>
+  <div class="footrow">
+    <button class="btn" id="btnReset">🔄 最初から</button>
+    <button class="btn" id="btnFav" style="display:none">☆</button>
+    <button class="btn" id="btnExport" style="display:none">★ 書き出す</button>
+    <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
+  </div>
 </div>
 
 <div class="overlay" id="overlay">
@@ -285,18 +247,17 @@ details p{margin-top:8px;line-height:1.8}
     <div class="win-verdict" id="winVerdict"></div>
     <div class="win-time" id="winPush">0手</div>
     <div class="win-sub" id="winSub"></div>
-    <button class="btn btn-sub" id="btnShare">📨 結果を送る</button>
-    <button class="btn btn-new" id="btnNextStage">次の面へ</button>
+    <button class="btn" id="btnShare">📨 結果を送る</button>
+    <button class="btn btn-new" id="btnNextStage">次のステージへ</button>
   </div>
 </div>
 
 <div class="overlay" id="pickOverlay">
   <div class="picker">
-    <h2>面を選ぶ</h2>
-    <div class="sub" id="pickSub"></div>
+    <h2>ステージを選ぶ（デバッグ）</h2>
     <div class="chapters" id="chapters"></div>
     <div class="grid-stages" id="stageGrid"></div>
-    <button class="btn btn-sub" id="btnPickClose">とじる</button>
+    <button class="btn" id="btnPickClose">とじる</button>
   </div>
 </div>
 
@@ -304,7 +265,20 @@ details p{margin-top:8px;line-height:1.8}
 <script>
 'use strict';
 
-/* ================= 効果音 (Web Audio / チップチューン) ================= */
+/* ================= 動作モード =================
+   ふつうは進むだけ。戻る手段も、詰み表示もヒントも出さない。
+     ?debug=1   … 戻す/ヒント/詰み表示/ステージ選択を出す
+     ?set=picks … よりぬき版(別の面リスト・別の進行)
+     ?lv=N      … 送られてきた1面だけを独立して遊ぶ(本編の進行に影響しない) */
+const QS=new URLSearchParams(location.search);
+const DEBUG=QS.get('debug')==='1';
+const SET=QS.get('set')==='picks' ? 'picks' : '';
+const WANT=+QS.get('lv')||0;
+const FILE=SET==='picks' ? 'levels-picks.json' : 'levels.json';
+let SHARED=false;                        // 共有リンクで開いた1面モード
+if(DEBUG) document.body.classList.add('debug');
+
+/* ================= 効果音 ================= */
 const AC = window.AudioContext || window.webkitAudioContext;
 let actx = null;
 function ensureAudio(){
@@ -333,23 +307,15 @@ const SFX = {
   win(){ [523.25,659.25,783.99,1046.5,1318.51].forEach((f,i)=>beep(f, i===4?0.34:0.13, i*0.11, 'square', 0.07)); },
 };
 
-/* ================= 共有リンク ================= */
-const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-const dec = s => { try{ return JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/'))))); }catch(e){ return null; } };
 async function shareLink(url, text){
   if(navigator.share){
     try{ await navigator.share({text, url}); return; }catch(e){ if(e.name==='AbortError') return; }
   }
-  try{
-    await navigator.clipboard.writeText(text+'\n'+url);
-    alert('リンクをコピーしました！\nメッセージアプリにはりつけて友達に送ってね');
-  }catch(e){
-    prompt('このリンクをコピーして友達に送ってね', url);
-  }
+  try{ await navigator.clipboard.writeText(text+'\n'+url); alert('リンクをコピーしました！'); }
+  catch(e){ prompt('このリンクをコピーして送ってね', url); }
 }
 
-/* ================= 盤面テキスト(XSB)の読み込み ================= */
-// # 壁 / 空白 床 / $ 荷物 / . 置き場 / * 置き場の上の荷物 / @ 人 / + 置き場の上の人
+/* ================= 盤面テキスト(XSB) ================= */
 function parseBoard(board){
   const rows=board.split('/');
   const h=rows.length, w=Math.max.apply(null, rows.map(r=>r.length));
@@ -370,111 +336,110 @@ function parseBoard(board){
   return {grid, w, h, boxes:boxes.sort((a,b)=>a-b), goals:goals.sort((a,b)=>a-b), player};
 }
 
-/* ================= 進行状況 ================= */
+/* ================= 保存 ================= */
 const store={
   get(k){ try{ return localStorage.getItem('warehouse-'+k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem('warehouse-'+k,v); }catch(e){} }
 };
-// クリアした面は ID で覚える。面が入れ替わっても進行が壊れないように
-const PKEY=()=>SET==='picks'?'progress-picks':'progress';
+const PKEY = SET==='picks' ? 'progress-picks' : 'progress';
 let progress={v:1, cleared:{}};
 (function(){
-  try{
-    const raw=store.get(SET==='picks'?'progress-picks':'progress');
-    if(raw){
-      const o=JSON.parse(raw);
-      if(o && o.cleared) progress=o;
-    }
-  }catch(e){}
+  try{ const raw=store.get(PKEY); if(raw){ const o=JSON.parse(raw); if(o&&o.cleared) progress=o; } }catch(e){}
 })();
-const saveProgress=()=>store.set(PKEY(), JSON.stringify(progress));
-
-// ★ 採用候補の印。面のIDで覚える
-let favs={};
-(function(){
-  try{ favs=JSON.parse(store.get('favs')||'{}')||{}; }catch(e){ favs={}; }
-})();
-const saveFavs=()=>store.set('favs', JSON.stringify(favs));
-function toggleFav(){
-  if(!puzzle) return;
-  const lv=puzzle.meta;
-  if(favs[lv.id]) delete favs[lv.id];
-  else favs[lv.id]={b:lv.b, p:lv.p, tr:lv.tr, from:(SET==='picks'?'よりぬき':'本編')+' 第'+(index+1)+'面'};
-  saveFavs();
-  updateFavButton();
-  showMsg(favs[lv.id] ? 'この面に★を付けました。あとで「★ を書き出す」から一覧を取り出せます。'
-                      : '★ を外しました。');
-}
-function updateFavButton(){
-  const on=puzzle && favs[puzzle.meta.id];
-  const b=$('btnFav');
-  b.textContent = on ? '★' : '☆';
-  b.classList.toggle('on', !!on);
-}
-// keep-levels.json にそのまま貼れる形で書き出す
-function exportFavs(){
-  const list=Object.keys(favs).map(id=>({b:favs[id].b, note:favs[id].from}));
-  if(!list.length){ showMsg('まだ★が付いていません。', true); return; }
-  const text=JSON.stringify(list, null, 1);
-  navigator.clipboard.writeText(text)
-    .then(()=>alert(`★ ${list.length}面をコピーしました。\nそのまま貼り付けて渡してください。`))
-    .catch(()=>prompt(`★ ${list.length}面。これをコピーして渡してください`, text));
-}
+const saveProgress=()=>store.set(PKEY, JSON.stringify(progress));
 const isCleared=lv=>lv && progress.cleared[lv.id]!==undefined;
 const bestOf=lv=>lv&&progress.cleared[lv.id];
+
+// ★ 採用候補。1〜500でいうとどのあたりか、も一緒に覚える
+let favs={};
+(function(){ try{ favs=JSON.parse(store.get('favs')||'{}')||{}; }catch(e){ favs={}; } })();
+const saveFavs=()=>store.set('favs', JSON.stringify(favs));
 
 /* ================= ゲーム状態 ================= */
 const $=id=>document.getElementById(id);
 const boardEl=$('board');
 
-let LEVELS=[];              // levels.json の中身
-let index=0;                // いま遊んでいる面(0始まり)
-let puzzle=null, dist=null; // dist: 解ける状態 → 残り最短手数 の完全な表
+let LEVELS=[];
+let index=0;
+let puzzle=null, dist=null;
 let boxes=[], player=0, goalSet=new Set();
-let undoStack=[], pushCount=0, moveCount=0, hintCount=0;
+let undoStack=[], pushCount=0, moveCount=0;
 let finished=false, deadShown=false;
 
-// 到達できる最大の面 = クリア済みの数(=次の未クリア面まで開く)
 function unlockedMax(){
   let n=0;
   while(n<LEVELS.length && isCleared(LEVELS[n])) n++;
-  return Math.min(n, LEVELS.length-1);
+  return Math.min(n, Math.max(0,LEVELS.length-1));
 }
 const clearedCount=()=>Object.keys(progress.cleared).length;
 
-/* ================= 読み込み ================= */
-function showLoading(text){
-  if(text) $('loadingText').textContent=text;
-  $('loading').classList.add('show');
+/* ================= 十字キーの表示(大/小/なし) ================= */
+const DPAD_MODES=['full','mini','off'];
+const DPAD_LABEL={full:'⬆ 大', mini:'⬆ 小', off:'⬆ なし'};
+let dpadMode=store.get('dpad')||'full';
+if(DPAD_MODES.indexOf(dpadMode)<0) dpadMode='full';
+function applyDpadMode(){
+  document.body.classList.remove('dpad-mini','dpad-off');
+  if(dpadMode==='mini') document.body.classList.add('dpad-mini');
+  if(dpadMode==='off')  document.body.classList.add('dpad-off');
+  $('btnDpadMode').textContent=DPAD_LABEL[dpadMode];
+  store.set('dpad', dpadMode);
+  layoutBoard();
 }
+
+/* ================= 盤の大きさ =================
+   十字キーまで画面に収まるよう、余った高さからマスの大きさを決める */
+function layoutBoard(){
+  if(!puzzle) return;
+  const app=document.querySelector('.app');
+  const wrap=boardEl.parentElement;
+  const pad=22;
+  let used=0;
+  for(const el of app.children){
+    if(el===wrap) continue;
+    // スペーサーは余りを吸う伸縮要素なので、これを足すと余白が常に0になる
+    if(el.classList.contains('spacer')) continue;
+    if(getComputedStyle(el).display==='none') continue;
+    used += el.getBoundingClientRect().height;
+  }
+  const availW=app.clientWidth - 28 - pad;
+  const availH=app.clientHeight - used - pad - 14;
+  const cell=Math.max(12, Math.floor(Math.min(availW/puzzle.w, availH/puzzle.h)) - 2);
+  document.documentElement.style.setProperty('--cell', cell+'px');
+}
+window.addEventListener('resize', layoutBoard);
+
+/* ================= 読み込み ================= */
+function showLoading(t){ if(t) $('loadingText').textContent=t; $('loading').classList.add('show'); }
 const hideLoading=()=>$('loading').classList.remove('show');
 
-// ?set=picks で「よりぬき版」を遊べる。進行と★は別枠で保存する
-const QS=new URLSearchParams(location.search);
-const SET=QS.get('set')==='picks' ? 'picks' : '';
-const FILE=SET==='picks' ? 'levels-picks.json' : 'levels.json';
-
+showLoading();
 fetch(FILE)
   .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
   .then(data=>{
     LEVELS=data.levels;
     hideLoading();
+    // 送られてきたリンクは、その1面だけを独立して遊べるようにする
+    SHARED = !DEBUG && WANT>=1 && WANT<=LEVELS.length && SET!=='picks' && (WANT-1)!==unlockedMax();
     if(SET==='picks'){
-      $('setBanner').style.display='block';
-      $('setBannerText').innerHTML=
-        `⭐ <b>よりぬき版</b>（${LEVELS.length}面）— 旧2000面から手応えのある面だけを抜き出したもの。<br>`
-        +`気に入った面は <b>☆</b> を押して印を付けてください。`;
-      document.title='倉庫パズル — よりぬき'+LEVELS.length+'面';
+      $('banner').style.display='block';
+      $('bannerText').textContent='⭐ よりぬき版（'+LEVELS.length+'面）気に入った面は ☆ を押してください';
+      $('btnFav').style.display='';
+      $('btnExport').style.display='';
+    }else if(DEBUG){
+      $('btnFav').style.display='';
+      $('btnExport').style.display='';
     }
-    const want=+QS.get('lv');
-    const start = (want>=1 && want<=LEVELS.length) ? want-1 : unlockedMax();
+    if(SHARED){
+      $('banner').style.display='block';
+      $('bannerText').textContent='📨 送られてきたステージです。本編の進みには影響しません';
+      $('btnBackHome').style.display='';
+      $('stageLabel').textContent='送られた';
+    }
+    const start=(WANT>=1&&WANT<=LEVELS.length) ? WANT-1 : unlockedMax();
     startLevel(start);
-    updateProgress();
   })
-  .catch(e=>{
-    showLoading('面の読み込みに失敗しました');
-    $('boardNote').textContent='levels.json を読み込めませんでした ('+e.message+')';
-  });
+  .catch(e=>showLoading('面の読み込みに失敗しました ('+e.message+')'));
 
 /* ================= 面の開始 ================= */
 function startLevel(i){
@@ -482,25 +447,25 @@ function startLevel(i){
   const lv=LEVELS[index];
   puzzle=parseBoard(lv.b);
   puzzle.meta=lv;
-  // 盤が小さいので、解ける状態を全部洗い出しておく。
-  // これで詰み判定もヒントも(経験則ではなく)厳密になる
   dist=solvableStates(puzzle.grid, puzzle.w, puzzle.goals, 500000);
   goalSet=new Set(puzzle.goals);
   boxes=puzzle.boxes.slice();
   player=puzzle.player;
-  undoStack=[]; pushCount=0; moveCount=0; hintCount=0;
+  undoStack=[]; pushCount=0; moveCount=0;
   finished=false; deadShown=false;
   $('overlay').classList.remove('show');
+  $('favPanel').classList.remove('show');
   hideMsg();
   buildBoard();
+  layoutBoard();
   updateStats();
-  updateNav();
   updateFavButton();
-  try{ history.replaceState(null,'','?'+(SET?('set='+SET+'&'):'')+'lv='+(index+1)); }catch(e){}
+  if(DEBUG) updateNav();
+  const q=(SET?('set='+SET+'&'):'')+(DEBUG?'debug=1&':'')+(SHARED?('lv='+(index+1)):'');
+  try{ history.replaceState(null,'', q?('?'+q.replace(/&$/,'')):location.pathname); }catch(e){}
 }
 
 let cellEls=[], outsideMask=null;
-// 床に接していない壁は「倉庫の外」。ブロックとして描かず背景に沈めると輪郭が読める
 function computeOutside(){
   const {grid,w}=puzzle;
   const m=new Uint8Array(grid.length).fill(1);
@@ -516,7 +481,7 @@ function computeOutside(){
 }
 function buildBoard(){
   boardEl.innerHTML='';
-  boardEl.style.gridTemplateColumns=`repeat(${puzzle.w},1fr)`;
+  boardEl.style.gridTemplateColumns='repeat('+puzzle.w+',var(--cell))';
   outsideMask=computeOutside();
   cellEls=[];
   for(let i=0;i<puzzle.grid.length;i++){
@@ -541,38 +506,66 @@ function paint(){
   }
 }
 
-/* ================= 表示の更新 ================= */
+/* ================= 表示 ================= */
 function updateStats(){
-  const lv=puzzle&&puzzle.meta;
-  $('stageNo').textContent = lv ? (index+1) : '--';
+  $('stageNo').textContent = puzzle ? (index+1) : '--';
   $('pushes').textContent = pushCount;
-  const b=bestOf(lv);
-  $('best').textContent = lv ? `${lv.p}手 / ${b==null?'--':b+'手'}` : '--';
-  if(lv){
+  if(DEBUG && puzzle){
+    const lv=puzzle.meta, b=bestOf(lv);
     const tags=[];
-    if(lv.g>=3) tags.push('素直に押すと詰みます');
-    else if(lv.g>=2) tags.push('素直な手筋はだいたい詰みます');
-    else if(lv.g===0) tags.push('素直に押していけば解けます');
-    if(lv.og) tags.push('置き場から一度どける手が要ります');
-    if(lv.f>=2) tags.push('正解が一本道の場面あり');
-    let text=`最短 ${lv.p}手 ・ 打てる手の${lv.tr}%が詰み手`;
-    if(tags.length) text+='\n'+tags.join(' / ');
-    $('boardNote').textContent=text;
+    if(lv.g>=3) tags.push('素直に押すと詰む');
+    if(lv.og) tags.push('置き場からどける');
+    if(lv.f>=2) tags.push('一本道あり');
+    $('boardNote').textContent='最短'+lv.p+'手 / 罠率'+lv.tr+'% / 自己ベスト'+(b==null?'--':b+'手')
+      +'\n'+(lv.sh||'-')+' '+(lv.sz||'')+' '+(lv.gp||'')+' '+tags.join(' ');
   }
-}
-function updateProgress(){
-  const n=clearedCount(), total=LEVELS.length||1;
-  $('progFill').style.width=(n/total*100)+'%';
-  const favN=Object.keys(favs).length;
-  $('progText').textContent=`クリア ${n} / ${total} 面`+(favN?` ・ ★${favN}`:'');
-  $('progPct').textContent=(n/total*100).toFixed(1)+'%';
 }
 function updateNav(){
   $('btnPrev').disabled = index<=0;
   $('btnNext').disabled = index>=LEVELS.length-1;
 }
 
-/* ================= 局面のキー ================= */
+/* ================= ★と、難易度の見立て ================= */
+function updateFavButton(){
+  if(!puzzle) return;
+  const f=favs[puzzle.meta.id];
+  const b=$('btnFav');
+  b.textContent = f ? ('★'+(f.place?' '+f.place:'')) : '☆';
+  b.classList.toggle('on', !!f);
+}
+function openFavPanel(){
+  if(!puzzle) return;
+  const f=favs[puzzle.meta.id];
+  const def=f&&f.place ? f.place : (SET==='picks' ? 300 : index+1);
+  $('favRange').value=def;
+  $('favVal').textContent=def;
+  $('favRemove').style.display = f ? '' : 'none';
+  $('favPanel').classList.add('show');
+  layoutBoard();
+}
+function closeFavPanel(){ $('favPanel').classList.remove('show'); layoutBoard(); }
+function saveFav(){
+  const lv=puzzle.meta;
+  favs[lv.id]={b:lv.b, place:+$('favRange').value, from:(SET==='picks'?'よりぬき':'本編')+' 第'+(index+1)+'面'};
+  saveFavs(); updateFavButton(); closeFavPanel();
+}
+function removeFav(){
+  delete favs[puzzle.meta.id];
+  saveFavs(); updateFavButton(); closeFavPanel();
+}
+// keep-levels.json にそのまま貼れる形で書き出す
+function exportFavs(){
+  const list=Object.keys(favs)
+    .map(id=>({b:favs[id].b, at:favs[id].place||null, note:favs[id].from}))
+    .sort((a,b)=>(a.at||9999)-(b.at||9999));
+  if(!list.length){ alert('まだ★が付いていません。'); return; }
+  const text=JSON.stringify(list, null, 1);
+  navigator.clipboard.writeText(text)
+    .then(()=>alert('★ '+list.length+'面をコピーしました。'))
+    .catch(()=>prompt('★ '+list.length+'面。これをコピーして渡してください', text));
+}
+
+/* ================= 局面 ================= */
 function stateKeyNow(){
   const b=boxes.slice().sort((x,y)=>x-y);
   const r=regionRep(puzzle.grid, puzzle.w, new Set(b), player);
@@ -602,20 +595,18 @@ function move(name){
     boxes[bi]=beyond;
     player=next;
     pushCount++; moveCount++;
-    paint();
-    bump(beyond);
+    paint(); bump(beyond);
     if(goalSet.has(beyond)) SFX.onGoal(); else SFX.push();
   }else{
     undoStack.push({player, boxes:boxes.slice(), pushCount, moveCount});
     player=next;
     moveCount++;
-    paint();
-    SFX.step();
+    paint(); SFX.step();
   }
   updateStats();
   clearHint();
   if(checkWin()) return;
-  checkDead();
+  if(DEBUG) checkDead();
 }
 function bump(i){
   const el=cellEls[i];
@@ -627,8 +618,7 @@ function undo(){
   const s=undoStack.pop();
   player=s.player; boxes=s.boxes; pushCount=s.pushCount; moveCount=s.moveCount;
   paint(); updateStats(); clearHint(); hideMsg();
-  deadShown=false;
-  SFX.undo();
+  deadShown=false; SFX.undo();
 }
 function resetLevel(){
   if(!puzzle||finished) return;
@@ -638,17 +628,16 @@ function resetLevel(){
   paint(); updateStats(); clearHint(); hideMsg();
 }
 
-/* ================= 詰み検知(全状態が分かっているので厳密) ================= */
+/* ================= 詰み検知(デバッグのみ) ================= */
 function checkDead(){
   if(!dist) return;
   if(dist.has(stateKeyNow())){ if(deadShown){ deadShown=false; hideMsg(); } return; }
   if(deadShown) return;
-  deadShown=true;
-  SFX.dead();
-  showMsg('この配置からはもう完成できません。↩ 1手戻す か 🔄 最初から でやり直してね。', true);
+  deadShown=true; SFX.dead();
+  showMsg('この配置からはもう完成できません。', true);
 }
 
-/* ================= ヒント ================= */
+/* ================= ヒント(デバッグのみ) ================= */
 let hintEls=[];
 function clearHint(){
   for(const el of hintEls) el.remove();
@@ -656,17 +645,11 @@ function clearHint(){
   for(const el of cellEls) el.classList.remove('hintbox');
 }
 function hint(){
-  if(!puzzle||finished) return;
-  ensureAudio();
+  if(!puzzle||finished||!dist) return;
   clearHint();
-  if(!dist){ showMsg('この面ではヒントを出せません。', true); return; }
   const d=remainingPushes();
-  if(d===null){
-    showMsg('この配置からはもう完成できません。↩ 1手戻す でやり直してね。', true);
-    return;
-  }
+  if(d===null){ showMsg('この配置からはもう完成できません。', true); return; }
   if(d===0) return;
-  hintCount++;
   const b=boxes.slice().sort((x,y)=>x-y);
   const r=regionRep(puzzle.grid, puzzle.w, new Set(b), player);
   const next=pushesFrom(puzzle.grid, puzzle.w, b, r.cells).filter(mv=>dist.get(mv.key)===d-1);
@@ -681,7 +664,7 @@ function hint(){
   tag.textContent=arrow;
   el.appendChild(tag);
   hintEls.push(tag);
-  showMsg(`光っている箱を ${arrow} に押すと最短。残り ${d} 押しで解けます。`);
+  showMsg('光っている箱を '+arrow+' に押すと最短。残り '+d+' 押し。');
 }
 
 let msgTimer=null;
@@ -690,12 +673,14 @@ function showMsg(text, warn){
   el.textContent=text;
   el.className='msg'+(warn?' warn':'');
   el.style.display='block';
+  layoutBoard();
   clearTimeout(msgTimer);
-  msgTimer=setTimeout(()=>{ el.style.display='none'; },9000);
+  msgTimer=setTimeout(hideMsg, 9000);
 }
-function hideMsg(){ clearTimeout(msgTimer); $('msg').style.display='none'; }
+function hideMsg(){ clearTimeout(msgTimer); $('msg').style.display='none'; layoutBoard(); }
 
 /* ================= クリア ================= */
+let shareData=null;
 function checkWin(){
   if(!boxes.every(b=>goalSet.has(b))) return false;
   finished=true;
@@ -704,21 +689,23 @@ function checkWin(){
   const lv=puzzle.meta;
   const prev=bestOf(lv);
   const first=prev===undefined;
-  if(first||pushCount<prev){ progress.cleared[lv.id]=pushCount; saveProgress(); }
-  updateStats(); updateProgress(); updateNav();
+  // 送られてきた1面は、本編の進みには足さない
+  if(!SHARED && (first||pushCount<prev)){ progress.cleared[lv.id]=pushCount; saveProgress(); }
+  updateStats();
+  if(DEBUG) updateNav();
 
-  const perfect = pushCount===lv.p;
-  $('winTitle').textContent=`第${index+1}面 クリア！`;
+  const perfect=pushCount===lv.p;
+  $('winTitle').textContent = SHARED ? 'クリア！' : ('ステージ'+(index+1)+' クリア！');
   $('winVerdict').textContent = perfect ? '✨ 最短クリア！' : '';
   $('winPush').textContent=pushCount+'手';
-  $('winSub').innerHTML=`最短 ${lv.p}手 のところ ${pushCount}手`
-    +(first?'':`<br>自己ベスト ${Math.min(prev,pushCount)}手`)
-    +`<br>クリア ${clearedCount()} / ${LEVELS.length} 面`;
+  $('winSub').innerHTML='このステージの最短は <b>'+lv.p+'手</b>'
+    +(first||SHARED?'':'<br>自己ベスト '+Math.min(prev,pushCount)+'手')
+    +(SHARED?'':'<br>クリア '+clearedCount()+' / '+LEVELS.length);
   const last=index>=LEVELS.length-1;
-  $('btnNextStage').textContent = last ? 'とじる' : '次の面へ';
+  $('btnNextStage').textContent = SHARED ? '本編へ' : (last ? 'とじる' : '次のステージへ');
   shareData={
-    url: location.origin+location.pathname+'?lv='+(index+1),
-    text:`「倉庫パズル」第${index+1}面を${pushCount}手でクリア！(最短${lv.p}手) 📦🐧`,
+    url: location.origin+location.pathname+'?'+(SET?('set='+SET+'&'):'')+'lv='+(index+1),
+    text:'「倉庫パズル」ステージ'+(index+1)+'を'+pushCount+'手でクリア！(最短'+lv.p+'手)',
   };
 
   boardEl.classList.add('celebrate');
@@ -727,29 +714,26 @@ function checkWin(){
     boardEl.classList.remove('celebrate');
     cellEls.forEach(el=>{ el.firstChild.style.animationDelay=''; });
     $('overlay').classList.add('show');
-  },1200);
+  },1100);
   return true;
 }
-let shareData=null;
+function nextStage(){
+  $('overlay').classList.remove('show');
+  if(SHARED){ location.href=location.pathname; return; }
+  if(index<LEVELS.length-1) startLevel(index+1);
+}
 
-/* ================= 面えらび ================= */
+/* ================= ステージ選択(デバッグ) ================= */
 let chapter=0;
 const CHAPTER=50;
-function openPicker(){
-  chapter=Math.floor(index/CHAPTER);
-  renderPicker();
-  $('pickOverlay').classList.add('show');
-}
+function openPicker(){ chapter=Math.floor(index/CHAPTER); renderPicker(); $('pickOverlay').classList.add('show'); }
 function renderPicker(){
-  const next=unlockedMax();
   const chapters=Math.ceil(LEVELS.length/CHAPTER);
-  $('pickSub').textContent=
-    `どの面にも飛べます（実験中）。クリア ${clearedCount()} 面 / 順番どおりなら次は第${next+1}面`;
   const ch=$('chapters');
   ch.innerHTML='';
   for(let c=0;c<chapters;c++){
     const b=document.createElement('button');
-    b.textContent=`${c*CHAPTER+1}〜${Math.min((c+1)*CHAPTER, LEVELS.length)}`;
+    b.textContent=(c*CHAPTER+1)+'〜'+Math.min((c+1)*CHAPTER, LEVELS.length);
     if(c===chapter) b.classList.add('active');
     b.addEventListener('click',()=>{ chapter=c; renderPicker(); });
     ch.appendChild(b);
@@ -761,12 +745,8 @@ function renderPicker(){
     const b=document.createElement('button');
     b.textContent=i+1;
     if(isCleared(LEVELS[i])) b.classList.add('cleared');
-    if(i===next && !isCleared(LEVELS[i])) b.classList.add('nextup');
     if(i===index) b.classList.add('current');
-    b.addEventListener('click',()=>{
-      $('pickOverlay').classList.remove('show');
-      startLevel(i);
-    });
+    b.addEventListener('click',()=>{ $('pickOverlay').classList.remove('show'); startLevel(i); });
     grid.appendChild(b);
   }
 }
@@ -777,7 +757,12 @@ const KEYMAP={
   w:'up', s:'down', a:'left', d:'right', W:'up', S:'down', A:'left', D:'right',
 };
 document.addEventListener('keydown',e=>{
-  if(e.key==='z'||e.key==='Z'){ undo(); return; }
+  // クリア画面が出ているときは Enter で次へ
+  if(e.key==='Enter'){
+    if($('overlay').classList.contains('show')){ e.preventDefault(); nextStage(); }
+    return;
+  }
+  if(DEBUG&&(e.key==='z'||e.key==='Z')){ undo(); return; }
   const dir=KEYMAP[e.key];
   if(!dir) return;
   e.preventDefault();
@@ -786,32 +771,52 @@ document.addEventListener('keydown',e=>{
 document.querySelectorAll('.dpad button[data-dir]').forEach(b=>{
   b.addEventListener('click',()=>move(b.dataset.dir));
 });
-let tsx=0, tsy=0;
+// 盤の上のスワイプ。ページごとスクロールしないよう既定の動作を止める
+let tsx=0, tsy=0, swiped=false;
 boardEl.addEventListener('touchstart',e=>{
-  const t=e.changedTouches[0]; tsx=t.clientX; tsy=t.clientY;
-},{passive:true});
-boardEl.addEventListener('touchend',e=>{
+  const t=e.changedTouches[0]; tsx=t.clientX; tsy=t.clientY; swiped=false;
+  e.preventDefault();
+},{passive:false});
+boardEl.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(swiped) return;
   const t=e.changedTouches[0];
   const dx=t.clientX-tsx, dy=t.clientY-tsy;
-  if(Math.abs(dx)<18&&Math.abs(dy)<18) return;
+  if(Math.abs(dx)<20&&Math.abs(dy)<20) return;
+  swiped=true;
   move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
-},{passive:true});
+},{passive:false});
+boardEl.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(swiped) return;
+  const t=e.changedTouches[0];
+  const dx=t.clientX-tsx, dy=t.clientY-tsy;
+  if(Math.abs(dx)<12&&Math.abs(dy)<12) return;
+  move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
+},{passive:false});
 
 /* ================= ボタン ================= */
-$('btnPrev').addEventListener('click',()=>startLevel(index-1));
-$('btnNext').addEventListener('click',()=>startLevel(index+1));
+$('btnDpadMode').addEventListener('click',()=>{
+  dpadMode=DPAD_MODES[(DPAD_MODES.indexOf(dpadMode)+1)%DPAD_MODES.length];
+  applyDpadMode();
+});
+$('btnReset').addEventListener('click',resetLevel);
+$('btnFav').addEventListener('click',openFavPanel);
+$('btnExport').addEventListener('click',exportFavs);
+$('favRange').addEventListener('input',e=>{ $('favVal').textContent=e.target.value; });
+$('favOk').addEventListener('click',saveFav);
+$('favRemove').addEventListener('click',removeFav);
+$('favCancel').addEventListener('click',closeFavPanel);
+$('btnShare').addEventListener('click',()=>{ if(shareData) shareLink(shareData.url, shareData.text); });
+$('btnNextStage').addEventListener('click',nextStage);
+$('btnUndo').addEventListener('click',undo);
+$('btnHint').addEventListener('click',hint);
 $('btnPick').addEventListener('click',openPicker);
 $('btnPickClose').addEventListener('click',()=>$('pickOverlay').classList.remove('show'));
-$('btnUndo').addEventListener('click',undo);
-$('btnReset').addEventListener('click',resetLevel);
-$('btnHint').addEventListener('click',hint);
-$('btnFav').addEventListener('click',()=>{ toggleFav(); updateProgress(); });
-$('btnExport').addEventListener('click',exportFavs);
-$('btnShare').addEventListener('click',()=>{ if(shareData) shareLink(shareData.url, shareData.text); });
-$('btnNextStage').addEventListener('click',()=>{
-  $('overlay').classList.remove('show');
-  if(index<LEVELS.length-1) startLevel(index+1);
-});
+$('btnPrev').addEventListener('click',()=>startLevel(index-1));
+$('btnNext').addEventListener('click',()=>startLevel(index+1));
+
+applyDpadMode();
 </script>
 </body>
 </html>
