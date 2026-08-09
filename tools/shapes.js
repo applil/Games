@@ -256,8 +256,96 @@ const shapeRagged={ name:'まだら', min:[3,3], build(rng,W,H){
   return L;
 }};
 
+
+// メガネ: 丸い部屋を2つ、細い橋でつなぐ
+const shapeGlasses={ name:'メガネ', min:[7,5], build(rng,W,H){
+  const L=blank(W,H,1);
+  const horiz = W>=H;
+  const lens = (cx,cy,rx,ry)=>{
+    for(let y=1;y<=H;y++) for(let x=1;x<=W;x++){
+      const dx=(x-cx)/rx, dy=(y-cy)/ry;
+      if(dx*dx+dy*dy<=1.05) L.grid[idx(L.w,x,y)]=0;
+    }
+  };
+  if(horiz){
+    const rx=Math.max(1.4,(W-2)/4.4), ry=Math.max(1.4,(H-1)/2.2);
+    const cy=(H+1)/2;
+    lens(1+rx, cy, rx, ry);
+    lens(W-rx, cy, rx, ry);
+    const y=Math.round(cy);                       // つなぎの橋(1〜2マス)
+    for(let x=1;x<=W;x++) L.grid[idx(L.w,x,y)]=0;
+    if(H>=6&&rng()<0.5) for(let x=1;x<=W;x++) L.grid[idx(L.w,x,y+1)]=0;
+  }else{
+    const ry=Math.max(1.4,(H-2)/4.4), rx=Math.max(1.4,(W-1)/2.2);
+    const cx=(W+1)/2;
+    lens(cx, 1+ry, rx, ry);
+    lens(cx, H-ry, rx, ry);
+    const x=Math.round(cx);
+    for(let y=1;y<=H;y++) L.grid[idx(L.w,x,y)]=0;
+    if(W>=6&&rng()<0.5) for(let y=1;y<=H;y++) L.grid[idx(L.w,x+1,y)]=0;
+  }
+  return L;
+}};
+
+// 十字星: 中央から4方向に腕を伸ばした星形。角が大きく欠ける
+const shapeStar={ name:'十字星', min:[7,7], build(rng,W,H){
+  const L=blank(W,H,1);
+  const aw=Math.max(1, Math.round(W*(0.20+rng()*0.18)));
+  const ah=Math.max(1, Math.round(H*(0.20+rng()*0.18)));
+  const cx0=Math.max(1,((W-aw)/2|0)+1), cy0=Math.max(1,((H-ah)/2|0)+1);
+  fillRect(L, cx0, 1, cx0+aw-1, H, 0);            // 縦の腕
+  fillRect(L, 1, cy0, W, cy0+ah-1, 0);            // 横の腕
+  if(rng()<0.6){                                   // 中央をひとまわり広げて星らしく
+    fillRect(L, Math.max(1,cx0-1), Math.max(1,cy0-1),
+                Math.min(W,cx0+aw), Math.min(H,cy0+ah), 0);
+  }
+  return L;
+}};
+
+// QRコード: 壁が点で散った、目印になりにくい盤
+const shapeQR={ name:'QRコード', min:[6,6], build(rng,W,H){
+  const L=blank(W,H);
+  const p=0.26+rng()*0.14;
+  for(let y=1;y<=H;y++) for(let x=1;x<=W;x++) if(rng()<p) L.grid[idx(L.w,x,y)]=1;
+  // 隅にQRの位置合わせのような四角を置く
+  const eye=(x0,y0)=>{
+    if(x0+2>W||y0+2>H||x0<1||y0<1) return;
+    fillRect(L, x0, y0, x0+2, y0+2, 1);
+    L.grid[idx(L.w,x0+1,y0+1)]=0;
+  };
+  const corners=shuffle([[1,1],[W-2,1],[1,H-2],[W-2,H-2]],rng);
+  const n=randInt(2,3,rng);
+  for(let k=0;k<n;k++) eye(corners[k][0], corners[k][1]);
+  return L;
+}};
+
+// 連結回廊: 幅1の通路が何本も枝分かれしてつながる
+const shapeCorridors={ name:'連結回廊', min:[7,7], build(rng,W,H){
+  const L=blank(W,H,1);
+  const open=(x,y)=>{ if(x>=1&&x<=W&&y>=1&&y<=H) L.grid[idx(L.w,x,y)]=0; };
+  const rows=[], cols=[];
+  for(let y=1;y<=H;y+=2) rows.push(y);
+  for(let x=1;x<=W;x+=2) cols.push(x);
+  shuffle(rows,rng); shuffle(cols,rng);
+  const nr=Math.max(2, Math.round(rows.length*(0.45+rng()*0.3)));
+  const nc=Math.max(2, Math.round(cols.length*(0.45+rng()*0.3)));
+  const useR=rows.slice(0,nr), useC=cols.slice(0,nc);
+  for(const y of useR){
+    const x0=rng()<0.35?randInt(1,Math.max(1,(W/3)|0),rng):1;
+    const x1=rng()<0.35?randInt(Math.max(1,(W*2/3)|0),W,rng):W;
+    for(let x=x0;x<=x1;x++) open(x,y);
+  }
+  for(const x of useC){
+    const y0=rng()<0.35?randInt(1,Math.max(1,(H/3)|0),rng):1;
+    const y1=rng()<0.35?randInt(Math.max(1,(H*2/3)|0),H,rng):H;
+    for(let y=y0;y<=y1;y++) open(x,y);
+  }
+  return L;
+}};
+
 const SHAPES=[shapeOpen, shapePillars, shapeDonut, shapeL, shapeU, shapeCross,
-              shapeCorridor, shapeMaze, shapeTwoRooms, shapeThreeRooms, shapeRagged];
+              shapeCorridor, shapeMaze, shapeTwoRooms, shapeThreeRooms, shapeRagged,
+              shapeGlasses, shapeStar, shapeQR, shapeCorridors];
 
 /* ================= 仕切りの密度 ================= */
 // 形とは別に「中がごちゃついているか、がらんとしているか」を振る。
