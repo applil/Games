@@ -247,7 +247,7 @@ body.debug .debugbar{display:flex}
 
   <div class="footrow">
     <div class="left">
-      <button class="btn" id="btnDpadMode" title="十字キーの表示">⬆ 大</button>
+      <button class="btn" id="btnDpadMode" title="十字キーの表示">キー大</button>
     </div>
     <div class="mid">
       <button class="btn" id="btnReset">🔄 最初から</button>
@@ -409,7 +409,7 @@ const clearedCount=()=>Object.keys(progress.cleared).length;
 
 /* ================= 十字キーの表示(大/小/なし) ================= */
 const DPAD_MODES=['full','mini','off'];
-const DPAD_LABEL={full:'⬆ 大', mini:'⬆ 小', off:'⬆ なし'};
+const DPAD_LABEL={full:'キー大', mini:'キー小', off:'キーなし'};
 let dpadMode=store.get('dpad')||'full';
 if(DPAD_MODES.indexOf(dpadMode)<0) dpadMode='full';
 function applyDpadMode(){
