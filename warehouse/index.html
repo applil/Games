@@ -263,10 +263,8 @@ body.picks #btnUndo, body.picks #btnHint{display:none}
     <div class="v"><span id="favVal">250</span> 面くらい</div>
     <input type="range" id="favRange" min="1" max="500" value="250">
     <div class="row">
-      <button class="btn" id="favCancel">やめる</button>
-      <button class="btn" id="favRemove">★を外す</button>
+      <button class="btn" id="favSkip">指定しない</button>
       <button class="btn" id="btnExport">書き出す</button>
-      <button class="btn btn-new" id="favOk">★ 記録</button>
     </div>
   </div>
 
@@ -426,7 +424,7 @@ const isCleared=lv=>lv && progress.cleared[lv.id]!==undefined;
 const bestOf=lv=>lv&&progress.cleared[lv.id];
 
 // ★ 採用候補。1〜500でいうとどのあたりか、も一緒に覚える
-let favs={};
+let favs={}, favFromWin=false;
 (function(){ try{ favs=JSON.parse(store.get('favs')||'{}')||{}; }catch(e){ favs={}; } })();
 const saveFavs=()=>store.set('favs', JSON.stringify(favs));
 
@@ -591,6 +589,7 @@ function startLevel(i){
   finished=false; deadShown=false; hintPending=false;
   $('overlay').classList.remove('show');
   $('favPanel').classList.remove('show');
+  favFromWin=false;
   hideMsg();
   buildBoard();
   layoutBoard();
@@ -666,41 +665,46 @@ function updateNav(){
 function updateFavButton(){
   if(!puzzle) return;
   const f=favs[puzzle.meta.id];
-  // 記録してあればその見立ての面数、まだなら今のステージ番号を出す
-  const label='★ ' + ((f&&f.place) ? f.place : (index+1));
+  const label = f ? ('★ '+(f.place||'')).trim() : '★';
   for(const id of ['btnFav','btnFavWin']){
     const b=$(id);
     b.textContent=label;
     b.classList.toggle('on', !!f);
-    b.title = f ? ('★ 記録ずみ（'+f.place+'面くらい）') : '★を付ける';
+    b.title = f ? '★を外す' : '★を付ける';
   }
 }
-let favFromWin=false;
-function openFavPanel(fromWin){
+// ★ボタンは付け外しだけ。付けるときだけ「何面くらいか」を聞くパネルを出す
+function toggleFav(fromWin){
   if(!puzzle) return;
+  if(favs[puzzle.meta.id]){ removeFav(); return; }
+  const def = SET==='picks' ? Math.round(+$('favRange').max/2) : index+1;
+  saveFav(def);
   favFromWin=!!fromWin;
   if(favFromWin) $('overlay').classList.remove('show');   // クリア画面をいったん引っ込める
-  const f=favs[puzzle.meta.id];
-  const def=f&&f.place ? f.place : (SET==='picks' ? Math.round(+$('favRange').max/2) : index+1);
   $('favRange').value=def;
   $('favVal').textContent=def;
-  $('favRemove').style.display = f ? '' : 'none';
   $('favPanel').classList.add('show');
   layoutBoard();
+}
+// 「指定しない」= ★は付けたまま、何面くらいかの見立てだけ空にする
+function skipFavPlace(){
+  if(puzzle&&favs[puzzle.meta.id]){ favs[puzzle.meta.id].place=null; saveFavs(); updateFavButton(); }
+  closeFavPanel();
 }
 function closeFavPanel(){
   $('favPanel').classList.remove('show');
   layoutBoard();
   if(favFromWin){ favFromWin=false; $('overlay').classList.add('show'); }
 }
-function saveFav(){
+function saveFav(place){
   const lv=puzzle.meta;
-  favs[lv.id]={b:lv.b, place:+$('favRange').value, from:(SET==='picks'?'よりぬき':'本編')+' 第'+(index+1)+'面'};
-  saveFavs(); updateFavButton(); closeFavPanel();
+  favs[lv.id]={b:lv.b, place:+place, from:(SET==='picks'?'よりぬき':'本編')+' 第'+(index+1)+'面'};
+  saveFavs(); updateFavButton();
 }
 function removeFav(){
   delete favs[puzzle.meta.id];
-  saveFavs(); updateFavButton(); closeFavPanel();
+  saveFavs(); updateFavButton();
+  if($('favPanel').classList.contains('show')) closeFavPanel();
 }
 // keep-levels.json にそのまま貼れる形で書き出す
 function exportFavs(){
@@ -1002,13 +1006,14 @@ $('btnDpadMode').addEventListener('click',()=>{
 $('btnRules').addEventListener('click',()=>$('rulesOverlay').classList.add('show'));
 $('btnRulesClose').addEventListener('click',()=>$('rulesOverlay').classList.remove('show'));
 $('btnReset').addEventListener('click',resetLevel);
-$('btnFav').addEventListener('click',()=>openFavPanel(false));
-$('btnFavWin').addEventListener('click',()=>openFavPanel(true));
+$('btnFav').addEventListener('click',()=>toggleFav(false));
+$('btnFavWin').addEventListener('click',()=>toggleFav(true));
 $('btnExport').addEventListener('click',exportFavs);
-$('favRange').addEventListener('input',e=>{ $('favVal').textContent=e.target.value; });
-$('favOk').addEventListener('click',saveFav);
-$('favRemove').addEventListener('click',removeFav);
-$('favCancel').addEventListener('click',closeFavPanel);
+$('favRange').addEventListener('input',e=>{
+  $('favVal').textContent=e.target.value;
+  if(puzzle&&favs[puzzle.meta.id]) saveFav(e.target.value);   // 決定ボタンはないので即座に記録
+});
+$('favSkip').addEventListener('click',skipFavPlace);
 $('btnShare').addEventListener('click',()=>{ if(shareData) shareLink(shareData.url, shareData.text); });
 $('btnNextStage').addEventListener('click',nextStage);
 $('btnUndo').addEventListener('click',undo);
