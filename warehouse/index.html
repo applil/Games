@@ -294,7 +294,7 @@ body.picks #btnUndo, body.picks #btnHint{display:none}
 
 <div class="overlay" id="overlay">
   <div class="win-card">
-    <div class="win-emoji">📦🎉🐤</div>
+    <div class="win-emoji">📦🎉🐥</div>
     <div class="win-title" id="winTitle">クリア！</div>
     <div class="win-verdict" id="winVerdict"></div>
     <div class="win-time" id="winPush">0手</div>
@@ -309,7 +309,7 @@ body.picks #btnUndo, body.picks #btnHint{display:none}
   <div class="win-card" style="text-align:left">
     <div style="font-size:17px;font-weight:800;text-align:center;margin-bottom:12px">ルール</div>
     <div class="rules">
-      <p>🐤 を動かして、📦 をすべて<b>置き場</b>に運びます。</p>
+      <p>🐥 を動かして、📦 をすべて<b>置き場</b>に運びます。</p>
       <p>置き場は<span class="sw goal"></span><b>オレンジのマス</b>です。荷物が乗ると<span class="sw done"></span><b>グリーン</b>に変わります。<b>全部グリーンになればクリア</b>です。</p>
       <p><b>箱は押すことしかできません。</b>引けません。一度に押せる箱は1つだけで、壁や別の箱が後ろにあると押せません。</p>
       <p>角に押し込むなど、二度と動かせない置き方をすると<b>その面は詰みます</b>。おかしいと思ったら右上の <b>最初から</b> でやり直してください。</p>
@@ -650,7 +650,7 @@ function paint(){
     const wall=puzzle.grid[i], goal=goalSet.has(i), box=boxSet.has(i);
     const outside=wall&&outsideMask&&outsideMask[i];
     el.className='cell'+(outside?' void':wall?' wall':'')+(goal&&!box?' goal':'')+(box?' box':'')+(box&&goal?' on':'');
-    fig.textContent = box ? '📦' : (i===player ? '🐤' : '');
+    fig.textContent = box ? '📦' : (i===player ? '🐥' : '');
   }
 }
 
