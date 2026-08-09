@@ -713,9 +713,15 @@ function exportFavs(){
     .sort((a,b)=>(a.at||9999)-(b.at||9999));
   if(!list.length){ alert('まだ★が付いていません。'); return; }
   const text=JSON.stringify(list, null, 1);
-  navigator.clipboard.writeText(text)
-    .then(()=>alert('★ '+list.length+'面をコピーしました。'))
-    .catch(()=>prompt('★ '+list.length+'面。これをコピーして渡してください', text));
+  const url=URL.createObjectURL(new Blob([text], {type:'application/json'}));
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='keep-levels.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  showMsg('★ '+list.length+'面を keep-levels.json に書き出しました。');
 }
 
 /* ================= 局面 ================= */
