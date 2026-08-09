@@ -26,10 +26,10 @@ const SPICE_FROM = 20;             // ここから難しい面を差し込み始
 const SPICE_TO   = 700;            // ここまでで差し込みを終える
 const SPICE_RATE = 0.20;           // 差し込む割合(最大)
 const SPICE_JUMP = 4500;           // 何ランク先の候補から持ってくるか
-const POOL_X  = 30;                 // 目標数の何倍の候補を作ってから間引くか
+const POOL_X  = 20;                 // 目標数の何倍の候補を作ってから間引くか
 const EASE    = 0.75;              // <1 で易しい側の混雑を圧縮する(順位の進み方)
-const STATE_CAP  = 60000;          // 全状態がこれを超える盤は捨てる
-                                   // (面を開くたびにブラウザでも同じ表を作るため)
+const STATE_CAP  = 150000;         // 全状態がこれを超える盤は捨てる(生成が重くなるため)
+                                   // 遊ぶ側はこの表を作らないので、実行時の負担には関係しない
 const DEPTH_MAX  = 30;             // 採用する最短手数の上限
 const DEPTH_BIAS = 2.2;            // 深い(手数の長い)局面を選ぶ重み。大きいほど長い面が増える
 const LEN_BONUS  = 0.6;            // 並べ替えのとき、手数1手あたりに足す難易度
@@ -44,8 +44,11 @@ function harvest(rng, out, seen, cfg){
   const {grid,w}=layout;
   const floors=[];
   for(let i=0;i<grid.length;i++) if(!grid[i]) floors.push(i);
-  const nbox=2+(rng()*3|0);                        // 2〜4個
-  if(floors.length<nbox*3+2||floors.length>44) return;
+  // 荷物の数は床の広さで決める。広い盤で荷物が多いと全状態が爆発するため
+  const floorN=floors.length;
+  const maxBox = floorN<=40 ? 4 : floorN<=75 ? 3 : 2;
+  const nbox=2+(rng()*(maxBox-1)|0);
+  if(floorN<nbox*3+2||floorN>150) return;
 
   // 置き場の配置も型から抽選する
   const gp=S.pickGoals(layout, floors, nbox, rng);

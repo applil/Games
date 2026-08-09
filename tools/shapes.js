@@ -290,20 +290,22 @@ function addClutter(L, rng){
 
 /* ================= 大きさと縦横比 ================= */
 // 小/中/大 × 縦長/正方/横長 を独立に振る
-const SIZE_RANGE={'小':[3,4], '中':[5,6], '大':[6,7], '特大':[8,8]};
+const SIZE_RANGE={'小':[3,4], '中':[5,6], '大':[6,8], '特大':[9,10], '超特大':[11,12]};
 function pickSize(rng, minW, minH){
   // その形が成立する大きさの中から選ぶ。
   // (先に大きさを引くと、大きい盤でしか作れない形に引っぱられて大ばかりになる)
   const ok=Object.keys(SIZE_RANGE).filter(k=>SIZE_RANGE[k][1]>=(minW||0)&&SIZE_RANGE[k][1]>=(minH||0));
-  // 特大は全状態の列挙が重くなるので出現を抑える
+  // 大きい盤は荷物を減らさないと全状態の列挙が重い。出現も少なめにする
+  const WEIGHT={'小':3,'中':4,'大':4,'特大':2,'超特大':1};
   const weighted=[];
-  for(const k of (ok.length?ok:['大'])) for(let n=0;n<(k==='特大'?1:3);n++) weighted.push(k);
+  for(const k of (ok.length?ok:['大'])) for(let n=0;n<(WEIGHT[k]||1);n++) weighted.push(k);
   const size=pick(weighted,rng);
   const aspect=pick(['縦長','正方','横長'],rng);
   const base=SIZE_RANGE[size];
   let W=randInt(base[0],base[1],rng), H=randInt(base[0],base[1],rng);
-  if(aspect==='縦長') W=Math.max(3,W-1);
-  if(aspect==='横長') H=Math.max(3,H-1);
+  // 縦長・横長は思い切って潰す。細長い倉庫は手触りが変わる
+  if(aspect==='縦長') W=Math.max(3, W-randInt(1, Math.max(1,(W/2)|0), rng));
+  if(aspect==='横長') H=Math.max(3, H-randInt(1, Math.max(1,(H/2)|0), rng));
   return {W:Math.max(W,minW||0), H:Math.max(H,minH||0), size, aspect};
 }
 

@@ -481,7 +481,9 @@ function startLevel(i){
   const lv=LEVELS[index];
   puzzle=parseBoard(lv.b);
   puzzle.meta=lv;
-  dist=solvableStates(puzzle.grid, puzzle.w, puzzle.goals, 500000);
+  // 全状態の表は詰み判定とヒントにしか使わない。通常プレイでは作らない
+  // (大きい盤ほど作るのに時間がかかるので、遊ぶ側の負担をゼロにする)
+  dist = DEBUG ? solvableStates(puzzle.grid, puzzle.w, puzzle.goals, 3000000) : null;
   goalSet=new Set(puzzle.goals);
   boxes=puzzle.boxes.slice();
   player=puzzle.player;
