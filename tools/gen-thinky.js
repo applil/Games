@@ -4,6 +4,11 @@
  *   node tools/gen-thinky.js [作る数] [levels.json]
  *
  * 90面のラベルで効いていたのは、難しさではなく「作業か思考か」だった。
+ * 90面と45面の2回で確かめた条件。効くのは2つ:
+ *   - 経路のズレ(運搬でない押し手の割合) ≧ 0.25 … 26% / 69%
+ *   - 囮の割合                        ≧ 0.25 … 24% / 62%
+ * この2つは独立に効く。順番のズレは経路の言い換え、行き先のズレは無関係だった。
+ *
  * 必須にするのはこの4つ:
  *   - 運搬でない押し手の割合 ≧ 0.25  (最短手順のうち、置き場へ近づける以外に使う手)
  *   - 運搬の下限 < 10               (押して運ぶ距離そのものは短く)
@@ -18,6 +23,7 @@ const E=require(path.join(__dirname,'..','warehouse','engine.js')).WarehouseEngi
 const {solvableStates, regionRep, greedyPolicies, analyse, mulberry32, keyOf, pushesFrom}=E;
 const S=require(path.join(__dirname,'shapes.js'));
 const M=require(path.join(__dirname,'manoeuvre.js'));
+const DC=require(path.join(__dirname,'decoy.js'));
 const {toXSB, canonical, hashId}=require(path.join(__dirname,'xsb.js'));
 
 const WANT=+(process.argv[2]||45);
@@ -28,6 +34,7 @@ const MIN_MANO=0.25;      // 運搬でない押し手の割合
 const MAX_CARRY=10;       // 運搬の下限
 const MAX_FLOORS=36;
 const MAX_PER_BOX=12;
+const MIN_DECOY=0.25;     // 進捗して見える押し手のうち、正解でないものの割合
 
 const data=JSON.parse(fs.readFileSync(TARGET,'utf8'));
 const seen=new Set(data.levels.map(l=>canonical(l.b.split('/'))));
@@ -73,6 +80,8 @@ function harvest(){
     const rows=toXSB({grid,w:layout.w,h:layout.h,boxes:c.boxes,goals,player:c.rep});
     const key=canonical(rows);
     if(seen.has(key)) continue;
+    const dc=DC.decoy(rows.join('/'));           // 囮がない盤は、見た目どおり押すだけで解ける
+    if(!dc||dc.share<MIN_DECOY) continue;
     seen.add(key);
     return {
       id:hashId(key), b:rows.join('/'), p:a.pushes,
@@ -80,7 +89,7 @@ function harvest(){
       tr:Math.round(a.trapRatio*100), f:a.forced, g:a.greedyDied, og:a.offGoal?1:0,
       sh:layout.shape, sz:layout.size, ar:layout.W===layout.H?'正方':(layout.W>layout.H?'横長':'縦長'),
       gp:gp.pattern, sp:'-', pl:'-', cl:layout.clutter, st:dist.size,
-      carry:m.carry, mano:m.ratio, fresh:1,
+      carry:m.carry, mano:m.ratio, dec:dc.share, dps:dc.perState, fresh:1,
     };
   }
   return null;
@@ -112,11 +121,11 @@ fs.writeFileSync(TARGET, JSON.stringify(data));
 const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
 console.log(`第1〜${got.length}面に置きました (全${data.count}面)`);
 console.log(`  平均 最短${mean(got.map(l=>l.p)).toFixed(1)}手 / 運搬下限${mean(got.map(l=>l.carry)).toFixed(1)}手`
-  +` / 運搬でない割合${mean(got.map(l=>l.mano)).toFixed(2)} / 罠率${mean(got.map(l=>l.tr)).toFixed(0)}%`);
-console.log('\n 面  盤   荷物 最短 運搬 運搬外 罠率  形');
+  +` / 運搬でない割合${mean(got.map(l=>l.mano)).toFixed(2)} / 囮の割合${mean(got.map(l=>l.dec)).toFixed(2)}`);
+console.log('\n 面  盤   荷物 最短 運搬 経路 囮   罠率  形');
 got.forEach((l,i)=>{
   const r=l.b.split('/');
   console.log(String(i+1).padStart(3)+((r[0].length-2)+'x'+(r.length-2)).padStart(6)
     +String((l.b.match(/[$*]/g)||[]).length).padStart(4)+String(l.p).padStart(5)
-    +String(l.carry).padStart(5)+String(l.mano).padStart(7)+String(l.tr).padStart(5)+'  '+l.sh);
+    +String(l.carry).padStart(5)+String(l.mano).padStart(6)+String(l.dec).padStart(5)+String(l.tr).padStart(6)+'  '+l.sh);
 });
