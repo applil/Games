@@ -478,7 +478,8 @@ function toggleBad(){
   if(!puzzle) return;
   const lv=puzzle.meta;
   if(bads[lv.id]){ delete bads[lv.id]; }
-  else bads[lv.id]={b:lv.b, at:index+1, p:lv.p, tr:lv.tr, f:lv.f, g:lv.g, og:lv.og, sh:lv.sh||''};
+  else bads[lv.id]={b:lv.b, at:index+1, orig:lv.orig||null,
+                    p:lv.p, tr:lv.tr, f:lv.f, g:lv.g, og:lv.og, sh:lv.sh||''};
   saveBads(); updateBadButton();
 }
 // 集めた★と×を1つのファイルに落とす
@@ -489,7 +490,8 @@ function exportBads(){
     const f=favs[id];
     const lv=LEVELS.find(l=>l.id===id);
     const at=lv ? LEVELS.indexOf(lv)+1 : null;
-    byId[id]=Object.assign({id, verdict:'good', b:f.b, at}, lv?{p:lv.p,tr:lv.tr,f:lv.f,g:lv.g,og:lv.og,sh:lv.sh||''}:{});
+    byId[id]=Object.assign({id, verdict:'good', b:f.b, at, orig:lv?(lv.orig||null):null},
+                           lv?{p:lv.p,tr:lv.tr,f:lv.f,g:lv.g,og:lv.og,sh:lv.sh||''}:{});
   }
   const list=Object.values(byId).sort((a,b)=>(a.at||0)-(b.at||0));
   if(!list.length){ alert('まだ ★ も ✕ も付いていません。'); return; }
