@@ -38,7 +38,10 @@ const motifs=new Set();
 for(const l of data.levels){ try{ motifs.add(MO.goalMotif(l.b)); }catch(e){} }
 const rng=mulberry32(SEED);
 
-const stat={boards:0, solved:0, capped:0, tooShallow:0, cand:0, mano:0, decoy:0, forced:0, dup:0, got:0};
+// 2つの配置で、位置が違う荷物の数
+const diffBoxes=(a,b)=>{ const s2=new Set(b); return a.filter(c=>!s2.has(c)).length; };
+
+const stat={boards:0, skipped:0, solved:0, capped:0, tooShallow:0, cand:0, mano:0, decoy:0, forced:0, dup:0, got:0};
 
 function harvestBoard(){
   const layout=S.buildShape(rng,{size:['大','特大','超特大'][rng()*3|0]});
@@ -50,6 +53,11 @@ function harvestBoard(){
   if(floors.length<24||floors.length>70) return [];
   const nbox=5+(rng()*4|0);
   if(floors.length<nbox*4) return [];
+  // 数える前に規模を見積もる。荷物の置き方の総数がこれくらいなら、
+  // 解ける局面は上限に収まり、かつ深い局面も出る。外れた盤は数えずに捨てる
+  let comb=1;
+  for(let i=0;i<nbox;i++) comb=comb*(floors.length-i)/(i+1);
+  if(comb<3e5||comb>6e6){ stat.skipped++; return []; }
   const gp=S.pickGoals(layout, floors, nbox, rng);
   if(!gp) return [];
   const goals=gp.goals;
@@ -83,7 +91,10 @@ function harvestBoard(){
     const board=rows.join('/');
     const key=String(canonical(rows));
     const mo=MO.goalMotif(board);
-    if(seen.has(key)||motifs.has(mo)){ stat.dup++; continue; }
+    // 同じ盤から採った兄弟は置き場の並びが同じになるが、荷物が大きく違えば別の問題。
+    // 他の盤に対しては従来どおり並びの重複を弾く
+    const sibling = out.length>0 && out.every(o=>diffBoxes(o.boxes, boxes)>=Math.ceil(nbox*0.6));
+    if(seen.has(key) || (motifs.has(mo) && !sibling)){ stat.dup++; continue; }
     const r=regionRep(grid,w,new Set(boxes),rep);
     const a=analyse(grid,w,goals,table,{boxes,rep,cells:r.cells},rng,policies);
     if(!a) continue;
@@ -95,7 +106,7 @@ function harvestBoard(){
       sh:layout.shape, sz:layout.size, ar:layout.W===layout.H?'正方':(layout.W>layout.H?'横長':'縦長'),
       gp:gp.pattern, sp:'-', pl:'-', cl:layout.clutter, st:table.size,
       carry, mano:+((d-carry)/d).toFixed(2), dec:dc.share, dps:dc.perState,
-      fo:fs2.forced, ops:fs2.optPerState, nbox,
+      fo:fs2.forced, ops:fs2.optPerState, nbox, boxes,
     });
   }
   return out;
@@ -115,7 +126,7 @@ while(found.length<WANT && (Date.now()-t0)/1000 < SECS){
 const el=(Date.now()-t0)/1000;
 found.sort((a,b)=>b.p-a.p);
 console.log(`\n${found.length}面 / ${el.toFixed(0)}秒  = 1面あたり${(el/Math.max(1,found.length)).toFixed(1)}秒`);
-console.log(`盤${stat.boards}枚 (数え上げ成功${stat.solved} 上限超え${stat.capped} 浅い${stat.tooShallow})`
+console.log(`盤${stat.boards}枚 (見積りで除外${stat.skipped} 数え上げ成功${stat.solved} 上限超え${stat.capped} 浅い${stat.tooShallow})`
   +` / 候補${stat.cand} → 経路落ち${stat.mano} 囮落ち${stat.decoy} 強制落ち${stat.forced} 重複${stat.dup} 合格${stat.got}`);
 if(found.length){
   fs.writeFileSync(OUT, JSON.stringify(found,null,1));
