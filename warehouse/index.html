@@ -141,6 +141,10 @@ body.dpad-off .footrow{position:static;padding-top:10px;align-items:center}
 /* ★は1つだけ。ふだんはグレー、記録するとオレンジ。数字はその面の見立て */
 #btnFav{color:#c9c9c9;font-variant-numeric:tabular-nums}
 #btnFav.on{background:var(--goal-soft);border-color:var(--goal);color:var(--goal)}
+/* ×は、付いていなければ薄いグレー、付ければ赤 */
+#btnBad,#btnBadWin{color:#c9c9c9}
+#btnBad.on,#btnBadWin.on{background:#fde7e8;border-color:var(--error);color:var(--error)}
+#btnBadWin{margin-bottom:8px}
 
 .msg{
   display:none;flex:0 0 auto;background:var(--card);border:1px solid var(--line);
@@ -152,6 +156,10 @@ body.dpad-off .footrow{position:static;padding-top:10px;align-items:center}
 body.debug .boardnote{display:block}
 .debugbar{display:none;flex:0 0 auto;gap:6px;justify-content:center;flex-wrap:wrap;padding-top:8px;padding-bottom:2px}
 body.debug .debugbar{display:flex}
+/* モデレーションは面の行き来と書き出しだけ。戻す・ヒント・詰み表示は出さない */
+body.mod .debugbar{display:flex}
+body.mod #btnUndo, body.mod #btnHint, body.mod #btnWipe{display:none}
+body:not(.mod) #btnBadExport{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -237,6 +245,7 @@ body.debug .debugbar{display:flex}
     <button class="btn" id="btnUndo">↩ 戻す</button>
     <button class="btn" id="btnHint">💡 ヒント</button>
     <button class="btn" id="btnPick">選ぶ</button>
+    <button class="btn" id="btnBadExport">✕を書き出す</button>
     <button class="btn" id="btnWipe">記録を消す</button>
     <button class="btn" id="btnPrev">◀</button>
     <button class="btn" id="btnNext">▶</button>
@@ -284,6 +293,7 @@ body.debug .debugbar{display:flex}
     <div class="mid"></div>
     <div class="right">
       <button class="btn" id="btnFav" style="display:none">★ --</button>
+      <button class="btn" id="btnBad" style="display:none">✕</button>
       <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
     </div>
   </div>
@@ -298,6 +308,7 @@ body.debug .debugbar{display:flex}
     <div class="win-time" id="winPush">0手</div>
     <div class="win-sub" id="winSub"></div>
     <button class="btn" id="btnFavWin" style="display:none">★ --</button>
+    <button class="btn" id="btnBadWin" style="display:none">✕ この面は良くない</button>
     <button class="btn" id="btnShare">📨 結果を送る</button>
     <button class="btn btn-new" id="btnNextStage">次のステージへ</button>
   </div>
@@ -334,18 +345,21 @@ body.debug .debugbar{display:flex}
 /* ================= 動作モード =================
    ふつうは進むだけ。戻る手段も、詰み表示もヒントも出さない。
      ?debug=1   … 戻す/ヒント/詰み表示/ステージ選択を出す
+     ?mod=1     … モデレーション。面を行き来しながら、良くない面に×を付ける
      ?lv=N      … 送られてきた1面だけを独立して遊ぶ(本編の進行に影響しない) */
 const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
 const debugSaved=(()=>{ try{ return localStorage.getItem('warehouse-debug')==='1'; }catch(e){ return false; } })();
 const DEBUG=QS.get('debug')==='1' || (QS.get('debug')!=='0' && debugSaved);
+const MOD=QS.get('mod')==='1';
 const WANT=+QS.get('lv')||0;
 const FILE='levels.json';
 let SHARED=false;                        // 共有リンクで開いた1面モード
 if(DEBUG) document.body.classList.add('debug');
+if(MOD) document.body.classList.add('mod');
 // ステージを行き来できるモード
-const NAV = DEBUG;
+const NAV = DEBUG || MOD;
 
 /* ================= 効果音 ================= */
 const AC = window.AudioContext || window.webkitAudioContext;
@@ -421,6 +435,40 @@ const bestOf=lv=>lv&&progress.cleared[lv.id];
 
 // ★ 採用候補。1〜500でいうとどのあたりか、も一緒に覚える
 let favs={}, favFromWin=false;
+// モデレーションで付けた「良くない面」
+let bads={};
+(function(){ try{ bads=JSON.parse(store.get('bads')||'{}')||{}; }catch(e){ bads={}; } })();
+const saveBads=()=>store.set('bads', JSON.stringify(bads));
+function updateBadButton(){
+  if(!puzzle) return;
+  const on=!!bads[puzzle.meta.id];
+  for(const id of ['btnBad','btnBadWin']){
+    const b=$(id);
+    b.classList.toggle('on', on);
+    b.title = on ? '×を外す' : 'この面は良くないと記録する';
+  }
+  $('btnBadWin').textContent = on ? '✕ 良くないと記録した' : '✕ この面は良くない';
+}
+function toggleBad(){
+  if(!puzzle) return;
+  const lv=puzzle.meta;
+  if(bads[lv.id]){ delete bads[lv.id]; }
+  else bads[lv.id]={b:lv.b, at:index+1, p:lv.p, tr:lv.tr, f:lv.f, g:lv.g, og:lv.og, sh:lv.sh||''};
+  saveBads(); updateBadButton();
+}
+// 集めた×を1つのファイルに落とす
+function exportBads(){
+  const list=Object.keys(bads)
+    .map(id=>Object.assign({id}, bads[id]))
+    .sort((a,b)=>a.at-b.at);
+  if(!list.length){ alert('まだ×が付いていません。'); return; }
+  const url=URL.createObjectURL(new Blob([JSON.stringify(list,null,1)], {type:'application/json'}));
+  const a=document.createElement('a');
+  a.href=url; a.download='bad-levels.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  showMsg('✕ '+list.length+'面を bad-levels.json に書き出しました。');
+}
 function setFavRange(max){
   const r=$('favRange');
   if(!(max>0)||+r.max===max) return;
@@ -517,12 +565,18 @@ loadJSON(FILE)
     LEVELS=data.levels;
     hideLoading();
     // 送られてきたリンクは、その1面だけを独立して遊べるようにする
-    SHARED = !DEBUG && WANT>=1 && WANT<=LEVELS.length && (WANT-1)!==unlockedMax();
+    SHARED = !DEBUG && !MOD && WANT>=1 && WANT<=LEVELS.length && (WANT-1)!==unlockedMax();
     // ★の見立ての目盛りは面数に合わせる
     setFavRange(LEVELS.length);
     if(DEBUG){
       $('btnFav').style.display='';
       $('btnFavWin').style.display='';
+    }
+    if(MOD){
+      $('btnBad').style.display='';
+      $('btnBadWin').style.display='';
+      $('banner').style.display='block';
+      $('bannerText').textContent='モデレーション中。良くないと思った面は ✕ を押してください';
     }
     if(SHARED){
       $('banner').style.display='block';
@@ -592,8 +646,9 @@ function startLevel(i){
   layoutBoard();
   updateStats();
   updateFavButton();
+  updateBadButton();
   if(NAV) updateNav();
-  const q=(DEBUG?'debug=1&':'')+((SHARED||DEBUG)?('lv='+(index+1)):'');
+  const q=(DEBUG?'debug=1&':'')+(MOD?'mod=1&':'')+((SHARED||DEBUG||MOD)?('lv='+(index+1)):'');
   try{ history.replaceState(null,'', q?('?'+q.replace(/&$/,'')):location.pathname); }catch(e){}
 }
 
@@ -867,8 +922,9 @@ function checkWin(){
   const prev=bestOf(lv);
   const first=prev===undefined;
   // 送られてきた1面は、本編の進みには足さない
-  if(!SHARED && (first||pushCount<prev)){ progress.cleared[lv.id]=pushCount; saveProgress(); }
+  if(!SHARED && !MOD && (first||pushCount<prev)){ progress.cleared[lv.id]=pushCount; saveProgress(); }
   updateStats();
+  updateBadButton();
   if(NAV) updateNav();
 
   const perfect=pushCount===lv.p;
@@ -1039,6 +1095,9 @@ $('btnWipe').addEventListener('click',()=>{
   updateStats(); updateFavButton();
   showMsg('記録を消しました。');
 });
+$('btnBad').addEventListener('click',toggleBad);
+$('btnBadWin').addEventListener('click',toggleBad);
+$('btnBadExport').addEventListener('click',exportBads);
 $('btnFav').addEventListener('click',()=>toggleFav(false));
 $('btnFavWin').addEventListener('click',()=>toggleFav(true));
 $('btnExport').addEventListener('click',exportFavs);
