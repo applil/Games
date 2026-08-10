@@ -389,8 +389,10 @@ const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
 const debugSaved=(()=>{ try{ return localStorage.getItem('warehouse-debug')==='1'; }catch(e){ return false; } })();
-const DEBUG=QS.get('debug')==='1' || (QS.get('debug')!=='0' && debugSaved);
 const MOD=QS.get('mod')==='1';
+// モデレーションは素の状態で遊んで判断するもの。端末にデバッグの記録が
+// 残っていても、戻す・ヒント・詰み表示は出さない(?mod=1&debug=1 と書いたときだけ出す)
+const DEBUG=QS.get('debug')==='1' || (QS.get('debug')!=='0' && debugSaved && !MOD);
 const EDIT=QS.get('edit')==='1';
 const WANT=+QS.get('lv')||0;
 const FILE='levels.json';
