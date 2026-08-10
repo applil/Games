@@ -170,7 +170,7 @@ body.edit .palette{display:flex}
 .palette button.on{background:var(--ink);border-color:var(--ink);color:#fff}
 body.edit .cell{cursor:pointer}
 body.mod #btnUndo, body.mod #btnHint, body.mod #btnWipe{display:none}
-body:not(.mod) #btnBadExport{display:none}
+body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -257,6 +257,7 @@ body:not(.mod) #btnBadExport{display:none}
     <button class="btn" id="btnHint">💡 ヒント</button>
     <button class="btn" id="btnPick">選ぶ</button>
     <button class="btn" id="btnBadExport">★✕を書き出す</button>
+    <button class="btn" id="btnBadWipe">★✕を消す</button>
     <button class="btn" id="btnCheck">解けるか確かめる</button>
     <button class="btn" id="btnEditReset">編集を戻す</button>
     <button class="btn" id="btnEditExport">書き出す</button>
@@ -458,6 +459,8 @@ const saveProgress=()=>store.set(PKEY, JSON.stringify(progress));
 const isCleared=lv=>lv && progress.cleared[lv.id]!==undefined;
 const bestOf=lv=>lv&&progress.cleared[lv.id];
 
+// ★✕を付けた時点の並び。並べ替えるたびに変わるので、古い印と見分けがつく
+let REV='normal';
 // ★ 採用候補。1〜500でいうとどのあたりか、も一緒に覚える
 let favs={}, favFromWin=false;
 // モデレーションで付けた「良くない面」
@@ -478,30 +481,50 @@ function toggleBad(){
   if(!puzzle) return;
   const lv=puzzle.meta;
   if(bads[lv.id]){ delete bads[lv.id]; }
-  else bads[lv.id]={b:lv.b, at:index+1, orig:lv.orig||null,
+  else bads[lv.id]={b:lv.b, at:index+1, orig:lv.orig||null, rev:REV,
                     p:lv.p, tr:lv.tr, f:lv.f, g:lv.g, og:lv.og, sh:lv.sh||''};
   saveBads(); updateBadButton();
 }
-// 集めた★と×を1つのファイルに落とす
+// 集めた★と×を1つのファイルに落とす。
+// 印は消さずに残るので、並べ替えをまたぐと古い印が混ざる。
+// 付けた時点の並び(rev)を覚えておいて、いまの並びの分だけ書き出す。
 function exportBads(){
-  const byId={};
-  for(const id of Object.keys(bads)) byId[id]=Object.assign({id, verdict:'bad'}, bads[id]);
+  const byId={}; let stale=0;
+  for(const id of Object.keys(bads)){
+    const v=bads[id];
+    if(v.rev!==REV){ stale++; continue; }
+    byId[id]=Object.assign({id, verdict:'bad'}, v);
+  }
   for(const id of Object.keys(favs)){
     const f=favs[id];
+    if(f.rev!==REV){ stale++; continue; }
     const lv=LEVELS.find(l=>l.id===id);
-    const at=lv ? LEVELS.indexOf(lv)+1 : null;
-    byId[id]=Object.assign({id, verdict:'good', b:f.b, at, orig:lv?(lv.orig||null):null},
+    byId[id]=Object.assign({id, verdict:'good', b:f.b, at:f.at||null, orig:f.orig==null?null:f.orig, rev:f.rev},
                            lv?{p:lv.p,tr:lv.tr,f:lv.f,g:lv.g,og:lv.og,sh:lv.sh||''}:{});
   }
   const list=Object.values(byId).sort((a,b)=>(a.at||0)-(b.at||0));
-  if(!list.length){ alert('まだ ★ も ✕ も付いていません。'); return; }
+  if(!list.length){
+    alert(stale ? 'いまの並びで付けた ★ ✕ はありません。\n(前の並びの印が '+stale+'件 残っています)'
+                : 'まだ ★ も ✕ も付いていません。');
+    return;
+  }
   const good=list.filter(x=>x.verdict==='good').length;
   const url=URL.createObjectURL(new Blob([JSON.stringify(list,null,1)], {type:'application/json'}));
   const a=document.createElement('a');
   a.href=url; a.download='moderation.json';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 5000);
-  showMsg('★ '+good+'面 / ✕ '+(list.length-good)+'面 を moderation.json に書き出しました。');
+  showMsg('★ '+good+'面 / ✕ '+(list.length-good)+'面 を moderation.json に書き出しました。'
+    +(stale?'(前の並びの印 '+stale+'件は除きました)':''));
+}
+// ★✕の記録だけを消す。並べ替えたあと、まっさらから付け直したいとき用
+function wipeMarks(){
+  const n=Object.keys(bads).length+Object.keys(favs).length;
+  if(!n){ alert('消す ★ ✕ はありません。'); return; }
+  if(!confirm('★ と ✕ の記録 '+n+'件をすべて消します。よろしいですか？')) return;
+  bads={}; favs={}; saveBads(); saveFavs();
+  updateBadButton(); updateFavButton();
+  showMsg('★✕の記録を消しました。');
 }
 function setFavRange(max){
   const r=$('favRange');
@@ -597,6 +620,7 @@ showLoading();
 loadJSON(FILE)
   .then(data=>{
     LEVELS=data.levels;
+    REV = data.reordered ? (data.reordered.at+'@'+data.reordered.from) : 'normal';
     hideLoading();
     // 送られてきたリンクは、その1面だけを独立して遊べるようにする
     SHARED = !DEBUG && !MOD && WANT>=1 && WANT<=LEVELS.length && (WANT-1)!==unlockedMax();
@@ -788,7 +812,8 @@ function closeFavPanel(){
 }
 function saveFav(place){
   const lv=puzzle.meta;
-  favs[lv.id]={b:lv.b, place:(place==null?null:+place), from:'第'+(index+1)+'面'};
+  favs[lv.id]={b:lv.b, place:(place==null?null:+place), from:'第'+(index+1)+'面',
+               at:index+1, orig:lv.orig==null?null:lv.orig, rev:REV};
   saveFavs(); updateFavButton();
 }
 function removeFav(){
@@ -1257,6 +1282,7 @@ $('btnWipe').addEventListener('click',()=>{
 $('btnBad').addEventListener('click',toggleBad);
 $('btnBadWin').addEventListener('click',toggleBad);
 $('btnBadExport').addEventListener('click',exportBads);
+$('btnBadWipe').addEventListener('click',wipeMarks);
 $('btnCheck').addEventListener('click',editCheck);
 $('btnEditReset').addEventListener('click',editReset);
 $('btnEditExport').addEventListener('click',editExport);
