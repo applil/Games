@@ -29,19 +29,29 @@ function goalDist(grid, w, goal){
   return d;
 }
 
-const permutations=a=>a.length<=1 ? [a]
-  : a.flatMap((x,i)=>permutations(a.slice(0,i).concat(a.slice(i+1))).map(r=>[x,...r]));
-
-// 荷物を割り当てて、まっすぐ押すだけなら何手か(表を使い回すので速い)
+// 荷物を割り当てて、まっすぐ押すだけなら何手か。
+// 全通り試すと荷物8個で40320通りになる。ビットで持てば256×8回で済む
+// (どの置き場を使い終えたかだけ覚えていればよく、順番は関係ない)
 function carryCost(gd, boxes, goals){
-  const perms=permutations(goals.map((_,i)=>i));
-  let best=Infinity;
-  for(const idx of perms){
-    let s=0, ok=true;
-    for(let i=0;i<boxes.length;i++){ const v=gd[idx[i]][boxes[i]]; if(v<0){ ok=false; break; } s+=v; }
-    if(ok&&s<best) best=s;
+  const n=boxes.length, full=(1<<n)-1;
+  const INF=Infinity;
+  const dp=new Float64Array(full+1).fill(INF);
+  dp[0]=0;
+  const used=new Int32Array(full+1);
+  for(let m=0;m<=full;m++){
+    if(dp[m]===INF) continue;
+    let i=0, mm=m; while(mm){ i+=mm&1; mm>>=1; }   // 何個決まったか = 次に決める荷物の番号
+    if(i>=n) continue;
+    const b=boxes[i];
+    for(let j=0;j<n;j++){
+      if(m&(1<<j)) continue;
+      const v=gd[j][b];
+      if(v<0) continue;
+      const nm=m|(1<<j);
+      if(dp[m]+v<dp[nm]) dp[nm]=dp[m]+v;
+    }
   }
-  return isFinite(best)?best:null;
+  return dp[full]===INF ? null : dp[full];
 }
 
 // 囮の数え上げ。全局面表と押し距離表を渡すので、ここでは数え直さない

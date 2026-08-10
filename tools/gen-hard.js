@@ -66,23 +66,32 @@ function harvestBoard(){
   if(!table){ stat.capped++; return []; }
   stat.solved++;
 
-  // 深い局面を集める。深い順に見て、条件を満たしたものから採る
+  // 深い局面を集める
   const deep=[];
   for(const [k,d] of table) if(d>=MIN_PUSH) deep.push([k,d]);
   if(!deep.length){ stat.tooShallow++; return []; }
-  deep.sort((a,b)=>b[1]-a[1]);
 
   const gd=goals.map(g=>H.goalDist(grid,w,g));
-  const policies=greedyPolicies(grid,w,goals);
-  const out=[];
+  // 深い順に試すと、運搬距離も一緒に伸びていて経路のズレで落ちるものばかりになる。
+  // 先に運搬の下限を出して「手数-運搬」の大きい順に並べ替える。
+  // 割り当てはビットで解くので1件あたり数マイクロ秒で、数万件並べても1秒かからない
+  const scored=[];
   for(const [k,d] of deep){
-    if(out.length>=PER_BOARD) break;
-    stat.cand++;
     const boxes=[];
     for(let i=1;i<k.length;i++) boxes.push(k.charCodeAt(i));
-    const rep=k.charCodeAt(0);
     const carry=H.carryCost(gd, boxes, goals);
-    if(carry===null||(d-carry)/d<MIN_MANO){ stat.mano++; continue; }
+    if(carry===null) continue;
+    if((d-carry)/d<MIN_MANO){ stat.mano++; continue; }
+    scored.push({k, d, boxes, rep:k.charCodeAt(0), carry, gap:d-carry});
+  }
+  if(!scored.length) return [];
+  scored.sort((a,b)=>b.gap-a.gap||b.d-a.d);
+  const policies=greedyPolicies(grid,w,goals);
+  const out=[];
+  for(const c of scored){
+    if(out.length>=PER_BOARD) break;
+    stat.cand++;
+    const {d, boxes, rep, carry}=c;
     const dc=H.decoyFrom(grid,w,goals,table,gd,boxes,rep);
     if(!dc||dc.share<MIN_DECOY){ stat.decoy++; continue; }
     const fs2=H.forcedShare(grid,w,table,boxes,rep);
