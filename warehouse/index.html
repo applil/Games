@@ -388,11 +388,16 @@ body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
 const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
+// ?debug=1 / ?debug=0 は、その場かぎりではなく端末に覚えさせる。
+// URL には書き戻さないので、リンクを踏んだあとも住所は素のまま残る
+if(QS.get('debug')==='1'||QS.get('debug')==='0'){
+  try{ localStorage.setItem('warehouse-debug', QS.get('debug')); }catch(e){}
+}
 const debugSaved=(()=>{ try{ return localStorage.getItem('warehouse-debug')==='1'; }catch(e){ return false; } })();
 const MOD=QS.get('mod')==='1';
-// モデレーションは素の状態で遊んで判断するもの。端末にデバッグの記録が
-// 残っていても、戻す・ヒント・詰み表示は出さない(?mod=1&debug=1 と書いたときだけ出す)
-const DEBUG=QS.get('debug')==='1' || (QS.get('debug')!=='0' && debugSaved && !MOD);
+// モデレーションは素の状態で遊んで判断するもの。端末の記録も URL の指定も無視して、
+// 戻す・ヒント・詰み表示は出さない
+const DEBUG=!MOD && (QS.get('debug')==='1' || (QS.get('debug')!=='0' && debugSaved));
 const EDIT=QS.get('edit')==='1';
 const WANT=+QS.get('lv')||0;
 const FILE='levels.json';
@@ -742,7 +747,8 @@ function startLevel(i){
   updateFavButton();
   updateBadButton();
   if(NAV) updateNav();
-  const q=(DEBUG?'debug=1&':'')+(MOD?'mod=1&':'')+((SHARED||DEBUG||MOD)?('lv='+(index+1)):'');
+  // debug は URL に書かない。書くと履歴に残った住所から復活し続けて外せなくなる
+  const q=(MOD?'mod=1&':'')+((SHARED||DEBUG||MOD)?('lv='+(index+1)):'');
   try{ history.replaceState(null,'', q?('?'+q.replace(/&$/,'')):location.pathname); }catch(e){}
 }
 
@@ -1242,10 +1248,8 @@ function bumpDebugTap(){
   if(debugTaps<5) return;
   debugTaps=0;
   try{ localStorage.setItem('warehouse-debug', DEBUG?'0':'1'); }catch(e){}
-  // 遊んでいる間に URL は ?debug=1&lv=N に書き換わっている。
-  // クエリの指定が残っていると保存値に勝ってしまうので、必ず消してから読み直す
   const u=new URL(location.href);
-  u.searchParams.delete('debug');
+  u.searchParams.delete('debug');            // 保存値が効くよう、指定は消して読み直す
   location.href=u.pathname+(u.search||'');
 }
 document.querySelector('.stagelabel').addEventListener('click',bumpDebugTap);
