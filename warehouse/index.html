@@ -488,18 +488,26 @@ function toggleBad(){
 // 集めた★と×を1つのファイルに落とす。
 // 印は消さずに残るので、並べ替えをまたぐと古い印が混ざる。
 // 付けた時点の並び(rev)を覚えておいて、いまの並びの分だけ書き出す。
+// rev を持たない古い印でも、付けた時の面番号にいま同じ面が居るなら今の並びのもの。
+// (並べ替えると面番号はずれるので、一致するのは今の並びで付けた印だけ)
+function markedNow(id, at, rev){
+  if(rev===REV) return true;
+  if(rev!==undefined) return false;
+  return !!(at>=1 && LEVELS[at-1] && LEVELS[at-1].id===id);
+}
+const favAt=f=>{ if(f.at) return f.at; const m=/第(\d+)面/.exec(f.from||''); return m?+m[1]:null; };
 function exportBads(){
   const byId={}; let stale=0;
   for(const id of Object.keys(bads)){
     const v=bads[id];
-    if(v.rev!==REV){ stale++; continue; }
+    if(!markedNow(id, v.at, v.rev)){ stale++; continue; }
     byId[id]=Object.assign({id, verdict:'bad'}, v);
   }
   for(const id of Object.keys(favs)){
-    const f=favs[id];
-    if(f.rev!==REV){ stale++; continue; }
+    const f=favs[id], at=favAt(f);
+    if(!markedNow(id, at, f.rev)){ stale++; continue; }
     const lv=LEVELS.find(l=>l.id===id);
-    byId[id]=Object.assign({id, verdict:'good', b:f.b, at:f.at||null, orig:f.orig==null?null:f.orig, rev:f.rev},
+    byId[id]=Object.assign({id, verdict:'good', b:f.b, at, orig:lv?(lv.orig==null?null:lv.orig):null, rev:f.rev||REV},
                            lv?{p:lv.p,tr:lv.tr,f:lv.f,g:lv.g,og:lv.og,sh:lv.sh||''}:{});
   }
   const list=Object.values(byId).sort((a,b)=>(a.at||0)-(b.at||0));
