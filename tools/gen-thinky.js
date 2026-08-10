@@ -24,6 +24,7 @@ const {solvableStates, regionRep, greedyPolicies, analyse, mulberry32, keyOf, pu
 const S=require(path.join(__dirname,'shapes.js'));
 const M=require(path.join(__dirname,'manoeuvre.js'));
 const DC=require(path.join(__dirname,'decoy.js'));
+const MO=require(path.join(__dirname,'motif.js'));
 const {toXSB, canonical, hashId}=require(path.join(__dirname,'xsb.js'));
 
 const WANT=+(process.argv[2]||45);
@@ -38,6 +39,9 @@ const MIN_DECOY=0.25;     // 進捗して見える押し手のうち、正解で
 
 const data=JSON.parse(fs.readFileSync(TARGET,'utf8'));
 const seen=new Set(data.levels.map(l=>canonical(l.b.split('/'))));
+// 置き場の並びが同じ面は、壁の飾りが違っても遊ぶ人には同じ問題に見える
+const motifs=new Set();
+for(const l of data.levels){ try{ motifs.add(MO.goalMotif(l.b)); }catch(e){} }
 const rng=mulberry32(SEED);
 
 function harvest(){
@@ -80,9 +84,11 @@ function harvest(){
     const rows=toXSB({grid,w:layout.w,h:layout.h,boxes:c.boxes,goals,player:c.rep});
     const key=canonical(rows);
     if(seen.has(key)) continue;
+    const mo=MO.goalMotif(rows.join('/'));
+    if(motifs.has(mo)) continue;                 // 置き場の並びが既出
     const dc=DC.decoy(rows.join('/'));           // 囮がない盤は、見た目どおり押すだけで解ける
     if(!dc||dc.share<MIN_DECOY) continue;
-    seen.add(key);
+    seen.add(key); motifs.add(mo);
     return {
       id:hashId(key), b:rows.join('/'), p:a.pushes,
       s:+a.score.toFixed(1), k:+a.score.toFixed(1),
