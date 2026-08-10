@@ -1279,12 +1279,12 @@ $('btnRulesClose').addEventListener('click',()=>$('rulesOverlay').classList.remo
 $('btnReset').addEventListener('click',resetLevel);
 // 端末に残った進行と★を消す(iPhone だと設定アプリからでないと消せないため)
 $('btnWipe').addEventListener('click',()=>{
-  const n=clearedCount(), f=Object.keys(favs).length;
-  if(!confirm('クリア記録 '+n+'面 と ★ '+f+'面 を消します。よろしいですか？')) return;
+  const n=clearedCount(), f=Object.keys(favs).length, b=Object.keys(bads).length;
+  if(!confirm('クリア記録 '+n+'面 / ★ '+f+'面 / ✕ '+b+'面 を消します。よろしいですか？')) return;
   progress={v:1, cleared:{}};
-  favs={};
-  saveProgress(); saveFavs();
-  updateStats(); updateFavButton();
+  favs={}; bads={};
+  saveProgress(); saveFavs(); saveBads();
+  updateStats(); updateFavButton(); updateBadButton();
   showMsg('記録を消しました。');
 });
 $('btnBad').addEventListener('click',toggleBad);
