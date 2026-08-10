@@ -237,6 +237,7 @@ body.debug .debugbar{display:flex}
     <button class="btn" id="btnUndo">↩ 戻す</button>
     <button class="btn" id="btnHint">💡 ヒント</button>
     <button class="btn" id="btnPick">選ぶ</button>
+    <button class="btn" id="btnWipe">記録を消す</button>
     <button class="btn" id="btnPrev">◀</button>
     <button class="btn" id="btnNext">▶</button>
   </div>
@@ -1028,6 +1029,16 @@ $('btnDpadMode').addEventListener('click',()=>{
 $('btnRules').addEventListener('click',()=>$('rulesOverlay').classList.add('show'));
 $('btnRulesClose').addEventListener('click',()=>$('rulesOverlay').classList.remove('show'));
 $('btnReset').addEventListener('click',resetLevel);
+// 端末に残った進行と★を消す(iPhone だと設定アプリからでないと消せないため)
+$('btnWipe').addEventListener('click',()=>{
+  const n=clearedCount(), f=Object.keys(favs).length;
+  if(!confirm('クリア記録 '+n+'面 と ★ '+f+'面 を消します。よろしいですか？')) return;
+  progress={v:1, cleared:{}};
+  favs={};
+  saveProgress(); saveFavs();
+  updateStats(); updateFavButton();
+  showMsg('記録を消しました。');
+});
 $('btnFav').addEventListener('click',()=>toggleFav(false));
 $('btnFavWin').addEventListener('click',()=>toggleFav(true));
 $('btnExport').addEventListener('click',exportFavs);
