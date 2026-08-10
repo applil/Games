@@ -411,10 +411,18 @@ const NAV = DEBUG || MOD || EDIT;
 /* ================= 効果音 ================= */
 const AC = window.AudioContext || window.webkitAudioContext;
 let actx = null;
+// iOS は「ユーザーが操作した」と認めた場面でしか音を鳴らさせてくれない。
+// touchmove はその中に入っていないので、スワイプで動かすこのゲームでは
+// move() の中で用意していては間に合わない。触れた瞬間に用意しておく。
 function ensureAudio(){
   if(!AC) return;
-  if(!actx) actx = new AC();
-  if(actx.state === 'suspended') actx.resume();
+  try{
+    if(!actx) actx = new AC();
+    if(actx.state === 'suspended') actx.resume();
+  }catch(e){}
+}
+for(const ev of ['touchstart','touchend','pointerdown','keydown']){
+  document.addEventListener(ev, ensureAudio, {passive:true, capture:true});
 }
 function beep(freq, dur, delay, type, vol){
   if(!actx) return;
