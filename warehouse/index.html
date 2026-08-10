@@ -96,16 +96,16 @@ h1{
 
 .spacer{flex:1 1 auto;min-height:0}
 
-/* ↑と↓は縦に隙間なく重ね、←と→はその継ぎ目の高さに置く */
+/* 中央を空けた3×3。四方とも同じ間隔にする */
 .dpad{
   flex:0 0 auto;display:grid;
-  grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,auto);
-  column-gap:7px;row-gap:0;margin:0 auto;width:min(186px,54vw);
+  grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,auto);
+  gap:7px;margin:0 auto;width:min(230px,66vw);
 }
 .dpad button[data-dir="up"]   {grid-area:1/2/2/3}
-.dpad button[data-dir="down"] {grid-area:2/2/3/3}
-.dpad button[data-dir="left"] {grid-area:1/1/3/2;align-self:center}
-.dpad button[data-dir="right"]{grid-area:1/3/3/4;align-self:center}
+.dpad button[data-dir="left"] {grid-area:2/1/3/2}
+.dpad button[data-dir="right"]{grid-area:2/3/3/4}
+.dpad button[data-dir="down"] {grid-area:3/2/4/3}
 .dpad button{
   aspect-ratio:1;border:1px solid var(--line);background:var(--card);border-radius:15px;
   font-size:20px;color:var(--ink);cursor:pointer;
@@ -114,8 +114,7 @@ h1{
 }
 .dpad button:active{transform:scale(.94);background:var(--floor)}
 .dpad .empty{visibility:hidden}
-body.dpad-mini .dpad{width:min(108px,33vw);column-gap:4px}
-body.dpad-mini .dpad button{border-radius:9px;font-size:12px;box-shadow:none}
+body.dpad-mini .dpad{width:min(168px,48vw);gap:5px}
 body.dpad-off .dpad{display:none}
 
 /* 十字キーの左右の空きに、下端をそろえてボタンを置く */
