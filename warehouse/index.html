@@ -139,7 +139,9 @@ body.dpad-off .dpad{display:none}
 }
 .footrow>*{pointer-events:auto}
 /* 十字キーを隠しているときは、そろえる相手がいないので普通に流す */
-body.dpad-off .footrow{position:static;padding-top:10px;align-items:center}
+body.dpad-off .footrow{position:static;padding-top:10px;align-items:center;
+  grid-template-columns:auto 1fr auto}   /* 「キーなし：スワイプで移動」を折り返させない */
+#btnDpadMode{white-space:nowrap}
 .footrow .left{justify-self:start;display:flex;gap:6px}
 .footrow .mid{justify-self:center}
 .footrow .right{justify-self:end;display:flex;gap:6px}
@@ -415,18 +417,31 @@ let actx = null;
 // iOS は「ユーザーが操作した」と認めた場面でしか音を鳴らさせてくれない。
 // touchmove はその中に入っていないので、スワイプで動かすこのゲームでは
 // move() の中で用意していては間に合わない。触れた瞬間に用意しておく。
+// ホーム画面から起動したときは、触っても止まったままのことがある。
+let audioReady=false;
 function ensureAudio(){
-  if(!AC) return;
+  if(!AC || audioReady) return;
   try{
     if(!actx) actx = new AC();
-    if(actx.state === 'suspended') actx.resume();
+    if(actx.state === 'running'){ audioReady=true; return; }
+    actx.resume().then(()=>{
+      // 動き出したら、無音を1つ鳴らして本当に開通したことを確かめる
+      try{
+        const b=actx.createBuffer(1,1,22050);
+        const src=actx.createBufferSource();
+        src.buffer=b; src.connect(actx.destination); src.start(0);
+      }catch(e){}
+      audioReady = actx.state==='running';
+    }).catch(()=>{});
   }catch(e){}
 }
-for(const ev of ['touchstart','touchend','pointerdown','keydown']){
+for(const ev of ['touchstart','touchend','pointerdown','click','keydown']){
   document.addEventListener(ev, ensureAudio, {passive:true, capture:true});
 }
 function beep(freq, dur, delay, type, vol){
-  if(!actx) return;
+  // 止まっている間に鳴らそうとすると、時計が進まないので予約が同じ時刻に溜まる。
+  // あとで動き出した瞬間、溜まったぶんが一斉に鳴る。鳴らせないときは捨てる
+  if(!actx || actx.state !== 'running') return;
   const t = actx.currentTime + (delay||0);
   const o = actx.createOscillator(), g = actx.createGain();
   o.type = type || 'square';
