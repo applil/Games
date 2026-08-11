@@ -37,6 +37,9 @@ body{
 
 /* タイトルは絶対配置で中央に。左右のボタンの幅に影響されない */
 header{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:0 0 auto;min-height:34px}
+/* 表題は5回叩くと最新に取り直すので、長押しで選択されないようにする */
+header h1{user-select:none;-webkit-user-select:none;pointer-events:auto}
+/* 文字の幅のぶんだけ受け取る。左右のボタンは絶対配置の外なので邪魔しない */
 h1{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   font-size:23px;font-weight:800;letter-spacing:.06em;color:var(--ink-soft);
@@ -1272,7 +1275,7 @@ document.querySelectorAll('.dpad button[data-dir]').forEach(b=>{
 });
 // スワイプは画面のどこでも受け付ける。ページごとスクロールしないよう既定の動作を止める。
 // ただしボタン類とモーダルの上では、押せなくなってしまうので受け付けない
-let tsx=0, tsy=0, swiped=false, tracking=false, tapDir=null, tapLabel=false;
+let tsx=0, tsy=0, swiped=false, tracking=false, tapDir=null, tapLabel=false, tapTitle=false;
 
 // 「ステージ」の文字を5回つづけて叩くとデバッグ表示を切り替える(クエリが使えない場所むけ)
 let debugTaps=0, debugTapAt=0;
@@ -1288,6 +1291,24 @@ function bumpDebugTap(){
   location.href=u.pathname+(u.search||'');
 }
 document.querySelector('.stagelabel').addEventListener('click',bumpDebugTap);
+
+// 表題を5回つづけて叩くと最新に取り直す。ホーム画面のアプリはキャッシュが頑固で、
+// 画面のスワイプはゲームの操作に使っているので下に引っぱっての更新もできない
+let freshTaps=0, freshTapAt=0;
+function bumpFreshTap(){
+  const now=Date.now();
+  freshTaps = (now-freshTapAt<800) ? freshTaps+1 : 1;
+  freshTapAt=now;
+  if(freshTaps<5) return;
+  freshTaps=0;
+  forceFresh();
+}
+function forceFresh(){
+  const u=new URL(location.href);
+  u.searchParams.set('fresh', String(Date.now()));
+  location.replace(u.pathname+u.search);
+}
+document.querySelector('header h1').addEventListener('click',bumpFreshTap);
 const swipeBlocked=t=>{
   if(!(t instanceof Element)) return false;
   if(EDIT && t.closest('.board')) return true;          // 編集中の盤はタップで塗る
@@ -1304,6 +1325,7 @@ document.addEventListener('touchstart',e=>{
   const key=e.target instanceof Element ? e.target.closest('.dpad button[data-dir]') : null;
   tapDir=key ? key.dataset.dir : null;
   tapLabel=e.target instanceof Element && !!e.target.closest('.stagelabel');
+  tapTitle=e.target instanceof Element && !!e.target.closest('header h1');
   const t=e.changedTouches[0]; tsx=t.clientX; tsy=t.clientY; swiped=false;
   e.preventDefault();
 },{passive:false});
@@ -1327,6 +1349,7 @@ document.addEventListener('touchend',e=>{
   if(Math.abs(dx)<12&&Math.abs(dy)<12){
     if(tapDir) move(tapDir);
     else if(tapLabel) bumpDebugTap();
+    else if(tapTitle) bumpFreshTap();
     return;
   }
   move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
@@ -1369,11 +1392,7 @@ $('btnMark').addEventListener('click',()=>{
 });
 // ホーム画面のアプリはキャッシュが頑固で、下に引っぱっての更新もできない
 // (画面のスワイプはゲームの操作に使っているため)。ここから取り直す
-$('btnFresh').addEventListener('click',()=>{
-  const u=new URL(location.href);
-  u.searchParams.set('fresh', String(Date.now()));
-  location.replace(u.pathname+u.search);
-});
+$('btnFresh').addEventListener('click',forceFresh);
 $('btnBad').addEventListener('click',toggleBad);
 $('btnBadWin').addEventListener('click',toggleBad);
 $('btnBadExport').addEventListener('click',exportBads);
