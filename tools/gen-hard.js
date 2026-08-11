@@ -29,6 +29,7 @@ const PER_BOARD=+(process.argv[5]||2);      // 同じ盤からは似た面しか
 const OUT=process.argv[6]||path.join(__dirname,'hard-candidates.json');
 
 const MIN_PUSH=28, MIN_MANO=0.35, MIN_DECOY=0.30, MAX_FORCED=0.35;
+const MIN_LATE=10;        // 終盤に要る回り込みの歩数(「惜しい」型)
 const CAP=250000;                            // これを超える盤は諦める(粘ると1枚に何分もかかる)
 
 const LV=path.join(__dirname,'..','warehouse','levels.json');
@@ -41,7 +42,7 @@ const rng=mulberry32(SEED);
 // 2つの配置で、位置が違う荷物の数
 const diffBoxes=(a,b)=>{ const s2=new Set(b); return a.filter(c=>!s2.has(c)).length; };
 
-const stat={boards:0, skipped:0, solved:0, capped:0, tooShallow:0, cand:0, mano:0, decoy:0, forced:0, dup:0, got:0};
+const stat={boards:0, skipped:0, solved:0, capped:0, tooShallow:0, cand:0, mano:0, decoy:0, forced:0, naive:0, late:0, dup:0, got:0};
 
 function harvestBoard(){
   const layout=S.buildShape(rng,{size:['大','特大','超特大'][rng()*3|0]});
@@ -96,6 +97,10 @@ function harvestBoard(){
     if(!dc||dc.share<MIN_DECOY){ stat.decoy++; continue; }
     const fs2=H.forcedShare(grid,w,table,boxes,rep);
     if(!fs2||fs2.forced>=MAX_FORCED){ stat.forced++; continue; }
+    // 素直な手だけで解けてしまう面は弾き、終盤に回り込みが要る面だけ採る
+    const pf=H.profile(grid,w,goals,table,gd,boxes,rep,rep);
+    if(!pf||pf.naive){ stat.naive++; continue; }
+    if(pf.lateWalk<MIN_LATE){ stat.late++; continue; }
     const rows=toXSB({grid,w:layout.w,h:layout.h,boxes,goals,player:rep});
     const board=rows.join('/');
     const key=String(canonical(rows));
@@ -115,7 +120,7 @@ function harvestBoard(){
       sh:layout.shape, sz:layout.size, ar:layout.W===layout.H?'正方':(layout.W>layout.H?'横長':'縦長'),
       gp:gp.pattern, sp:'-', pl:'-', cl:layout.clutter, st:table.size,
       carry, mano:+((d-carry)/d).toFixed(2), dec:dc.share, dps:dc.perState,
-      fo:fs2.forced, ops:fs2.optPerState, nbox, boxes,
+      fo:fs2.forced, ops:fs2.optPerState, acc:pf.access, lw:pf.lateWalk, nbox, boxes,
     });
   }
   return out;
@@ -136,7 +141,7 @@ const el=(Date.now()-t0)/1000;
 found.sort((a,b)=>b.p-a.p);
 console.log(`\n${found.length}面 / ${el.toFixed(0)}秒  = 1面あたり${(el/Math.max(1,found.length)).toFixed(1)}秒`);
 console.log(`盤${stat.boards}枚 (見積りで除外${stat.skipped} 数え上げ成功${stat.solved} 上限超え${stat.capped} 浅い${stat.tooShallow})`
-  +` / 候補${stat.cand} → 経路落ち${stat.mano} 囮落ち${stat.decoy} 強制落ち${stat.forced} 重複${stat.dup} 合格${stat.got}`);
+  +` / 候補${stat.cand} → 経路落ち${stat.mano} 囮落ち${stat.decoy} 強制落ち${stat.forced} 素直落ち${stat.naive} 回込落ち${stat.late} 重複${stat.dup} 合格${stat.got}`);
 if(found.length){
   fs.writeFileSync(OUT, JSON.stringify(found,null,1));
   console.log('\n 手数 荷物  盤    経路  囮  強制  形');

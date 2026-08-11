@@ -23,6 +23,7 @@ const E=require(path.join(__dirname,'..','warehouse','engine.js')).WarehouseEngi
 const {solvableStates, regionRep, greedyPolicies, analyse, mulberry32, keyOf, pushesFrom}=E;
 const S=require(path.join(__dirname,'shapes.js'));
 const M=require(path.join(__dirname,'manoeuvre.js'));
+const HV=require(path.join(__dirname,'harvest.js'));
 const DC=require(path.join(__dirname,'decoy.js'));
 const MO=require(path.join(__dirname,'motif.js'));
 const {toXSB, canonical, hashId}=require(path.join(__dirname,'xsb.js'));
@@ -36,6 +37,7 @@ const MAX_CARRY=10;       // 運搬の下限
 const MAX_FLOORS=36;
 const MAX_PER_BOX=12;
 const MIN_DECOY=0.25;     // 進捗して見える押し手のうち、正解でないものの割合
+const MIN_LATE=10;        // 終盤に要る回り込みの歩数(「惜しい」型。✕37% 対 55%)
 
 const data=JSON.parse(fs.readFileSync(TARGET,'utf8'));
 const seen=new Set(data.levels.map(l=>canonical(l.b.split('/'))));
@@ -88,6 +90,11 @@ function harvest(){
     if(motifs.has(mo)) continue;                 // 置き場の並びが既出
     const dc=DC.decoy(rows.join('/'));           // 囮がない盤は、見た目どおり押すだけで解ける
     if(!dc||dc.share<MIN_DECOY) continue;
+    // 進捗して見える手だけで解けてしまう面は、ラベル16面中15面が✕だった。必ず弾く
+    const gdT=goals.map(g=>HV.goalDist(grid,w,g));
+    const pf=HV.profile(grid,w,goals,dist,gdT,c.boxes,c.rep,c.rep);
+    if(!pf||pf.naive) continue;
+    if(pf.lateWalk<MIN_LATE) continue;
     seen.add(key); motifs.add(mo);
     return {
       id:hashId(key), b:rows.join('/'), p:a.pushes,
@@ -95,7 +102,8 @@ function harvest(){
       tr:Math.round(a.trapRatio*100), f:a.forced, g:a.greedyDied, og:a.offGoal?1:0,
       sh:layout.shape, sz:layout.size, ar:layout.W===layout.H?'正方':(layout.W>layout.H?'横長':'縦長'),
       gp:gp.pattern, sp:'-', pl:'-', cl:layout.clutter, st:dist.size,
-      carry:m.carry, mano:m.ratio, dec:dc.share, dps:dc.perState, fresh:1,
+      carry:m.carry, mano:m.ratio, dec:dc.share, dps:dc.perState,
+      acc:pf.access, lw:pf.lateWalk, fresh:1,
     };
   }
   return null;
