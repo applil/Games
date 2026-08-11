@@ -600,10 +600,13 @@ let boxes=[], player=0, goalSet=new Set();
 let undoStack=[], pushCount=0, moveCount=0;
 let finished=false, deadShown=false;
 
+// 進んだところ。頭から最初の未クリアを探すと、途中に面を差し込んだときに
+// そこで止まってしまう(クリア済みの記録は残っているのに戻される)。
+// 一番奥までクリアした面の次から続ける
 function unlockedMax(){
-  let n=0;
-  while(n<LEVELS.length && isCleared(LEVELS[n])) n++;
-  return Math.min(n, Math.max(0,LEVELS.length-1));
+  let last=-1;
+  for(let i=LEVELS.length-1;i>=0;i--) if(isCleared(LEVELS[i])){ last=i; break; }
+  return Math.min(last+1, Math.max(0,LEVELS.length-1));
 }
 const clearedCount=()=>Object.keys(progress.cleared).length;
 
