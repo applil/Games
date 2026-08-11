@@ -186,6 +186,7 @@ body.edit .palette{display:flex}
 body.edit .cell{cursor:pointer}
 body.mod #btnUndo, body.mod #btnHint, body.mod #btnWipe{display:none}
 body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
+body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -277,6 +278,7 @@ body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
     <button class="btn" id="btnEditReset">編集を戻す</button>
     <button class="btn" id="btnEditExport">書き出す</button>
     <button class="btn" id="btnWipe">記録を消す</button>
+    <button class="btn" id="btnMark">ここまで進んだことにする</button>
     <button class="btn" id="btnPrev">◀</button>
     <button class="btn" id="btnNext">▶</button>
   </div>
@@ -1342,6 +1344,22 @@ $('btnWipe').addEventListener('click',()=>{
   saveProgress(); saveFavs(); saveBads();
   updateStats(); updateFavButton(); updateBadButton();
   showMsg('記録を消しました。');
+});
+// 端末を替えたり、ホーム画面のアプリを入れ直したりして進行が消えたときの復旧用。
+// 自己ベストは 999手 にしておく。実際に解けば必ず更新される
+$('btnMark').addEventListener('click',()=>{
+  const cur=index+1;
+  const a=prompt('第何面まで進んだことにしますか？（1〜'+LEVELS.length+'）', String(cur));
+  if(a===null) return;
+  const n=Math.max(0, Math.min(LEVELS.length, Math.floor(+a)));
+  if(!(n>=0)){ alert('数字を入れてください。'); return; }
+  let add=0;
+  for(let i=0;i<n;i++){
+    const lv=LEVELS[i];
+    if(progress.cleared[lv.id]===undefined){ progress.cleared[lv.id]=999; add++; }
+  }
+  saveProgress(); updateStats();
+  showMsg('第'+n+'面までクリア済みにしました。（'+add+'面ぶん追加、自己ベストは未記録）');
 });
 $('btnBad').addEventListener('click',toggleBad);
 $('btnBadWin').addEventListener('click',toggleBad);
