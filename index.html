@@ -64,7 +64,7 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
 <div class="app">
   <header>
     <h1>🧩 パズルゲーム</h1>
-    <div class="tagline">開くたびに新しい問題<br>どれも推測なしの論理だけで解けます</div>
+    <div class="tagline">解けることを確かめた問題だけを出しています</div>
   </header>
 
   <nav class="games" aria-label="ゲーム一覧">
@@ -72,7 +72,7 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
       <span class="emoji">🔥🧊</span>
       <span class="info">
         <span class="name">炎と氷</span>
-        <span class="desc">各行・列に🔥と🧊を同じ数ずつ。3連続禁止のバイナリーパズル(6×6 / 8×8)</span>
+        <span class="desc">各行・列に🔥と🧊を同じ数ずつ。3つ並べたら負け。6×6 / 8×8</span>
       </span>
       <span class="arrow">›</span>
     </a>
@@ -80,7 +80,7 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
       <span class="emoji">🐼🎋</span>
       <span class="info">
         <span class="name">パンダと竹</span>
-        <span class="desc">竹1本にパンダ1頭を隣接配置。パンダ同士は隣接禁止のテントと木パズル(5×5〜9×9)</span>
+        <span class="desc">竹1本にパンダ1頭を隣り合わせる。パンダ同士は隣り合わない。5×5 / 7×7 / 9×9</span>
       </span>
       <span class="arrow">›</span>
     </a>
@@ -88,7 +88,7 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
       <span class="emoji">🐥📦</span>
       <span class="info">
         <span class="name">倉庫パズル</span>
-        <span class="desc">荷物を置き場まで押して運ぶ小さなパズル。1面から順に進む全2000面。手数は短く、進むほど気づきにくくなります</span>
+        <span class="desc">荷物を置き場へ押して運ぶ。1面から順に進む全600面</span>
       </span>
       <span class="arrow">›</span>
     </a>
@@ -96,13 +96,13 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
       <span class="emoji">🌀🧱</span>
       <span class="info">
         <span class="name">3D迷路</span>
-        <span class="desc">棒倒し法で生成される一人称視点の3D迷路。7×7から15×15まで段階的に拡大</span>
+        <span class="desc">一人称視点で歩く迷路。7×7から15×15まで</span>
       </span>
       <span class="arrow">›</span>
     </a>
   </nav>
 
-  <footer>すべての問題は生成時に「論理的に解けること」を検証済み</footer>
+  <footer>炎と氷・パンダと竹・3D迷路は、開くたびに新しい問題が出ます</footer>
 </div>
 </body>
 </html>
