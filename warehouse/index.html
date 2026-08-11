@@ -52,7 +52,7 @@ h1{
 .stagebar{flex:0 0 auto;position:relative;text-align:center;padding:10px 0 8px}
 .stagelabel{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.16em;line-height:1.2}
 .stageno{font-size:28px;font-weight:800;letter-spacing:.03em;line-height:1.15}
-/* 手数と「最初から」は、番号の左右に同じ高さで置く */
+/* 手数と「やり直し」は、番号の左右に同じ高さで置く */
 .pushes{
   position:absolute;left:var(--pushx,42px);top:50%;transform:translate(-50%,-50%);
   font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap;
@@ -283,7 +283,7 @@ body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
     <div class="pushes"><span id="pushes">0</span> 手</div>
     <div class="stagelabel" id="stageLabel">ステージ</div>
     <div class="stageno"><span id="stageNo">--</span></div>
-    <button class="iconbtn reset" id="btnReset" title="このステージを最初から">最初から</button>
+    <button class="iconbtn reset" id="btnReset" title="このステージをやり直す">やり直し</button>
   </div>
 
   <div class="board-wrap">
@@ -358,7 +358,7 @@ body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
       <p>🐥 を動かして、📦 をすべて<b>置き場</b>に運びます。</p>
       <p>置き場は<span class="sw goal"></span><b>オレンジのマス</b>です。荷物が乗ると<span class="sw done"></span><b>グリーン</b>に変わります。<b>全部グリーンになればクリア</b>です。</p>
       <p><b>箱は押すことしかできません。</b>引けません。一度に押せる箱は1つだけで、壁や別の箱が後ろにあると押せません。</p>
-      <p>角に押し込むなど、二度と動かせない置き方をすると<b>その面は詰みます</b>。おかしいと思ったら右上の <b>最初から</b> でやり直してください。</p>
+      <p>角に押し込むなど、二度と動かせない置き方をすると<b>その面は詰みます</b>。おかしいと思ったら右上の <b>やり直し</b> を押してください。</p>
       <p>操作は<b>十字キー</b>、または<b>画面のスワイプ</b>です。十字キーは左下のボタンで<b>キー大 / キー小 / キーなし</b>を切り替えられます。</p>
       <p>パソコンでは <b>矢印キー</b> か <b>WASD</b> でも動かせます。</p>
       <p>ステージは1面ずつ進みます。クリアすると、その面の<b>最短手数</b>が分かります。</p>
@@ -608,7 +608,7 @@ function applyDpadMode(){
 
 /* ================= 盤の大きさ =================
    十字キーまで画面に収まるよう、余った高さからマスの大きさを決める */
-// 右肩に縦に並ぶ「ルール」と「最初から」は、文字数が違っても同じ幅にそろえる
+// 右肩に縦に並ぶ「ルール」と「やり直し」は、文字数が違っても同じ幅にそろえる
 function alignHeaderButtons(){
   const a=$('btnRules'), b=$('btnReset');
   if(!a||!b) return;
