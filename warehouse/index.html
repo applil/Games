@@ -53,7 +53,11 @@ h1{
 
 /* 「ステージ」と番号は縦に重ねて中央に。手数は左端に控えめに置く */
 .stagebar{flex:0 0 auto;position:relative;text-align:center;padding:10px 0 8px}
-.stagelabel{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.16em;line-height:1.2}
+/* 5回叩いてデバッグに入るので、文字は小さいまま当たりだけ広げる
+   (padding で広げ、同じぶん margin で戻すので見た目は変わらない) */
+.stagelabel{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.16em;line-height:1.2;
+  display:inline-block;padding:9px 16px;margin:-9px 0;
+  user-select:none;-webkit-user-select:none}
 .stageno{font-size:28px;font-weight:800;letter-spacing:.03em;line-height:1.15}
 /* 手数と「やり直し」は、番号の左右に同じ高さで置く */
 .pushes{
@@ -1290,7 +1294,7 @@ let tsx=0, tsy=0, swiped=false, tracking=false, tapDir=null, tapLabel=false, tap
 let debugTaps=0, debugTapAt=0;
 function bumpDebugTap(){
   const now=Date.now();
-  debugTaps = (now-debugTapAt<800) ? debugTaps+1 : 1;
+  debugTaps = (now-debugTapAt<1200) ? debugTaps+1 : 1;   // 800だと取りこぼしやすい
   debugTapAt=now;
   if(debugTaps<5) return;
   debugTaps=0;
@@ -1306,7 +1310,7 @@ document.querySelector('.stagelabel').addEventListener('click',bumpDebugTap);
 let freshTaps=0, freshTapAt=0;
 function bumpFreshTap(){
   const now=Date.now();
-  freshTaps = (now-freshTapAt<800) ? freshTaps+1 : 1;
+  freshTaps = (now-freshTapAt<1200) ? freshTaps+1 : 1;
   freshTapAt=now;
   if(freshTaps<5) return;
   freshTaps=0;
