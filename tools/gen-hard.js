@@ -28,8 +28,16 @@ const SEED=+(process.argv[4]||Date.now()%1e9);
 const PER_BOARD=+(process.argv[5]||2);      // 同じ盤からは似た面しか採れないので少しだけ
 const OUT=process.argv[6]||path.join(__dirname,'hard-candidates.json');
 
-const MIN_PUSH=28, MIN_MANO=0.35, MIN_DECOY=0.30, MAX_FORCED=0.35;
-const MIN_LATE=10;        // 終盤に要る回り込みの歩数(「惜しい」型)
+const MIN_PUSH=28;
+const MIN_LATE=10;        // 終盤に要る回り込みの歩数(「惜しい」型。✕37% 対 55%)
+// 入口は1つではない。あなたが良いと言った面(第35/59/61面)は、
+// どれも「経路+囮」の関門を落ちていた。型ごとに入口を用意する
+const A_MANO=0.35, A_DECOY=0.30;   // 思考型: 遠回りさせられ、正しそうに見える偽の手がある
+const B_ACCESS=0.43;               // 順番型: 荷物は動かせるのに自機が届かなくなる(第59面 0.50)
+// 強制率は単独では意味がない。第59面は強制率1.00(正解が一本道)だが、
+// 全局面594のうち正解の筋は11個しかない。選択肢が多い中の一本道は逆に難しい。
+// 一本道かつ選択肢も少ない場合だけ弾く
+const MAX_FORCED=0.35, MIN_SPREAD=10;
 const CAP=250000;                            // これを超える盤は諦める(粘ると1枚に何分もかかる)
 
 const LV=path.join(__dirname,'..','warehouse','levels.json');
@@ -42,7 +50,7 @@ const rng=mulberry32(SEED);
 // 2つの配置で、位置が違う荷物の数
 const diffBoxes=(a,b)=>{ const s2=new Set(b); return a.filter(c=>!s2.has(c)).length; };
 
-const stat={boards:0, skipped:0, solved:0, capped:0, tooShallow:0, cand:0, mano:0, decoy:0, forced:0, naive:0, late:0, dup:0, got:0};
+const stat={boards:0, skipped:0, solved:0, capped:0, tooShallow:0, cand:0, mano:0, decoy:0, forced:0, naive:0, late:0, noType:0, dup:0, got:0};
 
 function harvestBoard(){
   const layout=S.buildShape(rng,{size:['大','特大','超特大'][rng()*3|0]});
@@ -82,7 +90,7 @@ function harvestBoard(){
     for(let i=1;i<k.length;i++) boxes.push(k.charCodeAt(i));
     const carry=H.carryCost(gd, boxes, goals);
     if(carry===null) continue;
-    if((d-carry)/d<MIN_MANO){ stat.mano++; continue; }
+    if((d-carry)/d<0.20){ stat.mano++; continue; }   // 入口Bのぶん、ここは緩める
     scored.push({k, d, boxes, rep:k.charCodeAt(0), carry, gap:d-carry});
   }
   if(!scored.length) return [];
@@ -94,13 +102,23 @@ function harvestBoard(){
     stat.cand++;
     const {d, boxes, rep, carry}=c;
     const dc=H.decoyFrom(grid,w,goals,table,gd,boxes,rep);
-    if(!dc||dc.share<MIN_DECOY){ stat.decoy++; continue; }
+    if(!dc){ stat.decoy++; continue; }
     const fs2=H.forcedShare(grid,w,table,boxes,rep);
-    if(!fs2||fs2.forced>=MAX_FORCED){ stat.forced++; continue; }
-    // 素直な手だけで解けてしまう面は弾き、終盤に回り込みが要る面だけ採る
+    if(!fs2){ stat.forced++; continue; }
     const pf=H.profile(grid,w,goals,table,gd,boxes,rep,rep);
-    if(!pf||pf.naive){ stat.naive++; continue; }
-    if(pf.lateWalk<MIN_LATE){ stat.late++; continue; }
+    if(!pf){ stat.naive++; continue; }
+
+    // どの型でも共通で外せない2つ(ラベル104面で検証済み)
+    if(pf.naive){ stat.naive++; continue; }              // 16面中15面が✕
+    if(pf.lateWalk<MIN_LATE){ stat.late++; continue; }   // ✕37% 対 55%
+    // 一本道かつ選択肢も少ない = ただ長いだけ
+    const spread=fs2.pathStates? table.size/fs2.pathStates : 0;
+    if(fs2.forced>=MAX_FORCED && spread<MIN_SPREAD){ stat.forced++; continue; }
+    // 型ごとの入口。どれか1つ満たせばよい
+    const typeA = c.gap/d>=A_MANO && dc.share>=A_DECOY;
+    const typeB = pf.access>=B_ACCESS;
+    if(!typeA && !typeB){ stat.noType++; continue; }
+    const type = typeA ? (typeB?'思考+順番':'思考') : '順番';
     const rows=toXSB({grid,w:layout.w,h:layout.h,boxes,goals,player:rep});
     const board=rows.join('/');
     const key=String(canonical(rows));
@@ -120,7 +138,7 @@ function harvestBoard(){
       sh:layout.shape, sz:layout.size, ar:layout.W===layout.H?'正方':(layout.W>layout.H?'横長':'縦長'),
       gp:gp.pattern, sp:'-', pl:'-', cl:layout.clutter, st:table.size,
       carry, mano:+((d-carry)/d).toFixed(2), dec:dc.share, dps:dc.perState,
-      fo:fs2.forced, ops:fs2.optPerState, acc:pf.access, lw:pf.lateWalk, nbox, boxes,
+      fo:fs2.forced, ops:fs2.optPerState, acc:pf.access, lw:pf.lateWalk, type, nbox, boxes,
     });
   }
   return out;
@@ -134,22 +152,23 @@ while(found.length<WANT && (Date.now()-t0)/1000 < SECS){
   for(const lv of got){
     found.push(lv);
     console.log(`  ${lv.p}手 荷物${lv.nbox} 経路${lv.mano} 囮${lv.dec} 強制${lv.fo} `
-      +`(${((Date.now()-t0)/1000).toFixed(0)}秒 ${found.length}面目)`);
+      +`[${lv.type}] (${((Date.now()-t0)/1000).toFixed(0)}秒 ${found.length}面目)`);
   }
 }
 const el=(Date.now()-t0)/1000;
 found.sort((a,b)=>b.p-a.p);
 console.log(`\n${found.length}面 / ${el.toFixed(0)}秒  = 1面あたり${(el/Math.max(1,found.length)).toFixed(1)}秒`);
 console.log(`盤${stat.boards}枚 (見積りで除外${stat.skipped} 数え上げ成功${stat.solved} 上限超え${stat.capped} 浅い${stat.tooShallow})`
-  +` / 候補${stat.cand} → 経路落ち${stat.mano} 囮落ち${stat.decoy} 強制落ち${stat.forced} 素直落ち${stat.naive} 回込落ち${stat.late} 重複${stat.dup} 合格${stat.got}`);
+  +` / 候補${stat.cand} → 経路落ち${stat.mano} 囮落ち${stat.decoy} 強制落ち${stat.forced} 素直落ち${stat.naive} 回込落ち${stat.late} 型なし${stat.noType} 重複${stat.dup} 合格${stat.got}`);
 if(found.length){
   fs.writeFileSync(OUT, JSON.stringify(found,null,1));
-  console.log('\n 手数 荷物  盤    経路  囮  強制  形');
+  console.log('\n 手数 荷物  盤    経路  囮  順番 強制  型      形');
   for(const lv of found){
     const r=lv.b.split('/');
     console.log(String(lv.p).padStart(4)+String(lv.nbox).padStart(4)
       +((r[0].length-2)+'x'+(r.length-2)).padStart(8)+String(lv.mano).padStart(6)
-      +String(lv.dec).padStart(6)+String(lv.fo).padStart(6)+'  '+lv.sh);
+      +String(lv.dec).padStart(6)+String(lv.acc).padStart(6)+String(lv.fo).padStart(6)
+      +'  '+String(lv.type).padEnd(8)+lv.sh);
   }
   console.log('\n'+OUT+' に書き出しました');
 }
