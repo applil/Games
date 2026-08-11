@@ -187,6 +187,7 @@ body.edit .cell{cursor:pointer}
 body.mod #btnUndo, body.mod #btnHint, body.mod #btnWipe{display:none}
 body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
 body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
+body:not(.debug) #btnFresh{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -279,6 +280,7 @@ body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
     <button class="btn" id="btnEditExport">書き出す</button>
     <button class="btn" id="btnWipe">記録を消す</button>
     <button class="btn" id="btnMark">ここまで進んだことにする</button>
+    <button class="btn" id="btnFresh">最新に更新</button>
     <button class="btn" id="btnPrev">◀</button>
     <button class="btn" id="btnNext">▶</button>
   </div>
@@ -678,7 +680,11 @@ window.addEventListener('resize', layoutBoard);
 /* ================= 読み込み ================= */
 // 面データの取り込み口はここ1か所。1枚のHTMLに固めるときはここを差し替える
 function loadJSON(name){
-  return fetch(name).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); });
+  // 「最新に更新」で入り直したときは、面データもキャッシュを使わずに取り直す
+  const fresh=QS.get('fresh');
+  const url = fresh ? (name+'?fresh='+encodeURIComponent(fresh)) : name;
+  return fetch(url, fresh?{cache:'reload'}:undefined)
+    .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); });
 }
 function showLoading(t){ if(t) $('loadingText').textContent=t; $('loading').classList.add('show'); }
 const hideLoading=()=>$('loading').classList.remove('show');
@@ -1360,6 +1366,13 @@ $('btnMark').addEventListener('click',()=>{
   }
   saveProgress(); updateStats();
   showMsg('第'+n+'面までクリア済みにしました。（'+add+'面ぶん追加、自己ベストは未記録）');
+});
+// ホーム画面のアプリはキャッシュが頑固で、下に引っぱっての更新もできない
+// (画面のスワイプはゲームの操作に使っているため)。ここから取り直す
+$('btnFresh').addEventListener('click',()=>{
+  const u=new URL(location.href);
+  u.searchParams.set('fresh', String(Date.now()));
+  location.replace(u.pathname+u.search);
 });
 $('btnBad').addEventListener('click',toggleBad);
 $('btnBadWin').addEventListener('click',toggleBad);
