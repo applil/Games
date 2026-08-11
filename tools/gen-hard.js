@@ -92,14 +92,22 @@ function harvestBoard(){
     for(let i=1;i<k.length;i++) boxes.push(k.charCodeAt(i));
     const carry=H.carryCost(gd, boxes, goals);
     if(carry===null) continue;
-    if((d-carry)/d<0.20){ stat.mano++; continue; }   // 入口Bのぶん、ここは緩める
     scored.push({k, d, boxes, rep:k.charCodeAt(0), carry, gap:d-carry});
   }
   if(!scored.length) return [];
   scored.sort((a,b)=>b.gap-a.gap||b.d-a.d);
+  // 「手数-運搬」の大きい順だけを見ると、順番型(経路のズレが小さい)が
+  // そもそも候補にならない。上位に加えて、全体から等間隔でも拾う
+  const LOOK=60;
+  const order=[];
+  const taken=new Set();
+  const push=i=>{ if(i>=0&&i<scored.length&&!taken.has(i)){ taken.add(i); order.push(scored[i]); } };
+  for(let i=0;i<Math.min(LOOK/2, scored.length);i++) push(i);
+  const step=Math.max(1, Math.floor(scored.length/(LOOK/2)));
+  for(let i=0;i<scored.length;i+=step) push(i);
   const policies=greedyPolicies(grid,w,goals);
   const out=[];
-  for(const c of scored){
+  for(const c of order){
     if(out.length>=PER_BOARD) break;
     stat.cand++;
     const {d, boxes, rep, carry}=c;
@@ -117,7 +125,7 @@ function harvestBoard(){
     const spread=fs2.pathStates? table.size/fs2.pathStates : 0;
     if(fs2.forced>=MAX_FORCED && spread<MIN_SPREAD){ stat.forced++; continue; }
     // 型ごとの入口。どれか1つ満たせばよい
-    const typeA = c.gap/d>=A_MANO && dc.share>=A_DECOY;
+    const typeA = c.gap/c.d>=A_MANO && dc.share>=A_DECOY;
     const typeB = pf.access>=B_ACCESS;
     if(!typeA && !typeB){ stat.noType++; continue; }
     const type = typeA ? (typeB?'思考+順番':'思考') : '順番';

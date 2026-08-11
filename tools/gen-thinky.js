@@ -32,11 +32,14 @@ const WANT=+(process.argv[2]||45);
 const TARGET=process.argv[3]||path.join(__dirname,'..','warehouse','levels.json');
 const SEED=+(process.argv[4]||20260815);
 
-const MIN_MANO=0.25;      // 運搬でない押し手の割合
+// 入口は1つではない。第77面のように経路のズレが0でも、押す順番を間違えると
+// ヒヨコが入れなくなる面は面白い(本人の指摘)。型ごとに入口を用意する
+const MIN_MANO=0.25;      // 入口A: 運搬でない押し手の割合
 const MAX_CARRY=10;       // 運搬の下限
 const MAX_FLOORS=36;
 const MAX_PER_BOX=12;
-const MIN_DECOY=0.25;     // 進捗して見える押し手のうち、正解でないものの割合
+const MIN_DECOY=0.25;     // 入口A: 進捗して見える押し手のうち、正解でないもの
+const B_ACCESS=0.43;      // 入口B: 詰む手のうち、荷物は動かせるのに自機が届かなくなる割合
 const MIN_LATE_R=0.25;    // 終盤の回り込み ÷ 床。✕30% 対 69%
 // 歩数そのままでは小さい盤が構造的に通らない(床14マスで10歩は回れない)
 
@@ -80,7 +83,6 @@ function harvest(){
     const m=M.manoeuvre(grid, w, c.boxes, goals, c.d);
     if(!m) continue;
     if(m.carry>=MAX_CARRY) continue;
-    if(m.ratio<MIN_MANO) continue;               // ここが肝
     const r=regionRep(grid,w,new Set(c.boxes),c.rep);
     const a=analyse(grid,w,goals,dist,{boxes:c.boxes,rep:c.rep,cells:r.cells},rng,policies);
     if(!a) continue;
@@ -89,13 +91,19 @@ function harvest(){
     if(seen.has(key)) continue;
     const mo=MO.goalMotif(rows.join('/'));
     if(motifs.has(mo)) continue;                 // 置き場の並びが既出
-    const dc=DC.decoy(rows.join('/'));           // 囮がない盤は、見た目どおり押すだけで解ける
-    if(!dc||dc.share<MIN_DECOY) continue;
-    // 進捗して見える手だけで解けてしまう面は、ラベル16面中15面が✕だった。必ず弾く
+    const dc=DC.decoy(rows.join('/'));
+    if(!dc) continue;
     const gdT=goals.map(g=>HV.goalDist(grid,w,g));
     const pf=HV.profile(grid,w,goals,dist,gdT,c.boxes,c.rep,c.rep);
-    if(!pf||pf.naive) continue;
-    if(pf.lateWalk/floors.length<MIN_LATE_R) continue;
+    if(!pf) continue;
+    // 共通で外せない2つ(ラベル104面で検証済み)
+    if(pf.naive) continue;                               // 素直に解ける面は16面中15面が✕
+    if(pf.lateWalk/floors.length<MIN_LATE_R) continue;   // ✕30% 対 69%
+    // 型ごとの入口。どちらかを満たせばよい
+    const typeA = m.ratio>=MIN_MANO && dc.share>=MIN_DECOY;
+    const typeB = pf.access>=B_ACCESS;
+    if(!typeA && !typeB) continue;
+    const type = typeA ? (typeB?'思考+順番':'思考') : '順番';
     seen.add(key); motifs.add(mo);
     return {
       id:hashId(key), b:rows.join('/'), p:a.pushes,
@@ -104,7 +112,7 @@ function harvest(){
       sh:layout.shape, sz:layout.size, ar:layout.W===layout.H?'正方':(layout.W>layout.H?'横長':'縦長'),
       gp:gp.pattern, sp:'-', pl:'-', cl:layout.clutter, st:dist.size,
       carry:m.carry, mano:m.ratio, dec:dc.share, dps:dc.perState,
-      acc:pf.access, lw:pf.lateWalk, lwr:+(pf.lateWalk/floors.length).toFixed(2), fresh:1,
+      acc:pf.access, lw:pf.lateWalk, lwr:+(pf.lateWalk/floors.length).toFixed(2), type, fresh:1,
     };
   }
   return null;
@@ -137,10 +145,11 @@ const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
 console.log(`第1〜${got.length}面に置きました (全${data.count}面)`);
 console.log(`  平均 最短${mean(got.map(l=>l.p)).toFixed(1)}手 / 運搬下限${mean(got.map(l=>l.carry)).toFixed(1)}手`
   +` / 運搬でない割合${mean(got.map(l=>l.mano)).toFixed(2)} / 囮の割合${mean(got.map(l=>l.dec)).toFixed(2)}`);
-console.log('\n 面  盤   荷物 最短 運搬 経路 囮   罠率  形');
+console.log('\n 面  盤   荷物 最短 運搬 経路 囮  順番 型      形');
 got.forEach((l,i)=>{
   const r=l.b.split('/');
   console.log(String(i+1).padStart(3)+((r[0].length-2)+'x'+(r.length-2)).padStart(6)
     +String((l.b.match(/[$*]/g)||[]).length).padStart(4)+String(l.p).padStart(5)
-    +String(l.carry).padStart(5)+String(l.mano).padStart(6)+String(l.dec).padStart(5)+String(l.tr).padStart(6)+'  '+l.sh);
+    +String(l.carry).padStart(5)+String(l.mano).padStart(6)+String(l.dec).padStart(5)
+    +String(l.acc).padStart(5)+'  '+String(l.type).padEnd(8)+l.sh);
 });
