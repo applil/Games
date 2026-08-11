@@ -39,7 +39,11 @@ const MAX_CARRY=10;       // 運搬の下限
 const MAX_FLOORS=36;
 const MAX_PER_BOX=12;
 const MIN_DECOY=0.25;     // 入口A: 進捗して見える押し手のうち、正解でないもの
-const B_ACCESS=0.43;      // 入口B: 詰む手のうち、荷物は動かせるのに自機が届かなくなる割合
+// 入口B: 順番。単独だとラベル3面中2面が✕だったので、囮と組ませる
+const B_ACCESS=0.43;      // 詰む手のうち、荷物は動かせるのに自機が届かなくなる割合
+// 片方だけ突出していれば、もう片方は要らない(ラベル50面中、下の2つはどちらも✕0%)
+const C_DECOY=0.40;       // 入口C: 囮だけで十分に強い(第82面の0.53がここ)
+const D_MANO=0.55;        // 入口D: 経路のズレだけで十分に強い(第61面の0.55がここ)
 const MIN_LATE_R=0.25;    // 終盤の回り込み ÷ 床。✕30% 対 69%
 // 歩数そのままでは小さい盤が構造的に通らない(床14マスで10歩は回れない)
 
@@ -100,10 +104,13 @@ function harvest(){
     if(pf.naive) continue;                               // 素直に解ける面は16面中15面が✕
     if(pf.lateWalk/floors.length<MIN_LATE_R) continue;   // ✕30% 対 69%
     // 型ごとの入口。どちらかを満たせばよい
-    const typeA = m.ratio>=MIN_MANO && dc.share>=MIN_DECOY;
-    const typeB = pf.access>=B_ACCESS;
-    if(!typeA && !typeB) continue;
-    const type = typeA ? (typeB?'思考+順番':'思考') : '順番';
+    const hit=[];
+    if(m.ratio>=MIN_MANO && dc.share>=MIN_DECOY) hit.push('思考');
+    if(pf.access>=B_ACCESS && dc.share>=MIN_DECOY) hit.push('順番');
+    if(dc.share>=C_DECOY) hit.push('囮');
+    if(m.ratio>=D_MANO) hit.push('経路');
+    if(!hit.length) continue;
+    const type=hit.join('+');
     seen.add(key); motifs.add(mo);
     return {
       id:hashId(key), b:rows.join('/'), p:a.pushes,

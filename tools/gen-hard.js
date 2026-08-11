@@ -35,7 +35,10 @@ const MIN_LATE_R=0.25;    // 終盤の回り込み ÷ 床。✕30% 対 69%
 // 入口は1つではない。あなたが良いと言った面(第35/59/61面)は、
 // どれも「経路+囮」の関門を落ちていた。型ごとに入口を用意する
 const A_MANO=0.35, A_DECOY=0.30;   // 思考型: 遠回りさせられ、正しそうに見える偽の手がある
-const B_ACCESS=0.43;               // 順番型: 荷物は動かせるのに自機が届かなくなる(第59面 0.50)
+const B_ACCESS=0.43;               // 順番型: 荷物は動かせるのに自機が届かなくなる。囮と組ませる
+// (単独だとラベル3面中2面が✕。n=3で決着しないので、検証済みの信号と併用する)
+// 片方だけ突出していれば、もう片方は要らない(ラベル50面中、下の2つはどちらも✕0%)
+const C_DECOY=0.40, D_MANO=0.55;
 // 強制率は単独では意味がない。第59面は強制率1.00(正解が一本道)だが、
 // 全局面594のうち正解の筋は11個しかない。選択肢が多い中の一本道は逆に難しい。
 // 一本道かつ選択肢も少ない場合だけ弾く
@@ -125,10 +128,13 @@ function harvestBoard(){
     const spread=fs2.pathStates? table.size/fs2.pathStates : 0;
     if(fs2.forced>=MAX_FORCED && spread<MIN_SPREAD){ stat.forced++; continue; }
     // 型ごとの入口。どれか1つ満たせばよい
-    const typeA = c.gap/c.d>=A_MANO && dc.share>=A_DECOY;
-    const typeB = pf.access>=B_ACCESS;
-    if(!typeA && !typeB){ stat.noType++; continue; }
-    const type = typeA ? (typeB?'思考+順番':'思考') : '順番';
+    const hit=[];
+    if(c.gap/c.d>=A_MANO && dc.share>=A_DECOY) hit.push('思考');
+    if(pf.access>=B_ACCESS && dc.share>=0.25) hit.push('順番');
+    if(dc.share>=C_DECOY) hit.push('囮');
+    if(c.gap/c.d>=D_MANO) hit.push('経路');
+    if(!hit.length){ stat.noType++; continue; }
+    const type=hit.join('+');
     const rows=toXSB({grid,w:layout.w,h:layout.h,boxes,goals,player:rep});
     const board=rows.join('/');
     const key=String(canonical(rows));
