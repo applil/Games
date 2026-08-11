@@ -29,7 +29,9 @@ const PER_BOARD=+(process.argv[5]||2);      // 同じ盤からは似た面しか
 const OUT=process.argv[6]||path.join(__dirname,'hard-candidates.json');
 
 const MIN_PUSH=28;
-const MIN_LATE=10;        // 終盤に要る回り込みの歩数(「惜しい」型。✕37% 対 55%)
+const MIN_LATE_R=0.25;    // 終盤の回り込み ÷ 床。✕30% 対 69%
+// 歩数そのままだと、床14マスの盤で10歩も回れるわけがなく、
+// 実質「小さい面を全部落とす」条件になっていた(そのときは✕37% 対 55%)
 // 入口は1つではない。あなたが良いと言った面(第35/59/61面)は、
 // どれも「経路+囮」の関門を落ちていた。型ごとに入口を用意する
 const A_MANO=0.35, A_DECOY=0.30;   // 思考型: 遠回りさせられ、正しそうに見える偽の手がある
@@ -110,7 +112,7 @@ function harvestBoard(){
 
     // どの型でも共通で外せない2つ(ラベル104面で検証済み)
     if(pf.naive){ stat.naive++; continue; }              // 16面中15面が✕
-    if(pf.lateWalk<MIN_LATE){ stat.late++; continue; }   // ✕37% 対 55%
+    if(pf.lateWalk/floors.length<MIN_LATE_R){ stat.late++; continue; }
     // 一本道かつ選択肢も少ない = ただ長いだけ
     const spread=fs2.pathStates? table.size/fs2.pathStates : 0;
     if(fs2.forced>=MAX_FORCED && spread<MIN_SPREAD){ stat.forced++; continue; }
@@ -138,7 +140,8 @@ function harvestBoard(){
       sh:layout.shape, sz:layout.size, ar:layout.W===layout.H?'正方':(layout.W>layout.H?'横長':'縦長'),
       gp:gp.pattern, sp:'-', pl:'-', cl:layout.clutter, st:table.size,
       carry, mano:+((d-carry)/d).toFixed(2), dec:dc.share, dps:dc.perState,
-      fo:fs2.forced, ops:fs2.optPerState, acc:pf.access, lw:pf.lateWalk, type, nbox, boxes,
+      fo:fs2.forced, ops:fs2.optPerState, acc:pf.access, lw:pf.lateWalk,
+      lwr:+(pf.lateWalk/floors.length).toFixed(2), type, nbox, boxes,
     });
   }
   return out;

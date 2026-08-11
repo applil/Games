@@ -37,7 +37,8 @@ const MAX_CARRY=10;       // 運搬の下限
 const MAX_FLOORS=36;
 const MAX_PER_BOX=12;
 const MIN_DECOY=0.25;     // 進捗して見える押し手のうち、正解でないものの割合
-const MIN_LATE=10;        // 終盤に要る回り込みの歩数(「惜しい」型。✕37% 対 55%)
+const MIN_LATE_R=0.25;    // 終盤の回り込み ÷ 床。✕30% 対 69%
+// 歩数そのままでは小さい盤が構造的に通らない(床14マスで10歩は回れない)
 
 const data=JSON.parse(fs.readFileSync(TARGET,'utf8'));
 const seen=new Set(data.levels.map(l=>canonical(l.b.split('/'))));
@@ -94,7 +95,7 @@ function harvest(){
     const gdT=goals.map(g=>HV.goalDist(grid,w,g));
     const pf=HV.profile(grid,w,goals,dist,gdT,c.boxes,c.rep,c.rep);
     if(!pf||pf.naive) continue;
-    if(pf.lateWalk<MIN_LATE) continue;
+    if(pf.lateWalk/floors.length<MIN_LATE_R) continue;
     seen.add(key); motifs.add(mo);
     return {
       id:hashId(key), b:rows.join('/'), p:a.pushes,
@@ -103,7 +104,7 @@ function harvest(){
       sh:layout.shape, sz:layout.size, ar:layout.W===layout.H?'正方':(layout.W>layout.H?'横長':'縦長'),
       gp:gp.pattern, sp:'-', pl:'-', cl:layout.clutter, st:dist.size,
       carry:m.carry, mano:m.ratio, dec:dc.share, dps:dc.perState,
-      acc:pf.access, lw:pf.lateWalk, fresh:1,
+      acc:pf.access, lw:pf.lateWalk, lwr:+(pf.lateWalk/floors.length).toFixed(2), fresh:1,
     };
   }
   return null;
