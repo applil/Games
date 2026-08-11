@@ -425,26 +425,34 @@ let actx = null;
 // touchmove はその中に入っていないので、スワイプで動かすこのゲームでは
 // move() の中で用意していては間に合わない。触れた瞬間に用意しておく。
 // ホーム画面から起動したときは、触っても止まったままのことがある。
-let audioReady=false;
+// iOS はアプリを離れて戻ると止まった状態に戻る(電話・Siri・裏に回るなど)。
+// 一度開通したら終わり、にしてはいけない。触られるたびに状態を見て、
+// 動いていなければ何度でも起こす
+let audioUnlocked=false;
 function ensureAudio(){
-  if(!AC || audioReady) return;
+  if(!AC) return;
   try{
     if(!actx) actx = new AC();
-    if(actx.state === 'running'){ audioReady=true; return; }
+    if(actx.state === 'running') return;
     actx.resume().then(()=>{
-      // 動き出したら、無音を1つ鳴らして本当に開通したことを確かめる
+      // 初回だけ、無音を1つ鳴らして本当に開通したことを確かめる
+      if(audioUnlocked || actx.state!=='running') return;
       try{
         const b=actx.createBuffer(1,1,22050);
         const src=actx.createBufferSource();
         src.buffer=b; src.connect(actx.destination); src.start(0);
+        audioUnlocked=true;
       }catch(e){}
-      audioReady = actx.state==='running';
     }).catch(()=>{});
   }catch(e){}
 }
 for(const ev of ['touchstart','touchend','pointerdown','click','keydown']){
   document.addEventListener(ev, ensureAudio, {passive:true, capture:true});
 }
+// 戻ってきた直後にも起こしにいく(ここでは断られることもあるが、次に触れば通る)
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) ensureAudio(); });
+window.addEventListener('pageshow', ensureAudio);
+window.addEventListener('focus', ensureAudio);
 function beep(freq, dur, delay, type, vol){
   // 止まっている間に鳴らそうとすると、時計が進まないので予約が同じ時刻に溜まる。
   // あとで動き出した瞬間、溜まったぶんが一斉に鳴る。鳴らせないときは捨てる
@@ -843,6 +851,7 @@ function updateStats(){
     if(lv.f>=2) tags.push('一本道あり');
     $('boardNote').textContent='最短'+lv.p+'手 / 罠率'+lv.tr+'% / 自己ベスト'+(b==null?'--':b+'手')
       +' / 表'+(dist?dist.size+'状態':'計算中…')
+      +' / 音'+(!AC?'非対応':!actx?'未作成':actx.state)
       +'\n'+(lv.sh||'-')+' '+(lv.sz||'')+' '+(lv.gp||'')+' '+tags.join(' ');
   }
 }
