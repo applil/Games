@@ -40,10 +40,13 @@ html=swap(html, '<script src="engine.js"></script>', '<script>\n'+engine+'\n</sc
 
 // 3. 面データを埋め込んで fetch を差し替える
 const embed='<script>\nwindow.__EMBED={"levels.json":'+levels+'};\n</script>\n';
+// 本体の loadJSON は中身が変わることがあるので、関数まるごと差し替える
 html=swap(html,
-  "  return fetch(name).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); });",
-  "  return window.__EMBED[name] ? Promise.resolve(window.__EMBED[name])\n"
-  +"                             : Promise.reject(new Error(name+' は埋め込まれていません'));",
+  /function loadJSON\(name\)\{[\s\S]*?\n\}/,
+  "function loadJSON(name){\n"
+  +"  return window.__EMBED[name] ? Promise.resolve(window.__EMBED[name])\n"
+  +"                             : Promise.reject(new Error(name+' は埋め込まれていません'));\n"
+  +"}",
   'loadJSON');
 html=embed+html;
 
