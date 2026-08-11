@@ -359,7 +359,8 @@ body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
       <p>置き場は<span class="sw goal"></span><b>オレンジのマス</b>です。荷物が乗ると<span class="sw done"></span><b>グリーン</b>に変わります。<b>全部グリーンになればクリア</b>です。</p>
       <p><b>箱は押すことしかできません。</b>引けません。一度に押せる箱は1つだけで、壁や別の箱が後ろにあると押せません。</p>
       <p>角に押し込むなど、二度と動かせない置き方をすると<b>その面は詰みます</b>。おかしいと思ったら右上の <b>最初から</b> でやり直してください。</p>
-      <p>操作は <b>矢印キー / WASD</b>、<b>画面のスワイプ</b>（どこでもかまいません）、<b>十字キー</b>のどれでも。十字キーは左下のボタンで<b>大 / 小 / 非表示</b>を切り替えられます。</p>
+      <p>操作は<b>画面のスワイプ</b>です。盤の上でなくても、画面のどこをなぞってもかまいません。画面下の<b>十字キー</b>でも動かせます。十字キーは左下のボタンで<b>キー大 / キー小 / キーなし</b>を切り替えられます。</p>
+      <p>パソコンでは <b>矢印キー</b> か <b>WASD</b> でも動かせます。</p>
       <p>ステージは1面ずつ進みます。クリアすると、その面の<b>最短手数</b>が分かります。</p>
     </div>
     <button class="btn btn-new" id="btnRulesClose" style="margin-top:14px">とじる</button>
@@ -593,7 +594,7 @@ const clearedCount=()=>Object.keys(progress.cleared).length;
 
 /* ================= 十字キーの表示(大/小/なし) ================= */
 const DPAD_MODES=['full','mini','off'];
-const DPAD_LABEL={full:'キー大', mini:'キー小', off:'キーなし'};
+const DPAD_LABEL={full:'キー大', mini:'キー小', off:'キーなし：スワイプで移動'};
 let dpadMode=store.get('dpad')||'full';
 if(DPAD_MODES.indexOf(dpadMode)<0) dpadMode='full';
 function applyDpadMode(){
