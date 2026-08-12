@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>アイコン撮影用</title>
+<style>
+  :root{ --px:520; }            /* 撮りたい実ピクセル数 */
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:'Hiragino Kaku Gothic ProN',system-ui,sans-serif;
+    background:#fff;color:#333;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    user-select:none;-webkit-user-select:none;
+  }
+  #sq{
+    width:calc(var(--px) * 1px);
+    height:calc(var(--px) * 1px);
+    background:var(--bg,#8e8e93);
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  #sq span{ font-size:calc(var(--px) * 0.72px); line-height:1; }
+  .info{font-size:12px;color:#666;text-align:center;line-height:1.8}
+  .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .sw{width:34px;height:34px;border-radius:8px;border:1px solid #ccc;cursor:pointer}
+  .sw.on{outline:3px solid #3d9bff;outline-offset:2px}
+  .note{font-size:11px;color:#999;max-width:min(92vw,420px);line-height:1.8;text-align:center}
+</style>
+</head>
+<body>
+
+<div id="sq"><span>📦</span></div>
+
+<div class="row" id="sws"></div>
+<div class="info" id="info">—</div>
+<div class="note">
+  この四角を画面撮影して、内側だけを切り抜いてください。<br>
+  色は下のボタンで変えられます。
+</div>
+
+<script>
+  const GREYS = ['#8e8e93','#aeaeb2','#c7c7cc','#d1d1d6','#e5e5ea','#636366','#48484a','#f2f2f7'];
+  const sq = document.getElementById('sq');
+  const info = document.getElementById('info');
+  const dpr = window.devicePixelRatio || 1;
+  document.documentElement.style.setProperty('--dpr', dpr);
+
+  function show(){
+    const r = sq.getBoundingClientRect();
+    info.textContent =
+      '表示 ' + Math.round(r.width) + '×' + Math.round(r.height) + ' / 画面の倍率 ' + dpr + '倍'
+      + ' → 撮ると ' + Math.round(r.width*dpr) + '×' + Math.round(r.height*dpr) + ' ピクセル'
+      + (dpr>1 ? '(512に縮めてください)' : '');
+  }
+  GREYS.forEach((c,i)=>{
+    const b=document.createElement('div');
+    b.className='sw'+(i===0?' on':'');
+    b.style.background=c;
+    b.title=c;
+    b.addEventListener('click',()=>{
+      document.documentElement.style.setProperty('--bg', c);
+      document.querySelectorAll('.sw').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      info.dataset.color=c;
+      show();
+    });
+    document.getElementById('sws').appendChild(b);
+  });
+  show();
+  window.addEventListener('resize', show);
+</script>
+</body>
+</html>
