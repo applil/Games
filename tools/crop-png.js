@@ -40,7 +40,8 @@ function chunk(type, data){
   return out;
 }
 
-function crop(src, cw, ch){
+// PNG を {w,h,bpp,color,px} に開く。px はフィルタを外した生の画素
+function decode(src){
   const cs=chunks(src);
   const ihdr=cs.find(c=>c.type==='IHDR').data;
   const w=ihdr.readUInt32BE(0), h=ihdr.readUInt32BE(4);
@@ -76,26 +77,39 @@ function crop(src, cw, ch){
       cur[x]=v&0xFF;
     }
   }
-  if(cw>w||ch>h) throw new Error('切り出す大きさが元より大きいです');
+  return {w, h, bpp, color, px};
+}
 
-  // 左上から切り出して、フィルタ無しで書き直す
-  const outRaw=Buffer.alloc(ch*(1+cw*bpp));
-  for(let y=0;y<ch;y++){
-    outRaw[y*(1+cw*bpp)]=0;
-    px.copy(outRaw, y*(1+cw*bpp)+1, y*stride, y*stride+cw*bpp);
+// 生の画素を、フィルタ無しの PNG に戻す
+function encode(w, h, bpp, px){
+  const color = bpp===4 ? 6 : 2;
+  const stride=w*bpp;
+  const raw=Buffer.alloc(h*(1+stride));
+  for(let y=0;y<h;y++){
+    raw[y*(1+stride)]=0;
+    px.copy(raw, y*(1+stride)+1, y*stride, (y+1)*stride);
   }
   const nh=Buffer.alloc(13);
-  nh.writeUInt32BE(cw,0); nh.writeUInt32BE(ch,4);
+  nh.writeUInt32BE(w,0); nh.writeUInt32BE(h,4);
   nh[8]=8; nh[9]=color; nh[10]=0; nh[11]=0; nh[12]=0;
   return Buffer.concat([
     Buffer.from([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]),
     chunk('IHDR', nh),
-    chunk('IDAT', zlib.deflateSync(outRaw, {level:9})),
+    chunk('IDAT', zlib.deflateSync(raw, {level:9})),
     chunk('IEND', Buffer.alloc(0)),
   ]);
 }
 
-module.exports={crop};
+function crop(src, cw, ch){
+  const {w, h, bpp, px}=decode(src);
+  if(cw>w||ch>h) throw new Error('切り出す大きさが元より大きいです');
+  const stride=w*bpp;
+  const out=Buffer.alloc(ch*cw*bpp);
+  for(let y=0;y<ch;y++) px.copy(out, y*cw*bpp, y*stride, y*stride+cw*bpp);
+  return encode(cw, ch, bpp, out);
+}
+
+module.exports={crop, decode, encode};
 
 if(require.main===module){
   const [,,inp,outp,W,H]=process.argv;
