@@ -88,6 +88,17 @@ h1{
 .cell .fig.sliding{transition:none}
 .cell.hintbox{box-shadow:inset 0 0 0 3px var(--done)}
 .cell.bump .fig{animation:bump .18s ease}
+/* 荷物を押したとき、ヒヨコの右上に汗をひと飛び。動きと重なるので控えめに */
+.cell .sweat{
+  position:absolute;right:-1px;top:-1px;z-index:3;pointer-events:none;
+  font-size:calc(var(--cell)*0.30);line-height:1;
+  animation:sweat .5s ease-out forwards;
+}
+@keyframes sweat{
+  0%  {transform:translate(-5px,5px) scale(.35);opacity:0}
+  22% {transform:translate(0,0) scale(1);opacity:.95}
+  100%{transform:translate(8px,-10px) scale(.8);opacity:0}
+}
 @keyframes bump{50%{transform:scale(1.18)}}
 .board.celebrate .cell .fig{animation:winwave .9s ease both}
 @keyframes winwave{35%{transform:scale(1.25) rotate(10deg)}}
@@ -965,6 +976,7 @@ function move(name){
     pushCount++; moveCount++;
     paint();
     slide(beyond, d); slide(player, d);      // 荷物と自分が、いた場所から滑ってくる
+    sweat(player);
     if(goalSet.has(beyond)){ SFX.onGoal(); setTimeout(()=>bump(beyond),110); }
     else SFX.push();
   }else{
@@ -991,6 +1003,16 @@ function slide(i, d){
   void fig.offsetWidth;                                       // ここで一度置き直させる
   fig.classList.remove('sliding');
   fig.style.transform='';
+}
+// 押した瞬間に、ヒヨコのいるマスへ汗を1つ足す。0.5秒で消える
+function sweat(i){
+  const el=cellEls[i];
+  if(!el) return;
+  const s=document.createElement('span');
+  s.className='sweat';
+  s.textContent='💦';
+  el.appendChild(s);                       // 先頭は絵の要素なので、必ず後ろに足す
+  setTimeout(()=>{ if(s.parentNode) s.remove(); }, 520);
 }
 function bump(i){
   const el=cellEls[i];
