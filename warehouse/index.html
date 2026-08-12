@@ -90,14 +90,14 @@ h1{
 .cell.bump .fig{animation:bump .18s ease}
 /* 荷物を押したとき、ヒヨコの右上に汗をひと飛び。動きと重なるので控えめに */
 .cell .sweat{
-  /* 小さくしても左下の角が動かないよう、右上ではなく左下で位置を決める。
-     --anchor は前の大きさで、その左下の角が今の基準点 */
-  --anchor:calc(var(--cell)*0.24);
-  --sw:calc(var(--cell)*0.16);          /* 文字の大きさ = 1文字分 */
+  /* 大きさを変えても左下の角が動かないよう、位置は角そのもので決める。
+     --sx --sy は「一番大きくなる瞬間の左下の角」の置き場所 */
+  --sx:calc(var(--cell)*0.32);          /* 右端から左へ戻す量 */
+  --sy:calc(var(--cell)*0.40);          /* セルの上端から下げる量 */
+  --sw:calc(var(--cell)*0.24);          /* 文字の大きさ(最大の瞬間) */
   position:absolute;z-index:3;pointer-events:none;
-  /* 一番大きくなる瞬間を基準に、1文字分下・半文字分左へずらす */
-  left:calc(100% + 1px - var(--anchor) - var(--sw)*0.5);
-  bottom:calc(var(--cell) + 1px - var(--anchor) - var(--sw));
+  left:calc(100% + 1px - var(--sx));
+  bottom:calc(var(--cell) + 1px - var(--sy));
   font-size:var(--sw);line-height:1;
 }
 /* 外側はヒヨコと同じに滑らせ、内側で飛ばす(どちらも transform を使うので分ける) */
