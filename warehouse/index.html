@@ -92,8 +92,9 @@ h1{
 .cell .sweat{
   position:absolute;right:-1px;top:-1px;z-index:3;pointer-events:none;
   font-size:calc(var(--cell)*0.24);line-height:1;
-  animation:sweat .25s ease-out forwards;
 }
+/* 外側はヒヨコと同じに滑らせ、内側で飛ばす(どちらも transform を使うので分ける) */
+.cell .sweat .drop{display:block;font-style:normal;animation:sweat .25s ease-out forwards}
 @keyframes sweat{
   0%  {transform:translate(-4px,-4px) scale(.35);opacity:0}
   22% {transform:translate(0,0) scale(1);opacity:.95}
@@ -976,7 +977,7 @@ function move(name){
     pushCount++; moveCount++;
     paint();
     slide(beyond, d); slide(player, d);      // 荷物と自分が、いた場所から滑ってくる
-    sweat(player);
+    sweat(player, d);
     if(goalSet.has(beyond)){ SFX.onGoal(); setTimeout(()=>bump(beyond),110); }
     else SFX.push();
   }else{
@@ -1004,15 +1005,28 @@ function slide(i, d){
   fig.classList.remove('sliding');
   fig.style.transform='';
 }
-// 押した瞬間に、ヒヨコのいるマスへ汗を1つ足す。0.25秒で右下へ抜けて消える
-function sweat(i){
+// 押した瞬間に、ヒヨコのいるマスへ汗を1つ足す。
+// ヒヨコと一緒に滑ってきて、0.25秒で右下へ抜けて消える
+function sweat(i, d){
   const el=cellEls[i];
   if(!el) return;
-  const s=document.createElement('span');
-  s.className='sweat';
-  s.textContent='💦';
-  el.appendChild(s);                       // 先頭は絵の要素なので、必ず後ろに足す
-  setTimeout(()=>{ if(s.parentNode) s.remove(); }, 270);
+  const wrap=document.createElement('span');
+  wrap.className='sweat';
+  const drop=document.createElement('i');
+  drop.className='drop';
+  drop.textContent='💦';
+  wrap.appendChild(drop);
+  el.appendChild(wrap);                    // 先頭は絵の要素なので、必ず後ろに足す
+  // ヒヨコと同じだけ、いた場所から滑ってくる
+  const step=el.getBoundingClientRect().width + 2;
+  const dx=(d===1?-1:d===-1?1:0)*step;
+  const dy=(d===puzzle.w?-1:d===-puzzle.w?1:0)*step;
+  wrap.style.transition='none';
+  wrap.style.transform=`translate(${dx}px,${dy}px)`;
+  void wrap.offsetWidth;                   // ここで一度置き直させる
+  wrap.style.transition='transform .11s ease-out';
+  wrap.style.transform='';
+  setTimeout(()=>{ if(wrap.parentNode) wrap.remove(); }, 270);
 }
 function bump(i){
   const el=cellEls[i];
