@@ -93,10 +93,12 @@ h1{
   /* 小さくしても左下の角が動かないよう、右上ではなく左下で位置を決める。
      --anchor は前の大きさで、その左下の角が今の基準点 */
   --anchor:calc(var(--cell)*0.24);
+  --sw:calc(var(--cell)*0.16);          /* 文字の大きさ = 1文字分 */
   position:absolute;z-index:3;pointer-events:none;
-  left:calc(100% + 1px - var(--anchor));
-  bottom:calc(var(--cell) + 1px - var(--anchor));
-  font-size:calc(var(--cell)*0.16);line-height:1;
+  /* 一番大きくなる瞬間を基準に、1文字分下・半文字分左へずらす */
+  left:calc(100% + 1px - var(--anchor) - var(--sw)*0.5);
+  bottom:calc(var(--cell) + 1px - var(--anchor) - var(--sw));
+  font-size:var(--sw);line-height:1;
 }
 /* 外側はヒヨコと同じに滑らせ、内側で飛ばす(どちらも transform を使うので分ける) */
 .cell .sweat .drop{display:block;font-style:normal;transform-origin:left bottom;
