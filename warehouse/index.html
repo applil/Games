@@ -91,13 +91,13 @@ h1{
 /* 荷物を押したとき、ヒヨコの右上に汗をひと飛び。動きと重なるので控えめに */
 .cell .sweat{
   position:absolute;right:-1px;top:-1px;z-index:3;pointer-events:none;
-  font-size:calc(var(--cell)*0.30);line-height:1;
-  animation:sweat .5s ease-out forwards;
+  font-size:calc(var(--cell)*0.24);line-height:1;
+  animation:sweat .25s ease-out forwards;
 }
 @keyframes sweat{
-  0%  {transform:translate(-5px,5px) scale(.35);opacity:0}
+  0%  {transform:translate(-4px,-4px) scale(.35);opacity:0}
   22% {transform:translate(0,0) scale(1);opacity:.95}
-  100%{transform:translate(8px,-10px) scale(.8);opacity:0}
+  100%{transform:translate(8px,10px) scale(.8);opacity:0}
 }
 @keyframes bump{50%{transform:scale(1.18)}}
 .board.celebrate .cell .fig{animation:winwave .9s ease both}
@@ -1004,7 +1004,7 @@ function slide(i, d){
   fig.classList.remove('sliding');
   fig.style.transform='';
 }
-// 押した瞬間に、ヒヨコのいるマスへ汗を1つ足す。0.5秒で消える
+// 押した瞬間に、ヒヨコのいるマスへ汗を1つ足す。0.25秒で右下へ抜けて消える
 function sweat(i){
   const el=cellEls[i];
   if(!el) return;
@@ -1012,7 +1012,7 @@ function sweat(i){
   s.className='sweat';
   s.textContent='💦';
   el.appendChild(s);                       // 先頭は絵の要素なので、必ず後ろに足す
-  setTimeout(()=>{ if(s.parentNode) s.remove(); }, 520);
+  setTimeout(()=>{ if(s.parentNode) s.remove(); }, 270);
 }
 function bump(i){
   const el=cellEls[i];
