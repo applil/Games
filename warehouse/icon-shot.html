@@ -17,7 +17,7 @@
   #sq{
     width:calc(var(--px) * 1px);
     height:calc(var(--px) * 1px);
-    background:var(--bg,#8e8e93);
+    background:var(--bg,#eef2f9);   /* ゲームの床の色 */
     display:flex;align-items:center;justify-content:center;
     overflow:hidden;
   }
@@ -37,11 +37,12 @@
 <div class="info" id="info">—</div>
 <div class="note">
   この四角を画面撮影して、内側だけを切り抜いてください。<br>
-  色は下のボタンで変えられます。
+  背景はゲームの床の色（#eef2f9）。下のボタンで壁や紙の色にも変えられます。
 </div>
 
 <script>
-  const GREYS = ['#8e8e93','#aeaeb2','#c7c7cc','#d1d1d6','#e5e5ea','#636366','#48484a','#f2f2f7'];
+  // ゲームで使っている色。先頭が床の色
+  const GREYS = ['#eef2f9','#f6f8fc','#dce5f2','#ffffff','#55637f','#3f4c66','#1c2b46'];
   const sq = document.getElementById('sq');
   const info = document.getElementById('info');
   const dpr = window.devicePixelRatio || 1;
