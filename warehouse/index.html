@@ -162,15 +162,20 @@ body.dpad-mini .dpad button{font-size:15px;padding-top:8%}
 body.dpad-off .dpad{display:none}
 
 .bottomarea{flex:0 0 auto;position:relative}
+/* 大きい十字キーは盤とくっついて見えるので、少しだけ離す。
+   layoutBoard は外形の高さを足すので、余白は padding で持たせること */
+body:not(.dpad-mini):not(.dpad-off) .bottomarea{padding-top:10px}
 /* 十字キーの左右に、下端をそろえてボタンを置く。正方形は塗りつぶしなので重ねない */
 .footrow{
   position:absolute;left:0;right:0;bottom:0;
-  display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;
+  display:grid;grid-template-columns:1fr auto 1fr;gap:8px;
+  /* 十字キーと同じ高さの箱にして、上端でそろえる */
+  height:var(--dpadh,auto);align-items:start;
   pointer-events:none;                 /* 箱では受けない。中のボタンだけが受ける */
 }
 .footrow>*{pointer-events:auto}
 /* 十字キーを隠しているときは、そろえる相手がいないので普通に流す */
-body.dpad-off .footrow{position:static;padding-top:10px;align-items:center;
+body.dpad-off .footrow{position:static;padding-top:10px;height:auto;align-items:center;
   grid-template-columns:auto 1fr auto}   /* 「キーなし：スワイプで移動」を折り返させない */
 #btnDpadMode{white-space:nowrap}
 .footrow .left{justify-self:start;display:flex;gap:6px}
@@ -308,6 +313,13 @@ body:not(.debug) #btnFresh{display:none}
 body.mod #btnHist, body.edit #btnHist{display:none}
 /* 「本編にもどる」は、履歴から選んだ面を遊んでいるときだけ */
 body:not(.replaying) #btnHistExit{display:none}
+/* 絞り込みは章タブと同じ形。押している間は塗る */
+.histfilter{padding-bottom:8px;margin-bottom:0}
+.histfilter button{
+  border:1px solid var(--line);background:var(--paper);border-radius:999px;
+  font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);padding:5px 11px;cursor:pointer;
+}
+.histfilter button.on{background:var(--goal-soft);border-color:var(--goal);color:var(--goal)}
 
 @media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
 </style>
@@ -391,7 +403,7 @@ body:not(.replaying) #btnHistExit{display:none}
     <div class="right">
       <button class="btn" id="btnFav" style="display:none">★ --</button>
       <button class="btn" id="btnBad" style="display:none">✕</button>
-      <button class="btn" id="btnHist">📋 クリア履歴</button>
+      <button class="btn" id="btnHist">履歴</button>
       <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
     </div>
   </div>
@@ -423,7 +435,7 @@ body:not(.replaying) #btnHistExit{display:none}
       <p>操作は<b>十字キー</b>、または<b>画面のスワイプ</b>です。十字キーは左下のボタンで<b>キー大 / キー小 / キーなし</b>を切り替えられます。</p>
       <p>パソコンでは <b>矢印キー</b> か <b>WASD</b> でも動かせます。</p>
       <p>ステージは1面ずつ進みます。クリアすると、その面の<b>最短手数</b>が分かります。</p>
-      <p>クリアした面は、右下の <b>📋 クリア履歴</b> から解き直せます。最短で解けるまで何度でも挑めます。</p>
+      <p>クリアした面は、右下の <b>履歴</b> から解き直せます。最短で解けるまで何度でも挑めます。</p>
     </div>
     <button class="btn btn-new" id="btnRulesClose" style="margin-top:14px">とじる</button>
   </div>
@@ -442,6 +454,8 @@ body:not(.replaying) #btnHistExit{display:none}
   <div class="picker">
     <h2>クリア履歴</h2>
     <div class="histsum" id="histSum"></div>
+    <div class="chapters" id="histChapters"></div>
+    <div class="chapters histfilter"><button id="btnHistFilter">まだ最短でない面だけ</button></div>
     <div class="histlist" id="histList"></div>
     <button class="btn btn-new" id="btnHistClose">とじる</button>
     <button class="btn" id="btnHistExit">本編にもどる</button>
@@ -734,6 +748,10 @@ function sizeDpad(){
   const r=document.querySelector('.footrow .right');
   const w=Math.max(l?l.getBoundingClientRect().width:0, r?r.getBoundingClientRect().width:0);
   document.documentElement.style.setProperty('--sidekeep', (w>0?Math.ceil(w*2+24):0)+'px');
+  // 左右のボタンは、十字キーの上端にそろえて置く。同じ高さの箱にして上詰めにする
+  const d=document.querySelector('.dpad');
+  const h=d && getComputedStyle(d).display!=='none' ? d.getBoundingClientRect().height : 0;
+  document.documentElement.style.setProperty('--dpadh', h>0?(h+'px'):'auto');
 }
 function layoutBoard(){
   alignHeaderButtons();
@@ -1275,14 +1293,47 @@ function nextHist(from){
   const left=histRows().filter(r=>!r.perfect);
   return left.find(r=>r.i>from) || left.find(r=>r.i<from) || null;
 }
-function openHist(){ renderHist(); $('histOverlay').classList.add('show'); }
-function renderHist(){
+let histChapter=null;            // null = 全部
+let histOnlyLeft=false;          // まだ最短でない面だけ
+function openHist(){
+  // 開くたび、いま遊んでいる面のある章から見せる
   const rows=histRows();
-  const done=rows.filter(r=>r.perfect).length;
-  $('histSum').textContent = rows.length
-    ? ('クリア済み '+rows.length+'面のうち、最短で解けたのは '+done+'面'
+  const here=rows.find(r=>r.i===index) || rows[rows.length-1];
+  if(here && rows.length>CHAPTER) histChapter=Math.floor(here.i/CHAPTER);
+  renderHist();
+  $('histOverlay').classList.add('show');
+}
+function renderHist(){
+  const all=histRows();
+  const done=all.filter(r=>r.perfect).length;
+  $('histSum').textContent = all.length
+    ? ('クリア済み '+all.length+'面のうち、最短で解けたのは '+done+'面'
        + (replaying?'':'\n面を選ぶと、その面を解き直せます'))
     : 'まだクリアした面がありません。';
+
+  // 絞り込み → 章タブ の順に見る。絞った結果、空になった章は出さない
+  const kept=all.filter(r=>!histOnlyLeft || !r.perfect);
+  const chapters=[...new Set(kept.map(r=>Math.floor(r.i/CHAPTER)))].sort((x,y)=>x-y);
+  if(histChapter!==null && chapters.indexOf(histChapter)<0) histChapter=null;
+  const ch=$('histChapters');
+  ch.innerHTML='';
+  // 章が1つしかないなら、タブを出す意味がない
+  if(chapters.length>1){
+    const tab=(label,val)=>{
+      const b=document.createElement('button');
+      b.textContent=label;
+      if(histChapter===val) b.classList.add('active');
+      b.addEventListener('click',()=>{ histChapter=val; renderHist(); });
+      ch.appendChild(b);
+    };
+    tab('全部', null);
+    for(const c of chapters) tab((c*CHAPTER+1)+'〜', c);
+  }
+  const f=$('btnHistFilter');
+  f.classList.toggle('on', histOnlyLeft);
+  f.textContent = histOnlyLeft ? 'まだ最短でない面だけ' : 'すべての面';
+
+  const rows=kept.filter(r=>histChapter===null || Math.floor(r.i/CHAPTER)===histChapter);
   const list=$('histList');
   list.innerHTML='';
   let cur=null;
@@ -1632,6 +1683,7 @@ $('btnHint').addEventListener('click',hint);
 $('btnPick').addEventListener('click',openPicker);
 $('btnPickClose').addEventListener('click',()=>$('pickOverlay').classList.remove('show'));
 $('btnHist').addEventListener('click',openHist);
+$('btnHistFilter').addEventListener('click',()=>{ histOnlyLeft=!histOnlyLeft; renderHist(); });
 $('btnHistClose').addEventListener('click',()=>$('histOverlay').classList.remove('show'));
 $('btnHistExit').addEventListener('click',exitReplay);
 $('btnPrev').addEventListener('click',()=>startLevel(index-1));
