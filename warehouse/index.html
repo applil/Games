@@ -313,6 +313,9 @@ body:not(.debug) #btnFresh{display:none}
 body.mod #btnHist, body.edit #btnHist{display:none}
 /* 「本編にもどる」は、履歴から選んだ面を遊んでいるときだけ */
 body:not(.replaying) #btnHistExit{display:none}
+/* 絵文字を足しても「キー大」より広くしない。広いほうの幅で十字キーが縮むため */
+#btnHist{padding-left:10px;padding-right:12px}
+#btnHist i{font-style:normal;font-size:10px;margin-right:3px;vertical-align:1px}
 /* 絞り込みは章タブと同じ形。押している間は塗る */
 .histfilter{padding-bottom:8px;margin-bottom:0}
 .histfilter button{
@@ -403,7 +406,7 @@ body:not(.replaying) #btnHistExit{display:none}
     <div class="right">
       <button class="btn" id="btnFav" style="display:none">★ --</button>
       <button class="btn" id="btnBad" style="display:none">✕</button>
-      <button class="btn" id="btnHist">履歴</button>
+      <button class="btn" id="btnHist"><i>📋</i>履歴</button>
       <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
     </div>
   </div>
@@ -455,7 +458,7 @@ body:not(.replaying) #btnHistExit{display:none}
     <h2>クリア履歴</h2>
     <div class="histsum" id="histSum"></div>
     <div class="chapters" id="histChapters"></div>
-    <div class="chapters histfilter"><button id="btnHistFilter">まだ最短でない面だけ</button></div>
+    <div class="chapters histfilter"><button id="btnHistFilter">最短でない面だけ</button></div>
     <div class="histlist" id="histList"></div>
     <button class="btn btn-new" id="btnHistClose">とじる</button>
     <button class="btn" id="btnHistExit">本編にもどる</button>
@@ -1331,7 +1334,7 @@ function renderHist(){
   }
   const f=$('btnHistFilter');
   f.classList.toggle('on', histOnlyLeft);
-  f.textContent = histOnlyLeft ? 'まだ最短でない面だけ' : 'すべての面';
+  f.textContent = histOnlyLeft ? '最短でない面だけ' : 'すべての面';
 
   const rows=kept.filter(r=>histChapter===null || Math.floor(r.i/CHAPTER)===histChapter);
   const list=$('histList');
