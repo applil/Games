@@ -251,6 +251,8 @@ body:not(.debug) #btnFresh{display:none}
 .win-emoji{font-size:40px;margin-bottom:6px}
 .win-title{font-size:19px;font-weight:800}
 .win-verdict{font-size:16px;font-weight:800;margin:6px 0 2px;color:var(--done)}
+/* まだ最短でないときは、お祝いの緑ではなく控えめに */
+.win-verdict.miss{color:var(--ink-soft)}
 .win-time{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;margin:6px 0 2px}
 .win-sub{font-size:12px;color:var(--ink-soft);margin-bottom:16px;line-height:1.8}
 .win-card .btn{width:100%;padding:10px 16px;font-size:13px}
@@ -286,6 +288,25 @@ body:not(.debug) #btnFresh{display:none}
 .grid-stages button.current{background:var(--ink);border-color:var(--ink);color:#fff}
 .picker .btn{margin-top:10px;width:100%}
 
+/* やり直し(?redo=1)。クリア済みの面を、自己ベストと最短をならべて出す */
+.redosum{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-align:center;line-height:1.7;padding-bottom:8px}
+.redolist{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:4px;padding:2px}
+.redolist button{
+  display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;
+  border:1px solid var(--line);background:var(--paper);border-radius:10px;cursor:pointer;
+  font:inherit;font-size:12px;font-weight:700;color:var(--ink);text-align:left;
+  font-variant-numeric:tabular-nums;
+}
+.redolist .no{flex:0 0 auto;width:64px;font-size:11px;color:var(--ink-soft);white-space:nowrap}
+.redolist .sc{flex:1 1 auto}
+.redolist .gap{flex:0 0 auto;font-size:11px;color:var(--error)}
+/* 最短で解けた面は、もう用がないので沈める */
+.redolist button.done{background:var(--done-soft);border-color:var(--done);color:var(--done)}
+.redolist button.done .no{color:var(--done)}
+.redolist button.current{outline:2px solid var(--ink);outline-offset:-2px}
+body:not(.redo) #btnRedoPick{display:none}
+body:not(.debug) #btnRedo, body.mod #btnRedo, body.edit #btnRedo{display:none}
+
 @media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
 </style>
 </head>
@@ -312,6 +333,7 @@ body:not(.debug) #btnFresh{display:none}
     <button class="btn" id="btnWipe">記録を消す</button>
     <button class="btn" id="btnMark">ここまで進んだことにする</button>
     <button class="btn" id="btnFresh">最新に更新</button>
+    <button class="btn" id="btnRedo">やり直しモード</button>
     <button class="btn" id="btnPrev">◀</button>
     <button class="btn" id="btnNext">▶</button>
   </div>
@@ -368,6 +390,7 @@ body:not(.debug) #btnFresh{display:none}
     <div class="right">
       <button class="btn" id="btnFav" style="display:none">★ --</button>
       <button class="btn" id="btnBad" style="display:none">✕</button>
+      <button class="btn" id="btnRedoPick">やり直す面</button>
       <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
     </div>
   </div>
@@ -413,6 +436,16 @@ body:not(.debug) #btnFresh{display:none}
   </div>
 </div>
 
+<div class="overlay" id="redoOverlay">
+  <div class="picker">
+    <h2>やり直し</h2>
+    <div class="redosum" id="redoSum"></div>
+    <div class="redolist" id="redoList"></div>
+    <button class="btn btn-new" id="btnRedoClose">とじる</button>
+    <button class="btn" id="btnRedoExit">本編へもどる</button>
+  </div>
+</div>
+
 <script src="engine.js"></script>
 <script>
 'use strict';
@@ -422,7 +455,8 @@ body:not(.debug) #btnFresh{display:none}
      ?debug=1   … 戻す/ヒント/詰み表示/ステージ選択を出す
      ?mod=1     … モデレーション。面を行き来しながら、良くない面に×を付ける
      ?edit=1    … 面編集。マスを塗り替えて、解けるか確かめて書き出す
-     ?lv=N      … 送られてきた1面だけを独立して遊ぶ(本編の進行に影響しない) */
+     ?lv=N      … 送られてきた1面だけを独立して遊ぶ(本編の進行に影響しない)
+     ?redo=1    … やり直し。クリア済みの面を、最短が出るまで何度でも解き直す */
 const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
@@ -432,17 +466,26 @@ if(QS.get('debug')==='1'||QS.get('debug')==='0'){
   try{ localStorage.setItem('warehouse-debug', QS.get('debug')); }catch(e){}
 }
 const debugSaved=(()=>{ try{ return localStorage.getItem('warehouse-debug')==='1'; }catch(e){ return false; } })();
+// やり直しも同じ扱い。ホーム画面のアプリはクエリを付けられないので、端末に覚えさせる。
+// 出るときは、やり直し一覧の「本編へもどる」から
+if(QS.get('redo')==='1'||QS.get('redo')==='0'){
+  try{ localStorage.setItem('warehouse-redo', QS.get('redo')); }catch(e){}
+}
+const redoSaved=(()=>{ try{ return localStorage.getItem('warehouse-redo')==='1'; }catch(e){ return false; } })();
 const MOD=QS.get('mod')==='1';
 // モデレーションは素の状態で遊んで判断するもの。端末の記録も URL の指定も無視して、
 // 戻す・ヒント・詰み表示は出さない
 const DEBUG=!MOD && (QS.get('debug')==='1' || (QS.get('debug')!=='0' && debugSaved));
 const EDIT=QS.get('edit')==='1';
+// やり直しは、ふつうに遊ぶのと同じ条件で解き直すもの。他のモードとは重ねない
+const REDO=!MOD && !EDIT && (QS.get('redo')==='1' || (QS.get('redo')!=='0' && redoSaved));
 const WANT=+QS.get('lv')||0;
 const FILE='levels.json';
 let SHARED=false;                        // 共有リンクで開いた1面モード
 if(DEBUG) document.body.classList.add('debug');
 if(MOD) document.body.classList.add('mod');
 if(EDIT) document.body.classList.add('edit');
+if(REDO) document.body.classList.add('redo');
 // ステージを行き来できるモード
 const NAV = DEBUG || MOD || EDIT;
 
@@ -546,6 +589,9 @@ let progress={v:1, cleared:{}};
 const saveProgress=()=>store.set(PKEY, JSON.stringify(progress));
 const isCleared=lv=>lv && progress.cleared[lv.id]!==undefined;
 const bestOf=lv=>lv&&progress.cleared[lv.id];
+// 「ここまで進んだことにする」で入れた仮の記録。実際に解いた手数ではない
+const NOREC=999;
+const isPerfect=lv=>isCleared(lv) && bestOf(lv)===lv.p;
 
 // ★✕を付けた時点の並び。並べ替えるたびに変わるので、古い印と見分けがつく
 let REV='normal';
@@ -735,7 +781,7 @@ loadJSON(FILE)
     REV = data.reordered ? (data.reordered.at+'@'+data.reordered.from) : 'normal';
     hideLoading();
     // 送られてきたリンクは、その1面だけを独立して遊べるようにする
-    SHARED = !DEBUG && !MOD && WANT>=1 && WANT<=LEVELS.length && (WANT-1)!==unlockedMax();
+    SHARED = !DEBUG && !MOD && !REDO && WANT>=1 && WANT<=LEVELS.length && (WANT-1)!==unlockedMax();
     // ★の見立ての目盛りは面数に合わせる
     setFavRange(LEVELS.length);
     if(DEBUG){
@@ -756,8 +802,14 @@ loadJSON(FILE)
       $('btnBackHome').style.display='';
       $('stageLabel').textContent='送られたステージ';
     }
-    const start=(WANT>=1&&WANT<=LEVELS.length) ? WANT-1 : unlockedMax();
+    let start=(WANT>=1&&WANT<=LEVELS.length) ? WANT-1 : unlockedMax();
+    if(REDO){
+      // まだ最短でない面から。全部最短なら、クリア済みの最初の面を出しておく
+      const nx=nextRedo(-1) || redoRows()[0];
+      start = nx ? nx.i : 0;
+    }
     startLevel(start);
+    if(REDO) openRedo();
   })
   .catch(e=>showLoading('面の読み込みに失敗しました ('+e.message+')'));
 
@@ -820,6 +872,7 @@ function startLevel(i){
   updateStats();
   updateFavButton();
   updateBadButton();
+  updateRedoBanner();
   if(NAV) updateNav();
   // debug は URL に書かない。書くと履歴に残った住所から復活し続けて外せなくなる
   const q=(MOD?'mod=1&':'')+((SHARED||DEBUG||MOD)?('lv='+(index+1)):'');
@@ -1126,17 +1179,28 @@ function checkWin(){
   if(!SHARED && !MOD && (first||pushCount<prev)){ progress.cleared[lv.id]=pushCount; saveProgress(); }
   updateStats();
   updateBadButton();
+  updateRedoBanner();                 // 自己ベストが縮んだら、帯の表示も直す
   if(NAV) updateNav();
 
   const perfect=pushCount===lv.p;
   $('winTitle').textContent = SHARED ? 'クリア！' : ('ステージ'+(index+1)+' クリア！');
-  $('winVerdict').textContent = perfect ? '✨ 最短クリア！' : '';
+  $('winVerdict').textContent = perfect ? '✨ 最短クリア！'
+    : REDO ? ('最短まで あと'+(pushCount-lv.p)+'手') : '';
+  $('winVerdict').className = 'win-verdict'+(!perfect&&REDO?' miss':'');
   $('winPush').textContent=pushCount+'手';
-  $('winSub').innerHTML='このステージの最短は <b>'+lv.p+'手</b>'
-    +(first||SHARED?'':'<br>自己ベスト '+Math.min(prev,pushCount)+'手')
-    +(SHARED?'':'<br>クリア '+clearedCount()+' / '+LEVELS.length);
-  const last=index>=LEVELS.length-1;
-  $('btnNextStage').textContent = SHARED ? '本編へ' : (last ? 'とじる' : '次のステージへ');
+  if(REDO){
+    const rows=redoRows();
+    $('winSub').innerHTML='このステージの最短は <b>'+lv.p+'手</b>'
+      +'<br>自己ベスト '+bestOf(lv)+'手'
+      +'<br>最短で解けた面 '+rows.filter(r=>r.perfect).length+' / '+rows.length;
+    $('btnNextStage').textContent = perfect ? (nextRedo(index)?'次のやり直しへ':'とじる') : 'もう一度';
+  }else{
+    $('winSub').innerHTML='このステージの最短は <b>'+lv.p+'手</b>'
+      +(first||SHARED?'':'<br>自己ベスト '+Math.min(prev,pushCount)+'手')
+      +(SHARED?'':'<br>クリア '+clearedCount()+' / '+LEVELS.length);
+    const last=index>=LEVELS.length-1;
+    $('btnNextStage').textContent = SHARED ? '本編へ' : (last ? 'とじる' : '次のステージへ');
+  }
   shareData={
     url: location.origin+location.pathname+'?lv='+(index+1),
     text:'「倉庫パズル」ステージ'+(index+1)+'を'+pushCount+'手でクリア！(最短'+lv.p+'手)',
@@ -1158,6 +1222,13 @@ function checkWin(){
 function nextStage(){
   $('overlay').classList.remove('show');
   if(SHARED){ location.href=location.pathname; return; }
+  if(REDO){
+    // 最短が出るまでは同じ面。出たら、まだ最短でない次の面へ
+    if(pushCount!==puzzle.meta.p){ startLevel(index); return; }
+    const nx=nextRedo(index);
+    if(nx) startLevel(nx.i); else openRedo();
+    return;
+  }
   if(index<LEVELS.length-1) startLevel(index+1);
 }
 
@@ -1191,6 +1262,74 @@ function renderPicker(){
     b.addEventListener('click',()=>{ $('pickOverlay').classList.remove('show'); startLevel(i); });
     grid.appendChild(b);
   }
+}
+
+/* ================= やり直し(?redo=1) =================
+   クリア済みの面を、自己ベストと最短をならべて出す。最短が出るまで何度でも挑める。
+   本編の進みは変えない。自己ベストは、縮んだときだけ書き換わる */
+function redoRows(){
+  const rows=[];
+  for(let i=0;i<LEVELS.length;i++){
+    const lv=LEVELS[i];
+    if(!isCleared(lv)) continue;
+    const best=bestOf(lv);
+    rows.push({i, lv, best, known:best!==NOREC, perfect:best===lv.p});
+  }
+  return rows;
+}
+// 次にやり直す面。いまの面より後ろを先に探し、無ければ先頭に回る
+function nextRedo(from){
+  const left=redoRows().filter(r=>!r.perfect);
+  return left.find(r=>r.i>from) || left.find(r=>r.i<from) || null;
+}
+function openRedo(){ renderRedo(); $('redoOverlay').classList.add('show'); }
+function renderRedo(){
+  const rows=redoRows();
+  const done=rows.filter(r=>r.perfect).length;
+  $('redoSum').textContent = rows.length
+    ? ('クリア済み '+rows.length+'面のうち、最短で解けたのは '+done+'面')
+    : 'まだクリアした面がありません。';
+  const list=$('redoList');
+  list.innerHTML='';
+  let cur=null;
+  for(const r of rows){
+    const b=document.createElement('button');
+    if(r.perfect) b.classList.add('done');
+    if(r.i===index){ b.classList.add('current'); cur=b; }
+    const no=document.createElement('span');
+    no.className='no'; no.textContent='第'+(r.i+1)+'面';
+    const sc=document.createElement('span');
+    sc.className='sc';
+    sc.textContent = r.perfect ? ('✨ '+r.lv.p+'手 最短')
+      : r.known ? (r.best+'手 ／ 最短 '+r.lv.p+'手')
+      : ('記録なし ／ 最短 '+r.lv.p+'手');
+    const gp=document.createElement('span');
+    gp.className='gap';
+    gp.textContent = (!r.perfect && r.known) ? ('+'+(r.best-r.lv.p)) : '';
+    b.append(no, sc, gp);
+    b.addEventListener('click',()=>{ $('redoOverlay').classList.remove('show'); startLevel(r.i); });
+    list.appendChild(b);
+  }
+  // いま遊んでいる面が見えるところまで送っておく
+  if(cur) setTimeout(()=>{ list.scrollTop = Math.max(0, cur.offsetTop - list.clientHeight/2); }, 0);
+}
+function updateRedoBanner(){
+  if(!REDO||!puzzle) return;
+  const lv=puzzle.meta, b=bestOf(lv);
+  $('banner').style.display='block';
+  $('bannerText').textContent='やり直し中 ／ この面の最短は '+lv.p+'手'
+    + (b===undefined ? '（まだクリアしていない面）'
+      : b===NOREC ? '（自己ベストは記録なし）'
+      : b===lv.p ? '（もう最短で解けています）'
+      : '（自己ベスト '+b+'手）');
+}
+function exitRedo(){
+  try{ localStorage.setItem('warehouse-redo','0'); }catch(e){}
+  location.href=location.pathname;
+}
+function enterRedo(){
+  try{ localStorage.setItem('warehouse-redo','1'); }catch(e){}
+  location.href=location.pathname;
 }
 
 /* ================= 面編集(?edit=1) ================= */
@@ -1487,6 +1626,11 @@ $('btnUndo').addEventListener('click',undo);
 $('btnHint').addEventListener('click',hint);
 $('btnPick').addEventListener('click',openPicker);
 $('btnPickClose').addEventListener('click',()=>$('pickOverlay').classList.remove('show'));
+$('btnRedo').textContent = REDO ? 'やり直しをやめる' : 'やり直しモード';
+$('btnRedo').addEventListener('click', REDO?exitRedo:enterRedo);
+$('btnRedoPick').addEventListener('click',openRedo);
+$('btnRedoClose').addEventListener('click',()=>$('redoOverlay').classList.remove('show'));
+$('btnRedoExit').addEventListener('click',exitRedo);
 $('btnPrev').addEventListener('click',()=>startLevel(index-1));
 $('btnNext').addEventListener('click',()=>startLevel(index+1));
 
