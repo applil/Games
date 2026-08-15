@@ -26,23 +26,34 @@
   .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
   .sw{width:34px;height:34px;border-radius:8px;border:1px solid #ccc;cursor:pointer}
   .sw.on{outline:3px solid #3d9bff;outline-offset:2px}
+  .pill{border:1px solid #ccc;background:#fff;border-radius:999px;padding:7px 14px;
+        font:inherit;font-size:12px;font-weight:700;color:#555;cursor:pointer}
+  .pill.on{background:#333;border-color:#333;color:#fff}
   .note{font-size:11px;color:#999;max-width:min(92vw,420px);line-height:1.8;text-align:center}
 </style>
 </head>
 <body>
 
-<div id="sq"><span>📦</span></div>
+<div id="sq"><span id="em">📦</span></div>
 
+<div class="row" id="skins"></div>
 <div class="row" id="sws"></div>
 <div class="info" id="info">—</div>
 <div class="note">
   この四角を画面撮影して、内側だけを切り抜いてください。<br>
-  背景はゲームの床の色（#eef2f9）。下のボタンで壁や紙の色にも変えられます。
+  上のボタンで、着せ替えごとの絵と床の色に切り替わります。<br>
+  下の色見本でも背景を変えられます。
 </div>
 
 <script>
+  // 着せ替えごとの、荷物の絵と床の色
+  const SKINS = [
+    ['ふつう',      '📦', '#eef2f9'],
+    ['フンコロガシ','💩', '#f0e2c0'],
+    ['リス',        '🌰', '#eaf1d8'],
+  ];
   // ゲームで使っている色。先頭が床の色
-  const GREYS = ['#eef2f9','#f6f8fc','#dce5f2','#ffffff','#55637f','#3f4c66','#1c2b46'];
+  const GREYS = ['#eef2f9','#f0e2c0','#eaf1d8','#f6f8fc','#ffffff','#55637f','#3f4c66','#1c2b46'];
   const sq = document.getElementById('sq');
   const info = document.getElementById('info');
   const dpr = window.devicePixelRatio || 1;
@@ -68,6 +79,23 @@
       show();
     });
     document.getElementById('sws').appendChild(b);
+  });
+  const setBg=c=>{
+    document.documentElement.style.setProperty('--bg', c);
+    document.querySelectorAll('.sw').forEach(x=>x.classList.toggle('on', x.title===c));
+    show();
+  };
+  SKINS.forEach(([name,em,bg],i)=>{
+    const b=document.createElement('button');
+    b.className='pill'+(i===0?' on':'');
+    b.textContent=em+' '+name;
+    b.addEventListener('click',()=>{
+      document.getElementById('em').textContent=em;
+      setBg(bg);
+      document.querySelectorAll('.pill').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+    });
+    document.getElementById('skins').appendChild(b);
   });
   show();
   window.addEventListener('resize', show);

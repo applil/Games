@@ -523,9 +523,9 @@ if(QS.get('debug')==='1'||QS.get('debug')==='0'){
 const debugSaved=(()=>{ try{ return localStorage.getItem('warehouse-debug')==='1'; }catch(e){ return false; } })();
 // 見た目の着せ替え。絵と色を入れ替えるだけなので、どのモードとも重ねられる
 const SKINS={
-  normal:  {man:'🐥',  box:'📦', label:'ふつう'},
-  beetle:  {man:'🪲',  box:'💩', label:'フンコロガシ'},
-  squirrel:{man:'🐿️', box:'🌰', label:'リス'},
+  normal:  {man:'🐥',  box:'📦', label:'ふつう',       title:'倉庫パズル',   icon:''},
+  beetle:  {man:'🪲',  box:'💩', label:'フンコロガシ', title:'フンコロガシ', icon:'-beetle'},
+  squirrel:{man:'🐿️', box:'🌰', label:'リス',         title:'どんぐり',     icon:'-squirrel'},
 };
 const SKIN_ORDER=['normal','beetle','squirrel'];
 (function(){
@@ -1750,6 +1750,12 @@ $('btnNext').addEventListener('click',()=>startLevel(index+1));
 // 見た目だけの入れ替え。絵文字を直に書いてあるところを、まとめて置き換える
 if(skinName!=='normal'){
   document.body.classList.add('skin-'+skinName);
+  // ホーム画面に追加するとき、iOS はそのときの DOM を見る。
+  // 追加ずみのアイコンは変わらない(入れ直しが要る)
+  document.querySelector('link[rel="apple-touch-icon"]').href='icon-180'+SKIN.icon+'.png';
+  document.querySelector('link[rel="icon"]').href='icon-512'+SKIN.icon+'.png';
+  document.querySelector('meta[name="apple-mobile-web-app-title"]').content=SKIN.title;
+  document.title=SKIN.title;
   document.querySelector('.loading .spin').textContent=SKIN.box;
   document.querySelector('.win-emoji').textContent=SKIN.box+'🎉'+SKIN.man;
   document.querySelector('.palette button[data-tool="man"]').textContent=SKIN.man;
