@@ -25,8 +25,8 @@
   --error:#e5484d;
   --cell:36px;
 }
-/* フンコロガシモードの色。壁は乾いたフン、床は砂 */
-body.beetle{
+/* フンコロガシの色。壁は乾いたフン、床は砂 */
+body.skin-beetle{
   --ink:#3a2a16;
   --ink-soft:#7d6647;
   --paper:#f5ead2;
@@ -40,6 +40,22 @@ body.beetle{
   --done:#5f8a2e;
   --done-soft:#c2dc8c;
   --line:#e0cfa8;
+}
+/* リスの色。壁は苔むした木、床は落ち葉 */
+body.skin-squirrel{
+  --ink:#2f3d24;
+  --ink-soft:#63764a;
+  --paper:#f2f6e6;
+  --card:#fbfdf5;
+  --wall:#4e6437;
+  --wall-top:#68804b;
+  --floor:#eaf1d8;
+  /* 落ち葉の床と紛れないよう、置き場はどんぐり色ではっきりと */
+  --goal:#c2661a;
+  --goal-soft:#f0b878;
+  --done:#37803f;
+  --done-soft:#a9d488;
+  --line:#d6e3bd;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
@@ -239,7 +255,7 @@ body.edit .cell{cursor:pointer}
 body.mod #btnUndo, body.mod #btnHint, body.mod #btnWipe{display:none}
 body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
 body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
-body:not(.debug) #btnFresh, body:not(.debug) #btnBeetle{display:none}
+body:not(.debug) #btnFresh, body:not(.debug) #btnSkin{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -366,7 +382,7 @@ body:not(.replaying) #btnHistExit{display:none}
     <button class="btn" id="btnWipe">記録を消す</button>
     <button class="btn" id="btnMark">ここまで進んだことにする</button>
     <button class="btn" id="btnFresh">最新に更新</button>
-    <button class="btn" id="btnBeetle">フンコロガシ</button>
+    <button class="btn" id="btnSkin">見た目</button>
     <button class="btn" id="btnPrev">◀</button>
     <button class="btn" id="btnNext">▶</button>
   </div>
@@ -493,7 +509,9 @@ body:not(.replaying) #btnHistExit{display:none}
      ?edit=1    … 面編集。マスを塗り替えて、解けるか確かめて書き出す
      ?lv=N      … 送られてきた1面だけを独立して遊ぶ(本編の進行に影響しない)
      ?history=1 … クリア履歴を開いた状態で始める(右下のボタンと同じ)
-     ?beetle=1  … フンコロガシモード。🐥→🪲 📦→💩 (端末に覚えさせる) */
+     ?skin=beetle   … フンコロガシ。🐥→🪲 📦→💩
+     ?skin=squirrel … リスのどんぐり集め。🐥→🐿️ 📦→🌰
+     ?skin=normal   … ふつうに戻す (どれも端末に覚えさせる) */
 const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
@@ -503,13 +521,31 @@ if(QS.get('debug')==='1'||QS.get('debug')==='0'){
   try{ localStorage.setItem('warehouse-debug', QS.get('debug')); }catch(e){}
 }
 const debugSaved=(()=>{ try{ return localStorage.getItem('warehouse-debug')==='1'; }catch(e){ return false; } })();
-// フンコロガシモード。見た目だけの入れ替えなので、どのモードとも重ねられる
-if(QS.get('beetle')==='1'||QS.get('beetle')==='0'){
-  try{ localStorage.setItem('warehouse-beetle', QS.get('beetle')); }catch(e){}
-}
-const BEETLE=(QS.get('beetle')==='1') || (QS.get('beetle')!=='0' &&
-  (()=>{ try{ return localStorage.getItem('warehouse-beetle')==='1'; }catch(e){ return false; } })());
-const SKIN = BEETLE ? {man:'🪲', box:'💩'} : {man:'🐥', box:'📦'};
+// 見た目の着せ替え。絵と色を入れ替えるだけなので、どのモードとも重ねられる
+const SKINS={
+  normal:  {man:'🐥',  box:'📦', label:'ふつう'},
+  beetle:  {man:'🪲',  box:'💩', label:'フンコロガシ'},
+  squirrel:{man:'🐿️', box:'🌰', label:'リス'},
+};
+const SKIN_ORDER=['normal','beetle','squirrel'];
+(function(){
+  // ?skin=… と、前からある ?beetle=1/0 の両方を受ける
+  let want=QS.get('skin');
+  if(!want && QS.get('beetle')==='1') want='beetle';
+  if(!want && QS.get('beetle')==='0') want='normal';
+  if(want && SKINS[want]){ try{ localStorage.setItem('warehouse-skin', want); }catch(e){} }
+})();
+const skinName=(()=>{
+  const q=QS.get('skin');
+  if(q && SKINS[q]) return q;
+  if(QS.get('beetle')==='1') return 'beetle';
+  if(QS.get('beetle')==='0') return 'normal';
+  try{ const v=localStorage.getItem('warehouse-skin'); if(v&&SKINS[v]) return v; }catch(e){}
+  // 以前のフンコロガシの保存値も見る
+  try{ if(localStorage.getItem('warehouse-beetle')==='1') return 'beetle'; }catch(e){}
+  return 'normal';
+})();
+const SKIN=SKINS[skinName];
 const MOD=QS.get('mod')==='1';
 // モデレーションは素の状態で遊んで判断するもの。端末の記録も URL の指定も無視して、
 // 戻す・ヒント・詰み表示は出さない
@@ -1712,19 +1748,22 @@ $('btnPrev').addEventListener('click',()=>startLevel(index-1));
 $('btnNext').addEventListener('click',()=>startLevel(index+1));
 
 // 見た目だけの入れ替え。絵文字を直に書いてあるところを、まとめて置き換える
-if(BEETLE){
-  document.body.classList.add('beetle');
+if(skinName!=='normal'){
+  document.body.classList.add('skin-'+skinName);
   document.querySelector('.loading .spin').textContent=SKIN.box;
   document.querySelector('.win-emoji').textContent=SKIN.box+'🎉'+SKIN.man;
   document.querySelector('.palette button[data-tool="man"]').textContent=SKIN.man;
   const rules=document.querySelector('.rules');
   rules.innerHTML=rules.innerHTML.split('🐥').join(SKIN.man).split('📦').join(SKIN.box);
 }
-$('btnBeetle').textContent = BEETLE ? 'フンコロガシをやめる' : 'フンコロガシ';
-$('btnBeetle').addEventListener('click',()=>{
-  try{ localStorage.setItem('warehouse-beetle', BEETLE?'0':'1'); }catch(e){}
+// デバッグバーのボタンは、押すたびに次の着せ替えへ回る
+$('btnSkin').textContent='見た目：'+SKIN.label;
+$('btnSkin').addEventListener('click',()=>{
+  const next=SKIN_ORDER[(SKIN_ORDER.indexOf(skinName)+1)%SKIN_ORDER.length];
+  try{ localStorage.setItem('warehouse-skin', next); }catch(e){}
   const u=new URL(location.href);
-  u.searchParams.delete('beetle');            // 保存値が効くよう、指定は消して読み直す
+  u.searchParams.delete('skin');              // 保存値が効くよう、指定は消して読み直す
+  u.searchParams.delete('beetle');
   location.href=u.pathname+(u.search||'');
 });
 
