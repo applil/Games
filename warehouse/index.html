@@ -958,7 +958,6 @@ function startLevel(i){
   player=puzzle.player;
   undoStack=[]; pushCount=0; moveCount=0;
   finished=false; deadShown=false; hintPending=false;
-  clearHold();
   $('overlay').classList.remove('show');
   $('favPanel').classList.remove('show');
   favFromWin=false;
@@ -1006,22 +1005,14 @@ function buildBoard(){
   }
   paint();
 }
-// 冬だけ、氷が滑りきるまで雪だるまを元のマスに描いておく
-let holdMan=null, holdTimer=null;
-function clearHold(){
-  if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
-  if(holdMan!==null){ holdMan=null; return true; }
-  return false;
-}
 function paint(){
-  const man = holdMan!==null ? holdMan : player;
   const boxSet=new Set(boxes);
   for(let i=0;i<cellEls.length;i++){
     const el=cellEls[i], fig=el.firstChild;
     const wall=puzzle.grid[i], goal=goalSet.has(i), box=boxSet.has(i);
     const outside=wall&&outsideMask&&outsideMask[i];
     el.className='cell'+(outside?' void':wall?' wall':'')+(goal&&!box?' goal':'')+(box?' box':'')+(box&&goal?' on':'');
-    fig.textContent = box ? SKIN.box : (i===man ? SKIN.man : '');
+    fig.textContent = box ? SKIN.box : (i===player ? SKIN.man : '');
   }
 }
 
@@ -1131,7 +1122,6 @@ function dirOffset(name){
 function move(name){
   if(!puzzle||finished||EDIT) return;
   ensureAudio();
-  if(clearHold()) paint();                   // 滑っている途中に次の手が来たら、追いつかせる
   const d=dirOffset(name);
   const next=player+d, beyond=player+2*d;
   if(puzzle.grid[next]){ SFX.blocked(); return; }
@@ -1140,17 +1130,16 @@ function move(name){
     if(puzzle.grid[beyond]||boxes.includes(beyond)){ SFX.blocked(); return; }
     undoStack.push({player, boxes:boxes.slice(), pushCount, moveCount});
     boxes[bi]=beyond;
-    player=next;
+    // 冬は、押しても押した先のマスに入らない。その場に留まる。
+    // (空いたマスへはいつでも歩いて入れるので、自機の行ける範囲は変わらない。
+    //  つまり最短の押し手数は他のモードと同じで、面の記録もそのまま使える)
+    if(skinName!=='winter') player=next;
     pushCount++; moveCount++;
+    paint();
     if(skinName==='winter'){
-      // 氷だけが1マス滑る。雪だるまは、氷が止まってから入る
-      holdMan=player-d;
-      paint();
-      glide(beyond, d);
-      sweat(holdMan, 0);
-      holdTimer=setTimeout(()=>{ holdMan=null; holdTimer=null; paint(); }, GLIDE_MS);
+      glide(beyond, d);                      // 氷だけがスーッと滑って止まる
+      sweat(player, 0);
     }else{
-      paint();
       slide(beyond, d); slide(player, d);    // 荷物と自分が、いた場所から滑ってくる
       sweat(player, d);
     }
@@ -1229,14 +1218,12 @@ function bump(i){
 function undo(){
   if(!undoStack.length||finished) return;
   const s=undoStack.pop();
-  clearHold();
   player=s.player; boxes=s.boxes; pushCount=s.pushCount; moveCount=s.moveCount;
   paint(); updateStats(); clearHint(); hideMsg();
   deadShown=false; SFX.undo();
 }
 function resetLevel(){
   if(!puzzle||finished) return;
-  clearHold();
   boxes=puzzle.boxes.slice(); player=puzzle.player;
   undoStack=[]; pushCount=0; moveCount=0;
   deadShown=false;
