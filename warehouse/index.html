@@ -527,7 +527,7 @@ body:not(.replaying) #btnHistExit{display:none}
      ?history=1 … クリア履歴を開いた状態で始める(右下のボタンと同じ)
      ?skin=beetle   … フンコロガシ。🐥→🪲 📦→💩
      ?skin=squirrel … リスのどんぐり集め。🐥→🐿️ 📦→🌰
-     ?skin=winter   … 冬。🐥→🐧 📦→⛄
+     ?skin=winter   … 冬。🐥→⛄ 📦→🧊
      ?skin=normal   … ふつうに戻す (どれも端末に覚えさせる) */
 const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
@@ -543,7 +543,7 @@ const SKINS={
   normal:  {man:'🐥',  box:'📦', label:'ふつう',       title:'倉庫パズル',   icon:''},
   beetle:  {man:'🪲',  box:'💩', label:'フンコロガシ', title:'フンコロガシ', icon:'-beetle'},
   squirrel:{man:'🐿️', box:'🌰', label:'リス',         title:'どんぐり',     icon:'-squirrel'},
-  winter:  {man:'🐧',  box:'⛄', label:'冬',           title:'ゆきだるま',   icon:'-winter'},
+  winter:  {man:'⛄',  box:'🧊', label:'冬',           title:'ゆきだるま',   icon:'-winter'},
 };
 const SKIN_ORDER=['normal','beetle','squirrel','winter'];
 (function(){
