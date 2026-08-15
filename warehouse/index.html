@@ -1232,7 +1232,7 @@ function checkWin(){
     $('winSub').innerHTML='このステージの最短は <b>'+lv.p+'手</b>'
       +'<br>自己ベスト '+bestOf(lv)+'手'
       +'<br>最短で解けた面 '+rows.filter(r=>r.perfect).length+' / '+rows.length;
-    $('btnNextStage').textContent = perfect ? (nextHist(index)?'次の面を解き直す':'とじる') : 'もう一度';
+    $('btnNextStage').textContent = perfect ? '履歴にもどる' : 'もう一度';
   }else{
     $('winSub').innerHTML='このステージの最短は <b>'+lv.p+'手</b>'
       +(first||SHARED?'':'<br>自己ベスト '+Math.min(prev,pushCount)+'手')
@@ -1262,10 +1262,9 @@ function nextStage(){
   $('overlay').classList.remove('show');
   if(SHARED){ location.href=location.pathname; return; }
   if(replaying){
-    // 最短が出るまでは同じ面。出たら、まだ最短でない次の面へ
-    if(pushCount!==puzzle.meta.p){ startLevel(index); return; }
-    const nx=nextHist(index);
-    if(nx) startLevel(nx.i); else openHist();
+    // 最短が出るまでは同じ面。出たら、次の面へ進めずに履歴へもどす
+    if(pushCount!==puzzle.meta.p) startLevel(index);
+    else openHist();
     return;
   }
   if(index<LEVELS.length-1) startLevel(index+1);
@@ -1315,11 +1314,6 @@ function histRows(){
     rows.push({i, lv, best, known:best!==NOREC, perfect:best===lv.p});
   }
   return rows;
-}
-// 次にやり直す面。いまの面より後ろを先に探し、無ければ先頭に回る
-function nextHist(from){
-  const left=histRows().filter(r=>!r.perfect);
-  return left.find(r=>r.i>from) || left.find(r=>r.i<from) || null;
 }
 let histChapter=null;            // null = 全部
 let histOnlyLeft=false;          // まだ最短でない面だけ
