@@ -19,12 +19,11 @@ const {regionsOf, regionRep, keyOf}=E;
 const {minPushes, goalDist, assignCost}=require(path.join(__dirname,'astar.js'));
 
 /* 幅を絞った逆探索。深さごとに beam 個だけ残して、目標の深さまで潜る。
- * 返すのは、各深さの代表(深いものから)。 */
+ * 返すのは、各深さの代表(浅いものから順に並ぶ)。 */
 function reverseBeam(grid, w, goals, opt){
   opt=opt||{};
   const beam=opt.beam||3000;
   const maxDepth=opt.depth||60;
-  const rng=opt.rng||Math.random;
   const gd=goals.map(g=>goalDist(grid,w,g));
   const goalBoxes=goals.slice().sort((a,b)=>a-b);
   const seen=new Set();
