@@ -223,7 +223,7 @@ body.edit .cell{cursor:pointer}
 body.mod #btnUndo, body.mod #btnHint, body.mod #btnWipe{display:none}
 body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
 body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
-body:not(.debug) #btnFresh{display:none}
+body:not(.debug) #btnFresh, body:not(.debug) #btnBeetle{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -350,6 +350,7 @@ body:not(.replaying) #btnHistExit{display:none}
     <button class="btn" id="btnWipe">記録を消す</button>
     <button class="btn" id="btnMark">ここまで進んだことにする</button>
     <button class="btn" id="btnFresh">最新に更新</button>
+    <button class="btn" id="btnBeetle">フンコロガシ</button>
     <button class="btn" id="btnPrev">◀</button>
     <button class="btn" id="btnNext">▶</button>
   </div>
@@ -475,7 +476,8 @@ body:not(.replaying) #btnHistExit{display:none}
      ?mod=1     … モデレーション。面を行き来しながら、良くない面に×を付ける
      ?edit=1    … 面編集。マスを塗り替えて、解けるか確かめて書き出す
      ?lv=N      … 送られてきた1面だけを独立して遊ぶ(本編の進行に影響しない)
-     ?history=1 … クリア履歴を開いた状態で始める(右下のボタンと同じ) */
+     ?history=1 … クリア履歴を開いた状態で始める(右下のボタンと同じ)
+     ?beetle=1  … フンコロガシモード。🐥→🪲 📦→💩 (端末に覚えさせる) */
 const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
@@ -485,6 +487,13 @@ if(QS.get('debug')==='1'||QS.get('debug')==='0'){
   try{ localStorage.setItem('warehouse-debug', QS.get('debug')); }catch(e){}
 }
 const debugSaved=(()=>{ try{ return localStorage.getItem('warehouse-debug')==='1'; }catch(e){ return false; } })();
+// フンコロガシモード。見た目だけの入れ替えなので、どのモードとも重ねられる
+if(QS.get('beetle')==='1'||QS.get('beetle')==='0'){
+  try{ localStorage.setItem('warehouse-beetle', QS.get('beetle')); }catch(e){}
+}
+const BEETLE=(QS.get('beetle')==='1') || (QS.get('beetle')!=='0' &&
+  (()=>{ try{ return localStorage.getItem('warehouse-beetle')==='1'; }catch(e){ return false; } })());
+const SKIN = BEETLE ? {man:'🪲', box:'💩'} : {man:'🐥', box:'📦'};
 const MOD=QS.get('mod')==='1';
 // モデレーションは素の状態で遊んで判断するもの。端末の記録も URL の指定も無視して、
 // 戻す・ヒント・詰み表示は出さない
@@ -930,7 +939,7 @@ function paint(){
     const wall=puzzle.grid[i], goal=goalSet.has(i), box=boxSet.has(i);
     const outside=wall&&outsideMask&&outsideMask[i];
     el.className='cell'+(outside?' void':wall?' wall':'')+(goal&&!box?' goal':'')+(box?' box':'')+(box&&goal?' on':'');
-    fig.textContent = box ? '📦' : (i===player ? '🐥' : '');
+    fig.textContent = box ? SKIN.box : (i===player ? SKIN.man : '');
   }
 }
 
@@ -1444,7 +1453,7 @@ function editCell(i){
 }
 // 盤として成立しているかを、まず形の面で見る
 function editProblem(){
-  if(player<0) return '🐥 がいません';
+  if(player<0) return SKIN.man+' がいません';
   if(!boxes.length) return '荷物がありません';
   if(boxes.length!==goalSet.size) return '荷物 '+boxes.length+'個 に対して置き場 '+goalSet.size+'個';
   const seen=new Uint8Array(puzzle.grid.length);
@@ -1460,7 +1469,7 @@ function editProblem(){
   }
   let floors=0;
   for(let i=0;i<puzzle.grid.length;i++) if(!puzzle.grid[i]) floors++;
-  if(n!==floors) return '🐥 から行けない床があります';
+  if(n!==floors) return SKIN.man+' から行けない床があります';
   for(const b of boxes) if(!seen[b]) return '触れない荷物があります';
   return null;
 }
@@ -1691,6 +1700,22 @@ $('btnHistClose').addEventListener('click',()=>$('histOverlay').classList.remove
 $('btnHistExit').addEventListener('click',exitReplay);
 $('btnPrev').addEventListener('click',()=>startLevel(index-1));
 $('btnNext').addEventListener('click',()=>startLevel(index+1));
+
+// 見た目だけの入れ替え。絵文字を直に書いてあるところを、まとめて置き換える
+if(BEETLE){
+  document.querySelector('.loading .spin').textContent=SKIN.box;
+  document.querySelector('.win-emoji').textContent=SKIN.box+'🎉'+SKIN.man;
+  document.querySelector('.palette button[data-tool="man"]').textContent=SKIN.man;
+  const rules=document.querySelector('.rules');
+  rules.innerHTML=rules.innerHTML.split('🐥').join(SKIN.man).split('📦').join(SKIN.box);
+}
+$('btnBeetle').textContent = BEETLE ? 'フンコロガシをやめる' : 'フンコロガシ';
+$('btnBeetle').addEventListener('click',()=>{
+  try{ localStorage.setItem('warehouse-beetle', BEETLE?'0':'1'); }catch(e){}
+  const u=new URL(location.href);
+  u.searchParams.delete('beetle');            // 保存値が効くよう、指定は消して読み直す
+  location.href=u.pathname+(u.search||'');
+});
 
 applyDpadMode();
 </script>
