@@ -422,7 +422,11 @@ function buildShape(rng, opts){
   opts=opts||{};
   // extreme のときは輪郭がはっきり出る形だけを使う
   const EXTREME_SHAPES=['L字','U字','十字・T字','空洞','回廊','ドーナツ','2部屋'];
-  const pool = opts.extreme ? SHAPES.filter(x=>EXTREME_SHAPES.indexOf(x.name)>=0) : SHAPES;
+  let pool = opts.extreme ? SHAPES.filter(x=>EXTREME_SHAPES.indexOf(x.name)>=0) : SHAPES;
+  if(opts.shapes&&opts.shapes.length){
+    const only=SHAPES.filter(x=>opts.shapes.indexOf(x.name)>=0);
+    if(only.length) pool=only;
+  }
   const shape=pick(pool,rng);
   const {W,H,size,aspect}=pickSize(rng, shape.min[0], shape.min[1], opts.size, opts.extreme);
   const L=shape.build(rng,W,H);
@@ -451,7 +455,52 @@ const manhattan=(w,a,b)=>Math.abs(a%w-b%w)+Math.abs((a/w|0)-(b/w|0));
 // そのマスが何方向に開いているか(4=部屋の中央 / 少ない=壁際や通路)
 const openness=(grid,w,c)=>[1,-1,w,-w].filter(d=>!grid[c+d]).length;
 
+// 床だけでできた長方形(縦横2〜4)を全部あつめる。置き場を四角くまとめるのに使う
+function freeRects(L, minCells, maxCells){
+  const {grid,w,W,H}=L;
+  const out=[];
+  for(let a=2;a<=4;a++) for(let b=2;b<=4;b++){
+    if(a*b<minCells||a*b>maxCells) continue;
+    for(let y=1;y+b-1<=H;y++) for(let x=1;x+a-1<=W;x++){
+      const cells=[];
+      let ok=true;
+      for(let j=0;j<b&&ok;j++) for(let i=0;i<a&&ok;i++){
+        const c=idx(w,x+i,y+j);
+        if(grid[c]) ok=false; else cells.push(c);
+      }
+      if(ok) out.push(cells);
+    }
+  }
+  return out;
+}
+
 const GOAL_PATTERNS=[
+  // 置き場を四角くまとめる。詰める順を間違えると自分で入口をふさぐ
+  { name:'四角詰め', pick(L,floors,n,rng){
+      if(n<4) return null;
+      const rs=freeRects(L, n, n+2);
+      if(!rs.length) return null;
+      const r=pick(rs,rng);
+      // ちょうど収まらないときは、端を欠いて凹ませる(その凹みがまた効く)
+      return r.length===n ? r.slice() : shuffle(r.slice(),rng).slice(0,n);
+    }},
+  // 四角い置き場を2か所に分ける。荷物が部屋をまたぐと、もう何が何やら
+  { name:'二か所詰め', pick(L,floors,n,rng){
+      if(n<4) return null;
+      const half=Math.ceil(n/2), rest=n-half;
+      if(rest<2) return null;
+      const rs=freeRects(L, 2, half+1);
+      if(rs.length<2) return null;
+      const A=pick(rs.filter(r=>r.length>=rest&&r.length<=half+1),rng);
+      if(!A) return null;
+      // もう一方は、行き来はできるが離れている場所から
+      const far=rs.filter(r=>r.every(c=>A.every(o=>manhattan(L.w,o,c)>=5)));
+      if(!far.length) return null;
+      const B=pick(far,rng);
+      const take=(r,k)=>r.length===k?r.slice():shuffle(r.slice(),rng).slice(0,k);
+      const g=take(A,Math.min(half,A.length)).concat(take(B,n-Math.min(half,A.length)));
+      return g.length===n?g:null;
+    }},
   { name:'密集', pick(L,floors,n,rng){          // 隙間なくかたまっている
       const anchor=pick(floors,rng);
       const near=bfsOrder(L.grid,L.w,anchor).slice(0,n);
@@ -507,8 +556,9 @@ const GOAL_PATTERNS=[
     }},
 ];
 
-function pickGoals(L, floors, n, rng){
-  const order=shuffle(GOAL_PATTERNS.slice(),rng);
+function pickGoals(L, floors, n, rng, only){
+  const pool = only&&only.length ? GOAL_PATTERNS.filter(p=>only.indexOf(p.name)>=0) : GOAL_PATTERNS;
+  const order=shuffle((pool.length?pool:GOAL_PATTERNS).slice(),rng);
   for(const pat of order){
     const g=pat.pick(L,floors,n,rng);
     if(g&&new Set(g).size===n) return {goals:g.slice().sort((a,b)=>a-b), pattern:pat.name};

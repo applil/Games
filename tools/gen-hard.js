@@ -37,6 +37,10 @@ const NBOX=pair('NBOX',[5,8]);               // 荷物の数の範囲(両端を�
 const SIZES=(process.env.SIZES||'大,特大,超特大').split(',');
 const FLOORS=pair('FLOORS',[24,70]);
 const COMB=pair('COMB',[3e5,6e6]);
+// 置き場の型と盤の形も指定できる。
+//   GOALS=四角詰め,二か所詰め SHAPES=2部屋,メガネ,連結回廊
+const GOALS=process.env.GOALS?process.env.GOALS.split(','):null;
+const SHAPE_ONLY=process.env.SHAPES?process.env.SHAPES.split(','):null;
 const MIN_LATE_R=0.25;    // 終盤の回り込み ÷ 床。✕30% 対 69%
 // 歩数そのままだと、床14マスの盤で10歩も回れるわけがなく、
 // 実質「小さい面を全部落とす」条件になっていた(そのときは✕37% 対 55%)
@@ -67,7 +71,7 @@ const diffBoxes=(a,b)=>{ const s2=new Set(b); return a.filter(c=>!s2.has(c)).len
 const stat={boards:0, skipped:0, solved:0, capped:0, tooShallow:0, cand:0, mano:0, decoy:0, forced:0, naive:0, late:0, noType:0, dup:0, got:0};
 
 function harvestBoard(){
-  const layout=S.buildShape(rng,{size:SIZES[rng()*SIZES.length|0]});
+  const layout=S.buildShape(rng,{size:SIZES[rng()*SIZES.length|0], shapes:SHAPE_ONLY});
   if(!layout) return [];
   stat.boards++;
   const {grid,w}=layout;
@@ -81,7 +85,7 @@ function harvestBoard(){
   let comb=1;
   for(let i=0;i<nbox;i++) comb=comb*(floors.length-i)/(i+1);
   if(comb<COMB[0]||comb>COMB[1]){ stat.skipped++; return []; }
-  const gp=S.pickGoals(layout, floors, nbox, rng);
+  const gp=S.pickGoals(layout, floors, nbox, rng, GOALS);
   if(!gp) return [];
   const goals=gp.goals;
 
