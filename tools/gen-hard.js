@@ -28,7 +28,15 @@ const SEED=+(process.argv[4]||Date.now()%1e9);
 const PER_BOARD=+(process.argv[5]||2);      // 同じ盤からは似た面しか採れないので少しだけ
 const OUT=process.argv[6]||path.join(__dirname,'hard-candidates.json');
 
-const MIN_PUSH=28;
+// 環境変数で上書きできる。深い面がほしいときは MIN_PUSH と CAP を上げる
+//   MIN_PUSH=45 NBOX=6,9 SIZES=特大,超特大,巨大 CAP=900000 COMB=1e6,4e7 node tools/gen-hard.js …
+const num=(k,d)=>process.env[k]!==undefined?+process.env[k]:d;
+const pair=(k,d)=>process.env[k]!==undefined?process.env[k].split(',').map(Number):d;
+const MIN_PUSH=num('MIN_PUSH',28);
+const NBOX=pair('NBOX',[5,8]);               // 荷物の数の範囲(両端を含む)
+const SIZES=(process.env.SIZES||'大,特大,超特大').split(',');
+const FLOORS=pair('FLOORS',[24,70]);
+const COMB=pair('COMB',[3e5,6e6]);
 const MIN_LATE_R=0.25;    // 終盤の回り込み ÷ 床。✕30% 対 69%
 // 歩数そのままだと、床14マスの盤で10歩も回れるわけがなく、
 // 実質「小さい面を全部落とす」条件になっていた(そのときは✕37% 対 55%)
@@ -44,7 +52,7 @@ const C_DECOY=0.40, D_MANO=0.50;
 // 全局面594のうち正解の筋は11個しかない。選択肢が多い中の一本道は逆に難しい。
 // 一本道かつ選択肢も少ない場合だけ弾く
 const MAX_FORCED=0.35, MIN_SPREAD=10;
-const CAP=250000;                            // これを超える盤は諦める(粘ると1枚に何分もかかる)
+const CAP=num('CAP',250000);                 // これを超える盤は諦める(粘ると1枚に何分もかかる)
 
 const LV=path.join(__dirname,'..','warehouse','levels.json');
 const data=JSON.parse(fs.readFileSync(LV,'utf8'));
@@ -59,20 +67,20 @@ const diffBoxes=(a,b)=>{ const s2=new Set(b); return a.filter(c=>!s2.has(c)).len
 const stat={boards:0, skipped:0, solved:0, capped:0, tooShallow:0, cand:0, mano:0, decoy:0, forced:0, naive:0, late:0, noType:0, dup:0, got:0};
 
 function harvestBoard(){
-  const layout=S.buildShape(rng,{size:['大','特大','超特大'][rng()*3|0]});
+  const layout=S.buildShape(rng,{size:SIZES[rng()*SIZES.length|0]});
   if(!layout) return [];
   stat.boards++;
   const {grid,w}=layout;
   const floors=[];
   for(let i=0;i<grid.length;i++) if(!grid[i]) floors.push(i);
-  if(floors.length<24||floors.length>70) return [];
-  const nbox=5+(rng()*4|0);
+  if(floors.length<FLOORS[0]||floors.length>FLOORS[1]) return [];
+  const nbox=NBOX[0]+(rng()*(NBOX[1]-NBOX[0]+1)|0);
   if(floors.length<nbox*4) return [];
   // 数える前に規模を見積もる。荷物の置き方の総数がこれくらいなら、
   // 解ける局面は上限に収まり、かつ深い局面も出る。外れた盤は数えずに捨てる
   let comb=1;
   for(let i=0;i<nbox;i++) comb=comb*(floors.length-i)/(i+1);
-  if(comb<3e5||comb>6e6){ stat.skipped++; return []; }
+  if(comb<COMB[0]||comb>COMB[1]){ stat.skipped++; return []; }
   const gp=S.pickGoals(layout, floors, nbox, rng);
   if(!gp) return [];
   const goals=gp.goals;
