@@ -41,6 +41,22 @@ body.skin-beetle{
   --done-soft:#c2dc8c;
   --line:#e0cfa8;
 }
+/* 冬の色。壁は凍った石、床は雪 */
+body.skin-winter{
+  --ink:#1b3a52;
+  --ink-soft:#4f728e;
+  --paper:#eef7fd;
+  --card:#ffffff;
+  --wall:#5b7a96;
+  --wall-top:#7a99b3;
+  --floor:#e4f1fb;
+  /* 雪の床は白いので、置き場は暖色ではっきりと */
+  --goal:#d9782a;
+  --goal-soft:#ffd39a;
+  --done:#2f9a86;
+  --done-soft:#b2e4da;
+  --line:#cfe3f0;
+}
 /* リスの色。壁は苔むした木、床は落ち葉 */
 body.skin-squirrel{
   --ink:#2f3d24;
@@ -511,6 +527,7 @@ body:not(.replaying) #btnHistExit{display:none}
      ?history=1 … クリア履歴を開いた状態で始める(右下のボタンと同じ)
      ?skin=beetle   … フンコロガシ。🐥→🪲 📦→💩
      ?skin=squirrel … リスのどんぐり集め。🐥→🐿️ 📦→🌰
+     ?skin=winter   … 冬。🐥→🐧 📦→⛄
      ?skin=normal   … ふつうに戻す (どれも端末に覚えさせる) */
 const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
@@ -526,8 +543,9 @@ const SKINS={
   normal:  {man:'🐥',  box:'📦', label:'ふつう',       title:'倉庫パズル',   icon:''},
   beetle:  {man:'🪲',  box:'💩', label:'フンコロガシ', title:'フンコロガシ', icon:'-beetle'},
   squirrel:{man:'🐿️', box:'🌰', label:'リス',         title:'どんぐり',     icon:'-squirrel'},
+  winter:  {man:'🐧',  box:'⛄', label:'冬',           title:'ゆきだるま',   icon:'-winter'},
 };
-const SKIN_ORDER=['normal','beetle','squirrel'];
+const SKIN_ORDER=['normal','beetle','squirrel','winter'];
 (function(){
   // ?skin=… と、前からある ?beetle=1/0 の両方を受ける
   let want=QS.get('skin');
