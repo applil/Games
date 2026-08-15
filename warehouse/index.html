@@ -25,6 +25,22 @@
   --error:#e5484d;
   --cell:36px;
 }
+/* フンコロガシモードの色。壁は乾いたフン、床は砂 */
+body.beetle{
+  --ink:#3a2a16;
+  --ink-soft:#7d6647;
+  --paper:#f5ead2;
+  --card:#fffaf0;
+  --wall:#6b4a2a;
+  --wall-top:#8b6539;
+  --floor:#f0e2c0;
+  /* 砂の床と紛れないよう、置き場ははっきり濃く */
+  --goal:#c96f13;
+  --goal-soft:#efb45a;
+  --done:#5f8a2e;
+  --done-soft:#c2dc8c;
+  --line:#e0cfa8;
+}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 body{
@@ -1703,6 +1719,7 @@ $('btnNext').addEventListener('click',()=>startLevel(index+1));
 
 // 見た目だけの入れ替え。絵文字を直に書いてあるところを、まとめて置き換える
 if(BEETLE){
+  document.body.classList.add('beetle');
   document.querySelector('.loading .spin').textContent=SKIN.box;
   document.querySelector('.win-emoji').textContent=SKIN.box+'🎉'+SKIN.man;
   document.querySelector('.palette button[data-tool="man"]').textContent=SKIN.man;
