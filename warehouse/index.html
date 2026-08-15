@@ -136,7 +136,7 @@ h1{
 .cell .fig{position:relative;z-index:1;transition:transform .11s ease-out}
 .cell .fig.sliding{transition:none}
 /* 冬だけ、氷がスーッと滑って止まる。押した本人は動かない */
-.cell .fig.glide{transition:transform .26s cubic-bezier(.12,.72,.18,1)}
+.cell .fig.glide{transition:transform .5s cubic-bezier(.05,.62,.14,1)}
 .cell.hintbox{box-shadow:inset 0 0 0 3px var(--done)}
 .cell.bump .fig{animation:bump .18s ease}
 /* 荷物を押したとき、ヒヨコの右上に汗をひと飛び。動きと重なるので控えめに */
@@ -1157,7 +1157,7 @@ function move(name){
   if(DEBUG) checkDead();
 }
 const SLIDE_MS=110;                       // .cell .fig の transition と合わせる
-const GLIDE_MS=260;                       // 冬の氷。.cell .fig.glide と合わせる
+const GLIDE_MS=500;                       // 冬の氷。.cell .fig.glide と合わせる
 const stepMs=()=>skinName==='winter'?GLIDE_MS:SLIDE_MS;
 // 氷を1マスぶん手前に置いてから、ゆっくり定位置へ滑らせる
 function glide(i, d){
