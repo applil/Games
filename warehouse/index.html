@@ -135,6 +135,8 @@ h1{
 .cell.box.on{background:var(--done-soft)}
 .cell .fig{position:relative;z-index:1;transition:transform .11s ease-out}
 .cell .fig.sliding{transition:none}
+/* 冬だけ、氷がスーッと滑って止まる。押した本人は動かない */
+.cell .fig.glide{transition:transform .26s cubic-bezier(.12,.72,.18,1)}
 .cell.hintbox{box-shadow:inset 0 0 0 3px var(--done)}
 .cell.bump .fig{animation:bump .18s ease}
 /* 荷物を押したとき、ヒヨコの右上に汗をひと飛び。動きと重なるので控えめに */
@@ -956,6 +958,7 @@ function startLevel(i){
   player=puzzle.player;
   undoStack=[]; pushCount=0; moveCount=0;
   finished=false; deadShown=false; hintPending=false;
+  clearHold();
   $('overlay').classList.remove('show');
   $('favPanel').classList.remove('show');
   favFromWin=false;
@@ -1003,14 +1006,22 @@ function buildBoard(){
   }
   paint();
 }
+// 冬だけ、氷が滑りきるまで雪だるまを元のマスに描いておく
+let holdMan=null, holdTimer=null;
+function clearHold(){
+  if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; }
+  if(holdMan!==null){ holdMan=null; return true; }
+  return false;
+}
 function paint(){
+  const man = holdMan!==null ? holdMan : player;
   const boxSet=new Set(boxes);
   for(let i=0;i<cellEls.length;i++){
     const el=cellEls[i], fig=el.firstChild;
     const wall=puzzle.grid[i], goal=goalSet.has(i), box=boxSet.has(i);
     const outside=wall&&outsideMask&&outsideMask[i];
     el.className='cell'+(outside?' void':wall?' wall':'')+(goal&&!box?' goal':'')+(box?' box':'')+(box&&goal?' on':'');
-    fig.textContent = box ? SKIN.box : (i===player ? SKIN.man : '');
+    fig.textContent = box ? SKIN.box : (i===man ? SKIN.man : '');
   }
 }
 
@@ -1120,6 +1131,7 @@ function dirOffset(name){
 function move(name){
   if(!puzzle||finished||EDIT) return;
   ensureAudio();
+  if(clearHold()) paint();                   // 滑っている途中に次の手が来たら、追いつかせる
   const d=dirOffset(name);
   const next=player+d, beyond=player+2*d;
   if(puzzle.grid[next]){ SFX.blocked(); return; }
@@ -1130,9 +1142,18 @@ function move(name){
     boxes[bi]=beyond;
     player=next;
     pushCount++; moveCount++;
-    paint();
-    slide(beyond, d); slide(player, d);      // 荷物と自分が、いた場所から滑ってくる
-    sweat(player, d);
+    if(skinName==='winter'){
+      // 氷だけが1マス滑る。雪だるまは、氷が止まってから入る
+      holdMan=player-d;
+      paint();
+      glide(beyond, d);
+      sweat(holdMan, 0);
+      holdTimer=setTimeout(()=>{ holdMan=null; holdTimer=null; paint(); }, GLIDE_MS);
+    }else{
+      paint();
+      slide(beyond, d); slide(player, d);    // 荷物と自分が、いた場所から滑ってくる
+      sweat(player, d);
+    }
     if(goalSet.has(beyond)){ SFX.onGoal(); setTimeout(()=>bump(beyond),110); }
     else SFX.push();
   }else{
@@ -1147,6 +1168,23 @@ function move(name){
   if(DEBUG) checkDead();
 }
 const SLIDE_MS=110;                       // .cell .fig の transition と合わせる
+const GLIDE_MS=260;                       // 冬の氷。.cell .fig.glide と合わせる
+const stepMs=()=>skinName==='winter'?GLIDE_MS:SLIDE_MS;
+// 氷を1マスぶん手前に置いてから、ゆっくり定位置へ滑らせる
+function glide(i, d){
+  const fig=cellEls[i] && cellEls[i].firstChild;
+  if(!fig) return;
+  const step=cellEls[i].getBoundingClientRect().width + 2;
+  const dx=(d===1?-1:d===-1?1:0)*step;
+  const dy=(d===puzzle.w?-1:d===-puzzle.w?1:0)*step;
+  fig.classList.add('sliding');
+  fig.style.transform=`translate(${dx}px,${dy}px)`;
+  void fig.offsetWidth;
+  fig.classList.remove('sliding');
+  fig.classList.add('glide');
+  fig.style.transform='';
+  setTimeout(()=>fig.classList.remove('glide'), GLIDE_MS+40);
+}
 // 移動したマスの絵を、1マスぶん手前に置いてから定位置へ戻す
 function slide(i, d){
   const fig=cellEls[i] && cellEls[i].firstChild;
@@ -1191,12 +1229,14 @@ function bump(i){
 function undo(){
   if(!undoStack.length||finished) return;
   const s=undoStack.pop();
+  clearHold();
   player=s.player; boxes=s.boxes; pushCount=s.pushCount; moveCount=s.moveCount;
   paint(); updateStats(); clearHint(); hideMsg();
   deadShown=false; SFX.undo();
 }
 function resetLevel(){
   if(!puzzle||finished) return;
+  clearHold();
   boxes=puzzle.boxes.slice(); player=puzzle.player;
   undoStack=[]; pushCount=0; moveCount=0;
   deadShown=false;
@@ -1310,7 +1350,7 @@ function checkWin(){
       cellEls.forEach(el=>{ el.firstChild.style.animationDelay=''; });
       $('overlay').classList.add('show');
     },1100);
-  }, SLIDE_MS+20);
+  }, stepMs()+20);
   return true;
 }
 function nextStage(){
