@@ -102,6 +102,8 @@ while(found.length<WANT && (Date.now()-t0)/1000 < SECS){
       type:'深', pulls:g.pulls, boxes:g.boxes,
     };
     found.push(lv);
+    // 見つけるたびに書き出す。まとめて最後に書くと、途中で消えたときに全部失う
+    try{ fs.writeFileSync(OUT, JSON.stringify(found,null,1)); }catch(e){}
     console.log(`  ${lv.p}手 荷物${nbox} 経路${lv.mano} 引き${g.pulls} `
       +`床${floors.length} ${layout.shape}/${gp.pattern} `
       +`(${((Date.now()-t1)/1000).toFixed(0)}秒 ${found.length}面目 通算${((Date.now()-t0)/1000).toFixed(0)}秒)`);

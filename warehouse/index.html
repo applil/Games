@@ -1152,7 +1152,7 @@ function dirOffset(name){
 }
 function move(name, fromReplay){
   if(!puzzle||finished||EDIT) return;
-  if(coReplay && !fromReplay) return;        // 再生中は手を受けない
+  if(coReplay && !fromReplay){ coSkip=true; return; }   // 再生中に触られたら飛ばす
   ensureAudio();
   const d=dirOffset(name);
   const next=player+d, beyond=player+2*d;
@@ -1461,16 +1461,21 @@ function coMarkLost(){
 }
 const MV={u:'up', d:'down', l:'left', r:'right'};
 const MVCODE={up:'u', down:'d', left:'l', right:'r'};
-// 手順を、実際に動かして見せる
+// 手順を、実際に動かして見せる。長いほど速く送る(全体で6秒くらいに収める)
+let coSkip=false;
 function coPlay(moves, done){
   if(!moves||!moves.length){ done&&done(); return; }
-  coReplay=true;
+  coReplay=true; coSkip=false;
+  const wait=Math.max(45, Math.min(190, Math.round(6000/moves.length)));
   let i=0;
   const step=()=>{
-    if(i>=moves.length){ coReplay=false; done&&done(); return; }
+    if(coSkip){                              // 触られたら、残りは一気に進める
+      while(i<moves.length){ const m=MV[moves[i++]]; if(m) move(m, true); }
+    }
+    if(i>=moves.length){ coReplay=false; coSkip=false; done&&done(); return; }
     const m=MV[moves[i++]];
     if(m) move(m, true);
-    setTimeout(step, 190);
+    setTimeout(step, wait);
   };
   setTimeout(step, 400);
 }
@@ -1500,10 +1505,12 @@ function coStart(){
 }
 function coQuit(){
   const back=coBack;
-  coop=null; coBox=-1; coMoved=false;
+  coop=null; coBox=-1; coMoved=false; coTurn=''; coHist=[]; coKey='';
+  coReplay=false;
   document.body.classList.remove('co');
   $('banner').style.display='none';
   hideMsg();
+  $('btnCo').innerHTML='<i>🤝</i>協力';       // 文字を戻さないと、次に押したとき始まってしまう
   startLevel(back);
 }
 function updateCoBanner(){
@@ -1511,7 +1518,7 @@ function updateCoBanner(){
   if(!coop) return;
   if(coReplay){                              // 再生の途中は、そう書いておく
     $('banner').style.display='block';
-    $('bannerText').textContent='🤝 相手の動きを再生中…';
+    $('bannerText').textContent='🤝 ここまでの動きを再生中…（触ると飛ばせます）';
     $('btnCoSend').disabled=true;
     return;
   }
@@ -1555,12 +1562,8 @@ function coResume(o){
   if(!coop.e && coLostKeys().indexOf(coKey)>=0) coop.e='lost';   // 一度詰ませた局面
   undoStack=[]; pushCount=0;
   document.body.classList.add('co');
-  // 最後の手番の手前まで一気に進めてから、相手の動きだけを見せる
-  const last=coHist.length?coHist[coHist.length-1]:'';
-  const before=coHist.slice(0,-1).join('');
-  coReplay=true;
-  for(const c of before){ const m=MV[c]; if(m) move(m, true); }
-  coReplay=false;
+  // 最初からの全部を見せる。どう組み立ててきたかが分かるほうが面白い
+  const all=coHist.join('');
   const finish=()=>{
     // 手順から再現できないときは、送られてきた盤をそのまま使う
     if(o.b && (boxes.slice().sort((a,b)=>a-b).join()!==o.b.slice().sort((a,b)=>a-b).join() || player!==(o.p|0))){
@@ -1579,10 +1582,10 @@ function coResume(o){
   paint();
   updateCoBanner();
   requestTable();                            // 詰み判定に使う表を用意する
-  if(last){
-    $('bannerText').textContent='🤝 相手の動きを再生中…';
+  if(all){
+    $('bannerText').textContent='🤝 ここまでの動きを再生中…（触ると飛ばせます）';
     $('banner').style.display='block';
-    coPlay(last, finish);
+    coPlay(all, finish);
   }else finish();
   if(o.e==='lost'){ coop.e='oplost'; showMsg('相手が詰ませました。あなたの勝ちです。', true); }
   else if(coop.e==='lost'){ showMsg('この局面では、あなたが詰ませています。やり直しはできません。', true); }
