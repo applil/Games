@@ -380,6 +380,8 @@ body.mod #btnCo, body.edit #btnCo{display:none}
 #btnCoSend{background:var(--ink);color:#fff;border-color:var(--ink)}
 body:not(.co) #btnCoSend{display:none}
 body.co #btnHist{display:none}
+/* 押し直せると「詰ませたら負け」が成立しない。やり直しも戻すも出さない */
+body.co #btnReset, body.co #btnUndo{display:none}
 /* 相手が動かした荷物を、受け取ったときに光らせる */
 .cell.came{box-shadow:inset 0 0 0 3px var(--goal)}
 /* 絵文字を足しても「キー大」より広くしない。広いほうの幅で十字キーが縮むため */
@@ -1262,14 +1264,14 @@ function bump(i){
   setTimeout(()=>el.classList.remove('bump'),200);
 }
 function undo(){
-  if(!undoStack.length||finished) return;
+  if(!undoStack.length||finished||coop) return;
   const s=undoStack.pop();
   player=s.player; boxes=s.boxes; pushCount=s.pushCount; moveCount=s.moveCount;
   paint(); updateStats(); clearHint(); hideMsg();
   deadShown=false; SFX.undo();
 }
 function resetLevel(){
-  if(!puzzle||finished) return;
+  if(!puzzle||finished||coop) return;        // 協力プレイでは押し直せない
   boxes=puzzle.boxes.slice(); player=puzzle.player;
   undoStack=[]; pushCount=0; moveCount=0;
   deadShown=false;
@@ -1447,6 +1449,16 @@ let coBack=0;           // 協力を始める前に遊んでいた面(やめた�
 let coTurn='';          // この手番でこちらが動かした向き(送るときに渡す)
 let coHist=[];          // これまでの全手番の動き(相手の動きを再生するのに使う)
 let coReplay=false;     // 再生中は入力を受けない
+let coKey='';           // 受け取った局面の目印(開き直して取り消せないようにする)
+function coLostKeys(){
+  try{ return JSON.parse(store.get('colost')||'[]')||[]; }catch(e){ return []; }
+}
+function coMarkLost(){
+  if(!coKey) return;
+  const a=coLostKeys().filter(x=>x!==coKey);
+  a.push(coKey);
+  store.set('colost', JSON.stringify(a.slice(-30)));
+}
 const MV={u:'up', d:'down', l:'left', r:'right'};
 const MVCODE={up:'u', down:'d', left:'l', right:'r'};
 // 手順を、実際に動かして見せる
@@ -1483,7 +1495,7 @@ function coStart(){
   requestTable();
   showMsg('協力プレイ。くじで第'+(i+1)+'面が選ばれました。'
     +'荷物を1個だけ動かして、相手に送ってください。'
-    +'（動かす回数は何回でも。詰ませたら負けです）');
+    +'（動かす回数は何回でも。押した手は取り消せません。詰ませたら負けです）');
   updateCoBanner();
 }
 function coQuit(){
@@ -1539,6 +1551,8 @@ function coResume(o){
   coop={lv:i+1, n:o.n|0, m:(o.m===undefined?-1:o.m), e:o.e};
   coBox=-1; coMoved=false; coTurn='';
   coHist=Array.isArray(o.h)?o.h.slice():[];
+  coKey=coop.lv+':'+coop.n+':'+(o.b||[]).join(',');
+  if(!coop.e && coLostKeys().indexOf(coKey)>=0) coop.e='lost';   // 一度詰ませた局面
   undoStack=[]; pushCount=0;
   document.body.classList.add('co');
   // 最後の手番の手前まで一気に進めてから、相手の動きだけを見せる
@@ -1570,7 +1584,8 @@ function coResume(o){
     $('banner').style.display='block';
     coPlay(last, finish);
   }else finish();
-  if(coop.e==='lost'){ coop.e='oplost'; showMsg('相手が詰ませました。あなたの勝ちです。', true); }
+  if(o.e==='lost'){ coop.e='oplost'; showMsg('相手が詰ませました。あなたの勝ちです。', true); }
+  else if(coop.e==='lost'){ showMsg('この局面では、あなたが詰ませています。やり直しはできません。', true); }
   else if(coop.e==='youlost'){ coop.e='lost'; showMsg('あなたが詰ませていました。負けです。', true); }
   else if(coop.e==='won') showMsg('二人でクリアしました！');
   else showMsg('相手が動かした荷物が光っています。あなたも荷物を1個だけ動かして、送り返してください。');
@@ -1589,6 +1604,7 @@ function coJudge(mine){
       if(!dist.has(k)){
         if(mine){
           coop.e='lost';
+          coMarkLost();                      // 開き直しても取り消せないように
           showMsg('この手で解けなくなりました。あなたの負けです。', true);
         }else{
           coop.e='oplost';                   // 届いた時点で詰んでいた
