@@ -933,23 +933,30 @@ loadJSON(FILE)
   .catch(e=>showLoading('面の読み込みに失敗しました ('+e.message+')'));
 
 /* ================= 全状態の表(デバッグ用・裏で計算) ================= */
-let tableWorker=null, tableReq=0, hintPending=false;
-if(DEBUG){
+let tableWorker=null, tableReq=0, hintPending=false;   // false = 使えないと分かった
+// 表ができたときにすることは1か所にまとめる(裏で作っても、その場で作っても同じ)
+function tableReady(){
+  updateStats();
+  if(coop){ coJudge(coMoved); return; }             // 協力プレイは自前の文言で知らせる
+  if(hintPending){ hintPending=false; hint(); }
+  else if(dist) checkDead();
+}
+// Worker は、要るモード(デバッグ・協力プレイ)で初めて要求されたときに作る
+function ensureWorker(){
+  if(tableWorker!==null || tableWorker===false) return;
   try{
     tableWorker=new Worker('table-worker.js');
     tableWorker.onmessage=e=>{
       if(e.data.id!==tableReq) return;              // 古い面の結果は捨てる
       dist = e.data.entries ? new Map(e.data.entries) : null;
-      updateStats();
-      if(coop && coMoved) coJudge();
-      if(hintPending){ hintPending=false; hint(); }
-      else if(dist) checkDead();
+      tableReady();
     };
     // Worker が使えない場所(埋め込み先の制限など)では、その場で作り直す
-    tableWorker.onerror=()=>{ tableWorker=null; requestTable(); };
-  }catch(err){ tableWorker=null; }
+    tableWorker.onerror=()=>{ tableWorker=false; requestTable(); };
+  }catch(err){ tableWorker=false; }
 }
 function requestTable(){
+  ensureWorker();
   const id=++tableReq;
   if(tableWorker){
     tableWorker.postMessage({id, grid:puzzle.grid, w:puzzle.w, goals:puzzle.goals, cap:3000000});
@@ -961,9 +968,7 @@ function requestTable(){
     if(id!==tableReq) return;                       // その間に面が変わったらやめる
     dist=solvableStates(puzzle.grid, puzzle.w, puzzle.goals, 3000000);
     hideMsg();
-    updateStats();
-    if(hintPending){ hintPending=false; hint(); }
-    else if(dist) checkDead();
+    tableReady();
   },0);
 }
 
@@ -1187,7 +1192,7 @@ function move(name){
   }
   updateStats();
   clearHint();
-  if(coop){ coJudge(); return; }             // 協力プレイは自前で判定する
+  if(coop){ if(bi>=0) coJudge(true); else updateCoBanner(); return; }  // 押した時だけ見る
   if(checkWin()) return;
   if(DEBUG) checkDead();
 }
@@ -1432,40 +1437,62 @@ const dec=t=>{ try{ return JSON.parse(decodeURIComponent(escape(atob(t.replace(/
 let coop=null;          // 協力プレイ中の状態
 let coBox=-1;           // この手番で動かしている荷物(1個だけ)
 let coMoved=false;      // この手番で1回でも押したか
+let coBack=0;           // 協力を始める前に遊んでいた面(やめたら戻る)
+// 面はその場の面ではなく、くじで選ぶ。二人とも初見のほうが面白い。
+// 第301面から先はこれから並べ直すので、当面は第300面まで。
+// 数手で終わる面は勝負にならないので、ある程度の手数があるものだけ
+const CO_MAX=300, CO_MIN_PUSH=8;
+function coPick(){
+  const ok=[];
+  for(let i=0;i<Math.min(CO_MAX, LEVELS.length);i++) if(LEVELS[i].p>=CO_MIN_PUSH) ok.push(i);
+  if(!ok.length) return index;
+  return ok[Math.floor(Math.random()*ok.length)];
+}
 function coStart(){
   if(!puzzle) return;
-  coop={lv:index+1, n:0, m:-1};
+  coBack=index;
+  const i=coPick();
+  startLevel(i);
+  coop={lv:i+1, n:0, m:-1};
   coBox=-1; coMoved=false;
   document.body.classList.add('co');
-  resetLevel();
-  showMsg('協力プレイ。荷物を1個だけ動かして、相手に送ってください。'
+  requestTable();
+  showMsg('協力プレイ。くじで第'+(i+1)+'面が選ばれました。'
+    +'荷物を1個だけ動かして、相手に送ってください。'
     +'（動かす回数は何回でも。詰ませたら負けです）');
   updateCoBanner();
 }
 function coQuit(){
+  const back=coBack;
   coop=null; coBox=-1; coMoved=false;
   document.body.classList.remove('co');
   $('banner').style.display='none';
   hideMsg();
-  startLevel(index);
+  startLevel(back);
 }
 function updateCoBanner(){
   $('btnCo').innerHTML = coop ? 'やめる' : '<i>🤝</i>協力';
   if(!coop) return;
   $('banner').style.display='block';
   const t = coop.e==='lost' ? '詰ませてしまいました。あなたの負けです'
+          : coop.e==='oplost' ? '相手が詰ませました。あなたの勝ちです'
           : coop.e==='won'  ? '二人でクリア！'
           : coMoved ? '荷物を動かしました。「送り返す」で相手の番にできます'
-          : (coop.n===0 ? '協力プレイ ／ あなたが1手目です' : '協力プレイ '+coop.n+'手目 ／ あなたの番');
+          : (coop.n===0 ? '協力プレイ 第'+coop.lv+'面 ／ あなたが1手目です'
+                        : '協力プレイ '+coop.n+'手目 ／ あなたの番');
   $('bannerText').textContent='🤝 '+t;
   $('btnCoSend').textContent = coop.e==='lost' ? '負けを伝える'
+    : coop.e==='oplost' ? '結果を伝える'
     : coop.e==='won' ? 'クリアを伝える' : '送り返す';
   $('btnCoSend').disabled = !coMoved && !coop.e;
 }
 function coSend(){
   if(!coop) return;
   const o={lv:coop.lv, b:boxes.slice().sort((a,b)=>a-b), p:player, n:coop.n+1, m:coBox};
-  if(coop.e) o.e=coop.e;
+  // 結果は相手から見た形にして渡す(自分の負け=相手の勝ち)
+  if(coop.e==='lost') o.e='lost';
+  else if(coop.e==='oplost') o.e='youlost';
+  else if(coop.e==='won') o.e='won';
   const url=location.origin+location.pathname+'?co='+enc(o);
   const text = coop.e==='lost' ? '「倉庫パズル」協力プレイ：詰ませてしまいました…🤝'
     : coop.e==='won' ? '「倉庫パズル」協力プレイ：二人でクリア！🤝'
@@ -1482,18 +1509,22 @@ function coResume(o){
   undoStack=[]; pushCount=0;
   document.body.classList.add('co');
   paint();
+  updateCoBanner();
   if(coop.m>=0 && cellEls[coop.m]){          // 相手が動かした荷物を光らせる
     cellEls[coop.m].classList.add('came');
     setTimeout(()=>cellEls[coop.m]&&cellEls[coop.m].classList.remove('came'), 2500);
   }
   requestTable();                            // 詰み判定に使う表を用意する
-  updateCoBanner();
-  if(coop.e==='lost') showMsg('相手が詰ませました。あなたの勝ちです。', true);
+  if(coop.e==='lost'){ coop.e='oplost'; showMsg('相手が詰ませました。あなたの勝ちです。', true); }
+  else if(coop.e==='youlost'){ coop.e='lost'; showMsg('あなたが詰ませていました。負けです。', true); }
   else if(coop.e==='won') showMsg('二人でクリアしました！');
   else showMsg('相手が動かした荷物が光っています。あなたも荷物を1個だけ動かして、送り返してください。');
 }
-// 手番の終わりに、まだ解けるかを見る
-function coJudge(){
+/* まだ解けるかを見る。
+   mine=true は自分が押した直後。詰んでいたら自分の負け。
+   mine=false は受け取った直後(まだ押していない)。詰んでいたら、詰ませたのは相手。
+   歩くだけでは解けるかどうかは変わらないので、押したときだけ見ればよい。 */
+function coJudge(mine){
   if(!coop) return;
   if(!coop.e){
     if(boxes.every(b=>goalSet.has(b))) coop.e='won';
@@ -1501,8 +1532,13 @@ function coJudge(){
       const r=regionRep(puzzle.grid, puzzle.w, new Set(boxes), player);
       const k=keyOf(boxes.slice().sort((a,b)=>a-b), r.rep);
       if(!dist.has(k)){
-        coop.e='lost';
-        showMsg('この手で解けなくなりました。あなたの負けです。', true);
+        if(mine){
+          coop.e='lost';
+          showMsg('この手で解けなくなりました。あなたの負けです。', true);
+        }else{
+          coop.e='oplost';                   // 届いた時点で詰んでいた
+          showMsg('届いた局面は、もう解けなくなっています。相手の負けです。', true);
+        }
       }
     }
   }
