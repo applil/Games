@@ -1148,8 +1148,9 @@ function dirOffset(name){
   const w=puzzle.w;
   return name==='up'?-w : name==='down'?w : name==='left'?-1 : 1;
 }
-function move(name){
+function move(name, fromReplay){
   if(!puzzle||finished||EDIT) return;
+  if(coReplay && !fromReplay) return;        // 再生中は手を受けない
   ensureAudio();
   const d=dirOffset(name);
   const next=player+d, beyond=player+2*d;
@@ -1158,7 +1159,7 @@ function move(name){
   if(bi>=0){
     if(puzzle.grid[beyond]||boxes.includes(beyond)){ SFX.blocked(); return; }
     // 協力プレイでは、1手番に動かせる荷物は1個だけ
-    if(coop){
+    if(coop && !fromReplay){
       if(coop.e){ SFX.blocked(); return; }                   // 決着ずみ
       if(coBox>=0 && coBox!==next){
         SFX.blocked();
@@ -1192,7 +1193,12 @@ function move(name){
   }
   updateStats();
   clearHint();
-  if(coop){ if(bi>=0) coJudge(true); else updateCoBanner(); return; }  // 押した時だけ見る
+  if(coop){
+    if(!fromReplay) coTurn+=MVCODE[name]||'';   // 自分の手番の動きを覚えておく
+    if(fromReplay) return;
+    if(bi>=0) coJudge(true); else updateCoBanner();
+    return;                                     // 協力プレイは自前で判定する
+  }
   if(checkWin()) return;
   if(DEBUG) checkDead();
 }
@@ -1438,6 +1444,24 @@ let coop=null;          // 協力プレイ中の状態
 let coBox=-1;           // この手番で動かしている荷物(1個だけ)
 let coMoved=false;      // この手番で1回でも押したか
 let coBack=0;           // 協力を始める前に遊んでいた面(やめたら戻る)
+let coTurn='';          // この手番でこちらが動かした向き(送るときに渡す)
+let coHist=[];          // これまでの全手番の動き(相手の動きを再生するのに使う)
+let coReplay=false;     // 再生中は入力を受けない
+const MV={u:'up', d:'down', l:'left', r:'right'};
+const MVCODE={up:'u', down:'d', left:'l', right:'r'};
+// 手順を、実際に動かして見せる
+function coPlay(moves, done){
+  if(!moves||!moves.length){ done&&done(); return; }
+  coReplay=true;
+  let i=0;
+  const step=()=>{
+    if(i>=moves.length){ coReplay=false; done&&done(); return; }
+    const m=MV[moves[i++]];
+    if(m) move(m, true);
+    setTimeout(step, 190);
+  };
+  setTimeout(step, 400);
+}
 // 面はその場の面ではなく、くじで選ぶ。二人とも初見のほうが面白い。
 // 第301面から先はこれから並べ直すので、当面は第300面まで。
 // 数手で終わる面は勝負にならないので、ある程度の手数があるものだけ
@@ -1454,7 +1478,7 @@ function coStart(){
   const i=coPick();
   startLevel(i);
   coop={lv:i+1, n:0, m:-1};
-  coBox=-1; coMoved=false;
+  coBox=-1; coMoved=false; coTurn=''; coHist=[];
   document.body.classList.add('co');
   requestTable();
   showMsg('協力プレイ。くじで第'+(i+1)+'面が選ばれました。'
@@ -1473,6 +1497,12 @@ function coQuit(){
 function updateCoBanner(){
   $('btnCo').innerHTML = coop ? 'やめる' : '<i>🤝</i>協力';
   if(!coop) return;
+  if(coReplay){                              // 再生の途中は、そう書いておく
+    $('banner').style.display='block';
+    $('bannerText').textContent='🤝 相手の動きを再生中…';
+    $('btnCoSend').disabled=true;
+    return;
+  }
   $('banner').style.display='block';
   const t = coop.e==='lost' ? '詰ませてしまいました。あなたの負けです'
           : coop.e==='oplost' ? '相手が詰ませました。あなたの勝ちです'
@@ -1488,7 +1518,8 @@ function updateCoBanner(){
 }
 function coSend(){
   if(!coop) return;
-  const o={lv:coop.lv, b:boxes.slice().sort((a,b)=>a-b), p:player, n:coop.n+1, m:coBox};
+  const o={lv:coop.lv, b:boxes.slice().sort((a,b)=>a-b), p:player, n:coop.n+1, m:coBox,
+           h:coHist.concat(coTurn)};
   // 結果は相手から見た形にして渡す(自分の負け=相手の勝ち)
   if(coop.e==='lost') o.e='lost';
   else if(coop.e==='oplost') o.e='youlost';
@@ -1503,18 +1534,40 @@ function coSend(){
 function coResume(o){
   const i=Math.max(0, Math.min(LEVELS.length-1, (o.lv|0)-1));
   startLevel(i);
-  boxes=o.b.slice(); player=o.p|0;
   coop={lv:i+1, n:o.n|0, m:(o.m===undefined?-1:o.m), e:o.e};
-  coBox=-1; coMoved=false;
+  coBox=-1; coMoved=false; coTurn='';
+  coHist=Array.isArray(o.h)?o.h.slice():[];
   undoStack=[]; pushCount=0;
   document.body.classList.add('co');
+  // 最後の手番の手前まで一気に進めてから、相手の動きだけを見せる
+  const last=coHist.length?coHist[coHist.length-1]:'';
+  const before=coHist.slice(0,-1).join('');
+  coReplay=true;
+  for(const c of before){ const m=MV[c]; if(m) move(m, true); }
+  coReplay=false;
+  const finish=()=>{
+    // 手順から再現できないときは、送られてきた盤をそのまま使う
+    if(o.b && (boxes.slice().sort((a,b)=>a-b).join()!==o.b.slice().sort((a,b)=>a-b).join() || player!==(o.p|0))){
+      boxes=o.b.slice(); player=o.p|0; paint();
+    }
+    coBox=-1; coMoved=false; pushCount=0;
+    undoStack=[];
+    updateStats();
+    if(coop.m>=0 && cellEls[coop.m]){        // 相手が動かした荷物を光らせる
+      cellEls[coop.m].classList.add('came');
+      setTimeout(()=>cellEls[coop.m]&&cellEls[coop.m].classList.remove('came'), 2500);
+    }
+    coJudge(false);                          // 届いた局面がもう詰んでいないか
+    updateCoBanner();
+  };
   paint();
   updateCoBanner();
-  if(coop.m>=0 && cellEls[coop.m]){          // 相手が動かした荷物を光らせる
-    cellEls[coop.m].classList.add('came');
-    setTimeout(()=>cellEls[coop.m]&&cellEls[coop.m].classList.remove('came'), 2500);
-  }
   requestTable();                            // 詰み判定に使う表を用意する
+  if(last){
+    $('bannerText').textContent='🤝 相手の動きを再生中…';
+    $('banner').style.display='block';
+    coPlay(last, finish);
+  }else finish();
   if(coop.e==='lost'){ coop.e='oplost'; showMsg('相手が詰ませました。あなたの勝ちです。', true); }
   else if(coop.e==='youlost'){ coop.e='lost'; showMsg('あなたが詰ませていました。負けです。', true); }
   else if(coop.e==='won') showMsg('二人でクリアしました！');
