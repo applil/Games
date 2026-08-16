@@ -110,6 +110,7 @@ function minPushes(grid, w, goals, boxes0, player0, opt){
   push(h0, {boxes:start, rep:rep0, g:0});
 
   let nodes=0;
+  const done=v=>{ if(opt.stat) opt.stat.nodes=nodes; return v; };
   for(let f=0; f<buckets.length || f<=h0; f++){
     const bucket=buckets[f];
     if(!bucket) continue;
@@ -117,8 +118,8 @@ function minPushes(grid, w, goals, boxes0, player0, opt){
       const st=bucket.pop();
       const key=keyOf(st.boxes, st.rep);
       if(seen.get(key)<st.g) continue;        // もっと安く来られた
-      if(st.boxes.every(b=>goalSet.has(b))) return st.g;
-      if(++nodes>NODES) return undefined;
+      if(st.boxes.every(b=>goalSet.has(b))) return done(st.g);
+      if(++nodes>NODES) return done(undefined);
 
       const boxSet=new Set(st.boxes);
       // 自機が行ける範囲を出す
@@ -154,7 +155,7 @@ function minPushes(grid, w, goals, boxes0, player0, opt){
       }
     }
   }
-  return null;
+  return done(null);
 }
 
 module.exports={minPushes, goalDist, assignCost};

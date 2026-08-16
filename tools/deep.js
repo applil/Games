@@ -156,10 +156,23 @@ function harvestDeep(grid, w, goals, opt){
   const gd=goals.map(g=>goalDist(grid,w,g));
   const layers=reverseBeam(grid, w, goals, {beam:opt.beam||2500, depth:opt.depth||(minPush*2)});
   const out=[];
-  // 深いほうから見る。引いた回数は最短の保証ではないので、A* で確かめる
-  for(let i=layers.length-1; i>=0 && out.length<want; i--){
+  // 1盤に使ってよい A* の総量。これを超えたら、その盤は諦めて次へ。
+  // (層を全部なめると、当たらない盤1枚に何十分も溶かす)
+  const budget=opt.budget||2.5e6;
+  let used=0;
+  // 深い層から数枚だけ見る。層をひとつ残らず試すのは高すぎる
+  const deepIdx=[];
+  for(let i=layers.length-1; i>=0; i--){
+    if(layers[i].depth<minPush) break;
+    deepIdx.push(i);
+  }
+  const maxLayers=opt.maxLayers||3;
+  const useIdx=[];
+  if(deepIdx.length<=maxLayers) useIdx.push(...deepIdx);
+  else for(let k=0;k<maxLayers;k++) useIdx.push(deepIdx[Math.round(k*(deepIdx.length-1)/(maxLayers-1))]);
+  for(const i of useIdx){
+    if(out.length>=want || used>=budget) break;
     const layer=layers[i];
-    if(layer.depth<minPush) break;                 // これ以上浅い層に用はない
     // 層の先頭だけを見ると、選び方の偏りがそのまま出る。層全体から等間隔で拾う
     const tries=opt.tries||6;
     const step=Math.max(1, Math.floor(layer.states.length/tries));
@@ -181,9 +194,11 @@ function harvestDeep(grid, w, goals, opt){
     const rounds=[Math.round((opt.nodes||6e5)*0.15), opt.nodes||6e5];
     for(const nodes of rounds){
       for(const c of cand){
-        if(out.length>=want) break;
+        if(out.length>=want || used>=budget) break;
         if(c.done) continue;
-        const p=minPushes(grid, w, goals, c.st.boxes, c.st.rep, {nodes});
+        const stat={};
+        const p=minPushes(grid, w, goals, c.st.boxes, c.st.rep, {nodes, stat});
+        used += stat.nodes||nodes;
         if(p===undefined) continue;                  // 上限超え。次の合で試す
         c.done=true;                                 // 答えが出た(採否は別)
         if(p===null || p<minPush) continue;
