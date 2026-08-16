@@ -94,6 +94,8 @@ const takeAtLeast=min=>{                          // 下限以上でいちばん
   return bi<0 ? null : byPush.splice(bi,1)[0];
 };
 
+// 最終面はいちばん深いものにする。先に取り置きしないと、途中で使われてしまう
+const finale=takeMax();
 const out=[];
 const missing=[];
 for(const band of BANDS){
@@ -103,11 +105,13 @@ for(const band of BANDS){
     const wantSpike = band.spikes>=n || spikeAt.has(i);
     let lv = wantSpike ? takeAtLeast(band.spike) : null;
     if(!lv && wantSpike) lv=takeAtLeast(band.spike-4);       // 少し譲る
-    if(!lv && band.from+i===1000) lv=takeMax();                // 最終面はいちばん深いもの
+    if(!lv && band.from+i===1000) lv=finale;                   // 取り置いた最深の面
     if(!lv){
       // 土台は、区間の中で軽い側から重い側へ緩やかに上げる
       const t=band.base + Math.round((i/n)*(band.base*0.35));
-      lv=takeNear(t, band.floor) || takeNear(t);
+      lv=takeNear(t, band.floor);
+      // 下限を割るものは入れない。在庫が尽きたら、その枠は空けたままにする。
+      // (ここで妥協すると、800面台に11手の面が混ざる)
     }
     if(!lv){ missing.push(band.from+i); continue; }
     out.push({lv, at:band.from+i, spike:wantSpike});
