@@ -38,8 +38,11 @@ const MIN_MANO=num('MIN_MANO',0.30);
 const NBOX=pair('NBOX',[6,8]);
 const FLOORS=pair('FLOORS',[34,80]);
 const SIZES=list('SIZES',['特大','超特大']);
-const SHAPES=list('SHAPES',['2部屋','3部屋','メガネ','連結回廊','空洞','ドーナツ','U字','迷路']);
-const GOALS=list('GOALS',['四角詰め','二か所詰め','密集','疎な塊']);
+// 実際に深い面が出た形と置き場だけを既定にする。
+// 5回ぶんの試行で当たったのは 3部屋/ドーナツ/2部屋/メガネ/U字 と、
+// 二か所詰め・密集・四角詰め。迷路・空洞・連結回廊・疎な塊 は1面も出なかった
+const SHAPES=list('SHAPES',['2部屋','3部屋','メガネ','ドーナツ','U字']);
+const GOALS=list('GOALS',['二か所詰め','四角詰め','密集']);
 const BEAM=num('BEAM',2500), TRIES=num('TRIES',6), NODES=num('NODES',1.5e6);
 // 逆探索をどこまで潜るか。最短手数の何倍まで引くか。
 // 引きすぎても使わない層を作るだけで、1盤あたりの時間がまるまる増える
