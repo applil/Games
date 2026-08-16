@@ -163,19 +163,36 @@ function harvestDeep(grid, w, goals, opt){
     // 層の先頭だけを見ると、選び方の偏りがそのまま出る。層全体から等間隔で拾う
     const tries=opt.tries||6;
     const step=Math.max(1, Math.floor(layer.states.length/tries));
-    for(let j=0; j<layer.states.length && out.length<want; j+=step){
+    const cand=[];
+    for(let j=0; j<layer.states.length; j+=step){
       const st=layer.states[j];
       const carry=assignCost(gd, st.boxes.slice().sort((a,b)=>a-b));
       // A* は高いので、下限の時点で見込みのないものは先に落とす。
-      // 押し手数は必ず下限以上なので、下限が大きすぎると経路のズレは伸びない
+      //   下限が大きすぎる → まっすぐ運ぶだけの面になる
+      //   下限が小さすぎる → そもそも minPush 手に届かない
+      //   (押し手数は必ず下限以上、経路のズレの上限をだいたい0.72と見て逆算する)
       if(carry>minPush*(1-minMano)*1.6) continue;
-      const p=minPushes(grid, w, goals, st.boxes, st.rep, {nodes:opt.nodes||1.5e6});
-      if(p===undefined || p===null) continue;      // 上限超え、または解けない
-      if(p<minPush) continue;                      // 引いた回数ほど深くなかった
-      if((p-carry)/p < minMano) continue;          // まっすぐ運ぶだけで終わる
-      if(naiveSolvable(grid, w, goals, gd, st.boxes, st.rep)) continue;
-      out.push({boxes:st.boxes.slice(), rep:st.rep, p, carry,
-                mano:+((p-carry)/p).toFixed(2), pulls:layer.depth});
+      if(carry<minPush*0.28) continue;
+      cand.push({st, carry});
+      if(cand.length>=tries) break;
+    }
+    // まず軽い上限で全部を試し、それでも足りなければ重い上限でやり直す。
+    // 「重い盤に何十秒もかけて結局だめ」を避ける
+    const rounds=[Math.round((opt.nodes||6e5)*0.15), opt.nodes||6e5];
+    for(const nodes of rounds){
+      for(const c of cand){
+        if(out.length>=want) break;
+        if(c.done) continue;
+        const p=minPushes(grid, w, goals, c.st.boxes, c.st.rep, {nodes});
+        if(p===undefined) continue;                  // 上限超え。次の合で試す
+        c.done=true;                                 // 答えが出た(採否は別)
+        if(p===null || p<minPush) continue;
+        if((p-c.carry)/p < minMano) continue;        // まっすぐ運ぶだけで終わる
+        if(naiveSolvable(grid, w, goals, gd, c.st.boxes, c.st.rep)) continue;
+        out.push({boxes:c.st.boxes.slice(), rep:c.st.rep, p, carry:c.carry,
+                  mano:+((p-c.carry)/p).toFixed(2), pulls:layer.depth});
+      }
+      if(out.length>=want) break;
     }
   }
   return out;
