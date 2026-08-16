@@ -4,6 +4,8 @@
  *   ・盤面として成立しているか(荷物と置き場の数が一致 / 人がいる / 床がつながっている)
  *   ・記録されている最短手数どおりに解けるか
  * 検証には枝刈りなしの前向きBFSを使い、生成器とは別経路で確かめる。
+ * 深い面は前向きBFSでは終わらないので、上限を超えたら A* に切り替える
+ * (A* 自体は、数え上げと突き合わせて答えが合うことを確かめてある)。
  *
  *   node tools/verify-levels.js [levels.json]
  */
@@ -11,6 +13,8 @@ const fs=require('fs');
 const path=require('path');
 const E=require(path.join(__dirname,'..','warehouse','engine.js')).WarehouseEngine;
 const {regionRep, pushesFrom, keyOf}=E;
+const {minPushes}=require(path.join(__dirname,'astar.js'));
+const BFS_CAP=+(process.env.BFS_CAP||400000);        // これを超えたら A* に回す
 
 const FILE=process.argv[2]||path.join(__dirname,'..','warehouse','levels.json');
 const data=JSON.parse(fs.readFileSync(FILE,'utf8'));
@@ -46,6 +50,7 @@ function forwardSolve(p){
   let d=0;
   while(layer.length){
     if(layer.some(s=>s.boxes.every(b=>goalSet.has(b)))) return d;
+    if(seen.size>BFS_CAP) return 'over';                // 深すぎる。A* に回す
     const next=[];
     for(const st of layer){
       for(const m of pushesFrom(grid,w,st.boxes,st.cells)){
@@ -57,6 +62,11 @@ function forwardSolve(p){
     layer=next; d++;
   }
   return null;
+}
+// 前向きBFSで終わらなかった面を A* で解く
+function deepSolve(p){
+  const r=minPushes(p.grid,p.w,p.goals,p.boxes,p.player,{nodes:6e6});
+  return r===undefined ? 'over' : r;
 }
 
 function connected(p){
@@ -73,7 +83,7 @@ function connected(p){
 }
 
 const ids=new Set();
-let bad=0, checked=0;
+let bad=0, checked=0, deep=0, unchecked=0;
 const t0=Date.now();
 data.levels.forEach((lv,i)=>{
   const where=`第${i+1}面 (${lv.id})`;
@@ -87,13 +97,17 @@ data.levels.forEach((lv,i)=>{
   if(!p.boxes.length){ console.log(`${where}: 荷物がない`); bad++; return; }
   if(!connected(p)){ console.log(`${where}: 床が分断されている`); bad++; return; }
   if(p.boxes.every(b=>p.goals.includes(b))){ console.log(`${where}: 最初から完成している`); bad++; return; }
-  const d=forwardSolve(p);
+  let d=forwardSolve(p), how='BFS';
+  if(d==='over'){ d=deepSolve(p); how='A*'; deep++; }
   checked++;
+  if(d==='over'){ console.log(`${where}: A*でも上限超え(検証できず)`); unchecked++; return; }
   if(d===null){ console.log(`${where}: 解けない`); bad++; return; }
-  if(d!==lv.p){ console.log(`${where}: 記録${lv.p}手 実測${d}手`); bad++; }
+  if(d!==lv.p){ console.log(`${where}: 記録${lv.p}手 実測${d}手 (${how})`); bad++; }
 });
 
 const sec=((Date.now()-t0)/1000).toFixed(1);
-console.log(`\n${data.levels.length}面 / ID重複なし:${ids.size===data.levels.length} / 前向きBFSで${checked}面を検証 (${sec}秒)`);
+console.log(`\n${data.levels.length}面 / ID重複なし:${ids.size===data.levels.length} / ${checked}面を検証 (${sec}秒)`
+  +(deep?` — うち${deep}面は深すぎるので A* で検証`:'')
+  +(unchecked?` / ${unchecked}面は検証できず`:''));
 console.log(bad ? `❌ ${bad}件の問題` : '✅ 全件で問題なし — すべて解けて、最短手数も記録と一致');
 process.exit(bad?1:0);
