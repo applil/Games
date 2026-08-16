@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ゆきだるま</title>
+<!-- 着せ替え専用の入口。
+     リンクを送ったとき、相手のアプリは JavaScript を動かさずに meta だけを読む。
+     着せ替えごとに絵を変えるには、着せ替えごとに住所を分けるしかない。
+     開くと本体へ送り、その着せ替えで始まる。 -->
+<link rel="apple-touch-icon" href="../icon-180-winter.png">
+<link rel="icon" type="image/png" href="../icon-512-winter.png">
+<meta name="apple-mobile-web-app-title" content="ゆきだるま">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ゆきだるま">
+<meta property="og:description" content="⛄ が 🧊 を押すパズル。氷はスーッと滑る。全600面。">
+<meta property="og:image" content="https://applil.github.io/Games/warehouse/icon-512-winter.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
+<style>
+  html,body{height:100%;margin:0}
+  body{font-family:'Hiragino Maru Gothic ProN',system-ui,sans-serif;background:#e4f1fb;color:#1b3a52;
+       display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+  .em{font-size:64px;line-height:1}
+  a{color:inherit;font-size:13px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="em">⛄🧊</div>
+<div><a href="../?skin=winter">ゆきだるまをひらく</a></div>
+<script>
+  // 面の指定はそのまま渡す
+  var q=new URLSearchParams(location.search);
+  q.set('skin','winter');
+  location.replace('../?'+q.toString());
+</script>
+</body>
+</html>

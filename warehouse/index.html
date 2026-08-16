@@ -8,6 +8,15 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-512.png">
 <meta name="apple-mobile-web-app-title" content="倉庫パズル">
+<!-- リンクを送ったときの見出しと絵。相手のアプリは JavaScript を動かさずに
+     この部分だけを読むので、着せ替えごとの絵は別の入口(beetle/ など)に置く -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="倉庫パズル">
+<meta property="og:description" content="🐥 が 📦 を置き場まで運ぶパズル。全600面。">
+<meta property="og:image" content="https://applil.github.io/Games/warehouse/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
 <style>
 :root{
   --ink:#1c2b46;
@@ -1322,8 +1331,11 @@ function checkWin(){
     const last=index>=LEVELS.length-1;
     $('btnNextStage').textContent = SHARED ? '本編へ' : (last ? 'とじる' : '次のステージへ');
   }
+  // 着せ替え中は、その着せ替え専用の入口を送る。
+  // 送り先のアプリは静的な meta しか読まないので、絵を変えるにはこれしかない
+  const base=location.origin+location.pathname.replace(/(beetle|squirrel|winter)\/$/,'');
   shareData={
-    url: location.origin+location.pathname+'?lv='+(index+1),
+    url: base+(skinName==='normal'?'':skinName+'/')+'?lv='+(index+1),
     text:'「倉庫パズル」ステージ'+(index+1)+'を'+pushCount+'手でクリア！(最短'+lv.p+'手)',
   };
 
