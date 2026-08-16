@@ -240,7 +240,9 @@ body.dpad-off .footrow{position:static;padding-top:10px;height:auto;align-items:
 #btnDpadMode{white-space:nowrap}
 .footrow .left{justify-self:start;display:flex;gap:6px}
 .footrow .mid{justify-self:center}
-.footrow .right{justify-self:end;display:flex;gap:6px}
+/* 右のボタンは縦に積む。横に並べると十字キーの正方形が痩せる */
+.footrow .right{justify-self:end;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.footrow .right .btn{width:100%}
 .btn{
   border:1px solid var(--line);border-radius:999px;font:inherit;font-weight:700;cursor:pointer;
   padding:7px 14px;font-size:12px;background:var(--card);color:var(--ink-soft);
@@ -373,6 +375,13 @@ body:not(.debug) #btnFresh, body:not(.debug) #btnSkin{display:none}
 body.mod #btnHist, body.edit #btnHist{display:none}
 /* 「本編にもどる」は、履歴から選んだ面を遊んでいるときだけ */
 body:not(.replaying) #btnHistExit{display:none}
+/* 協力プレイ */
+body.mod #btnCo, body.edit #btnCo{display:none}
+#btnCoSend{background:var(--ink);color:#fff;border-color:var(--ink)}
+body:not(.co) #btnCoSend{display:none}
+body.co #btnHist{display:none}
+/* 相手が動かした荷物を、受け取ったときに光らせる */
+.cell.came{box-shadow:inset 0 0 0 3px var(--goal)}
 /* 絵文字を足しても「キー大」より広くしない。広いほうの幅で十字キーが縮むため */
 #btnHist{padding-left:10px;padding-right:12px}
 #btnHist i{font-style:normal;font-size:10px;margin-right:3px;vertical-align:1px}
@@ -468,6 +477,8 @@ body:not(.replaying) #btnHistExit{display:none}
       <button class="btn" id="btnFav" style="display:none">★ --</button>
       <button class="btn" id="btnBad" style="display:none">✕</button>
       <button class="btn" id="btnHist"><i>📋</i>履歴</button>
+      <button class="btn" id="btnCo"><i>🤝</i>協力</button>
+      <button class="btn" id="btnCoSend">送り返す</button>
       <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
     </div>
   </div>
@@ -540,7 +551,8 @@ body:not(.replaying) #btnHistExit{display:none}
      ?skin=beetle   … フンコロガシ。🐥→🪲 📦→💩
      ?skin=squirrel … リスのどんぐり集め。🐥→🐿️ 📦→🌰
      ?skin=winter   … 冬。🐥→⛄ 📦→🧊
-     ?skin=normal   … ふつうに戻す (どれも端末に覚えさせる) */
+     ?skin=normal   … ふつうに戻す (どれも端末に覚えさせる)
+     ?co=…      … 協力プレイ。交互に荷物を1個ずつ動かして送り合う */
 const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
@@ -911,6 +923,8 @@ loadJSON(FILE)
       $('btnHist').style.display='none';
       $('stageLabel').textContent='送られたステージ';
     }
+    const co=QS.get('co') && dec(QS.get('co'));
+    if(co && co.b && co.lv){ coResume(co); return; }          // 協力プレイの続き
     const start=(WANT>=1&&WANT<=LEVELS.length) ? WANT-1 : unlockedMax();
     startLevel(start);
     // ?history=1 は、右下のボタンを押したのと同じ。履歴を開いた状態で始める
@@ -927,6 +941,7 @@ if(DEBUG){
       if(e.data.id!==tableReq) return;              // 古い面の結果は捨てる
       dist = e.data.entries ? new Map(e.data.entries) : null;
       updateStats();
+      if(coop && coMoved) coJudge();
       if(hintPending){ hintPending=false; hint(); }
       else if(dist) checkDead();
     };
@@ -961,7 +976,7 @@ function startLevel(i){
   // 全状態の表は詰み判定とヒントにしか使わない。通常プレイでは作らない。
   // デバッグ時も裏で作る(大きい盤だと数秒かかるため、画面は止めない)
   dist=null;
-  if(DEBUG) requestTable();
+  if(DEBUG||coop) requestTable();
   goalSet=new Set(puzzle.goals);
   boxes=puzzle.boxes.slice();
   player=puzzle.player;
@@ -1137,6 +1152,15 @@ function move(name){
   const bi=boxes.indexOf(next);
   if(bi>=0){
     if(puzzle.grid[beyond]||boxes.includes(beyond)){ SFX.blocked(); return; }
+    // 協力プレイでは、1手番に動かせる荷物は1個だけ
+    if(coop){
+      if(coop.e){ SFX.blocked(); return; }                   // 決着ずみ
+      if(coBox>=0 && coBox!==next){
+        SFX.blocked();
+        showMsg('この手番で動かせるのは1個だけです。送り返してください。', true);
+        return;
+      }
+    }
     undoStack.push({player, boxes:boxes.slice(), pushCount, moveCount});
     boxes[bi]=beyond;
     // 冬は、押しても押した先のマスに入らない。その場に留まる。
@@ -1152,6 +1176,7 @@ function move(name){
       slide(beyond, d); slide(player, d);    // 荷物と自分が、いた場所から滑ってくる
       sweat(player, d);
     }
+    if(coop){ coBox=beyond; coMoved=true; }                  // 次はこの荷物だけ動かせる
     if(goalSet.has(beyond)){ SFX.onGoal(); setTimeout(()=>bump(beyond),110); }
     else SFX.push();
   }else{
@@ -1162,6 +1187,7 @@ function move(name){
   }
   updateStats();
   clearHint();
+  if(coop){ coJudge(); return; }             // 協力プレイは自前で判定する
   if(checkWin()) return;
   if(DEBUG) checkDead();
 }
@@ -1394,6 +1420,93 @@ function renderPicker(){
     b.addEventListener('click',()=>{ $('pickOverlay').classList.remove('show'); startLevel(i); });
     grid.appendChild(b);
   }
+}
+
+/* ================= 協力プレイ =================
+   交互に、荷物を1個だけ動かして送り合う。動かす回数は何回でもよい。
+   押した結果その面が解けなくなったら、押した人の負け。
+   判定は受け取った端末が自分で計算するので、審判もサーバも要らない。 */
+const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const dec=t=>{ try{ return JSON.parse(decodeURIComponent(escape(atob(t.replace(/-/g,'+').replace(/_/g,'/'))))); }catch(e){ return null; } };
+// co = {lv:面番号, b:荷物, p:自機, n:何手目, m:相手が動かした荷物, e:終わり方}
+let coop=null;          // 協力プレイ中の状態
+let coBox=-1;           // この手番で動かしている荷物(1個だけ)
+let coMoved=false;      // この手番で1回でも押したか
+function coStart(){
+  if(!puzzle) return;
+  coop={lv:index+1, n:0, m:-1};
+  coBox=-1; coMoved=false;
+  document.body.classList.add('co');
+  resetLevel();
+  showMsg('協力プレイ。荷物を1個だけ動かして、相手に送ってください。'
+    +'（動かす回数は何回でも。詰ませたら負けです）');
+  updateCoBanner();
+}
+function coQuit(){
+  coop=null; coBox=-1; coMoved=false;
+  document.body.classList.remove('co');
+  $('banner').style.display='none';
+  hideMsg();
+  startLevel(index);
+}
+function updateCoBanner(){
+  $('btnCo').innerHTML = coop ? 'やめる' : '<i>🤝</i>協力';
+  if(!coop) return;
+  $('banner').style.display='block';
+  const t = coop.e==='lost' ? '詰ませてしまいました。あなたの負けです'
+          : coop.e==='won'  ? '二人でクリア！'
+          : coMoved ? '荷物を動かしました。「送り返す」で相手の番にできます'
+          : (coop.n===0 ? '協力プレイ ／ あなたが1手目です' : '協力プレイ '+coop.n+'手目 ／ あなたの番');
+  $('bannerText').textContent='🤝 '+t;
+  $('btnCoSend').textContent = coop.e==='lost' ? '負けを伝える'
+    : coop.e==='won' ? 'クリアを伝える' : '送り返す';
+  $('btnCoSend').disabled = !coMoved && !coop.e;
+}
+function coSend(){
+  if(!coop) return;
+  const o={lv:coop.lv, b:boxes.slice().sort((a,b)=>a-b), p:player, n:coop.n+1, m:coBox};
+  if(coop.e) o.e=coop.e;
+  const url=location.origin+location.pathname+'?co='+enc(o);
+  const text = coop.e==='lost' ? '「倉庫パズル」協力プレイ：詰ませてしまいました…🤝'
+    : coop.e==='won' ? '「倉庫パズル」協力プレイ：二人でクリア！🤝'
+    : '「倉庫パズル」協力プレイ '+coop.n+'手目。次はあなたの番です🤝';
+  shareLink(url, text);
+}
+// 受け取った局面から始める
+function coResume(o){
+  const i=Math.max(0, Math.min(LEVELS.length-1, (o.lv|0)-1));
+  startLevel(i);
+  boxes=o.b.slice(); player=o.p|0;
+  coop={lv:i+1, n:o.n|0, m:(o.m===undefined?-1:o.m), e:o.e};
+  coBox=-1; coMoved=false;
+  undoStack=[]; pushCount=0;
+  document.body.classList.add('co');
+  paint();
+  if(coop.m>=0 && cellEls[coop.m]){          // 相手が動かした荷物を光らせる
+    cellEls[coop.m].classList.add('came');
+    setTimeout(()=>cellEls[coop.m]&&cellEls[coop.m].classList.remove('came'), 2500);
+  }
+  requestTable();                            // 詰み判定に使う表を用意する
+  updateCoBanner();
+  if(coop.e==='lost') showMsg('相手が詰ませました。あなたの勝ちです。', true);
+  else if(coop.e==='won') showMsg('二人でクリアしました！');
+  else showMsg('相手が動かした荷物が光っています。あなたも荷物を1個だけ動かして、送り返してください。');
+}
+// 手番の終わりに、まだ解けるかを見る
+function coJudge(){
+  if(!coop) return;
+  if(!coop.e){
+    if(boxes.every(b=>goalSet.has(b))) coop.e='won';
+    else if(dist){                           // 表がまだ無い(大きい盤)ときは判定しない
+      const r=regionRep(puzzle.grid, puzzle.w, new Set(boxes), player);
+      const k=keyOf(boxes.slice().sort((a,b)=>a-b), r.rep);
+      if(!dist.has(k)){
+        coop.e='lost';
+        showMsg('この手で解けなくなりました。あなたの負けです。', true);
+      }
+    }
+  }
+  updateCoBanner();
 }
 
 /* ================= クリア履歴 =================
@@ -1799,6 +1912,8 @@ $('btnHint').addEventListener('click',hint);
 $('btnPick').addEventListener('click',openPicker);
 $('btnPickClose').addEventListener('click',()=>$('pickOverlay').classList.remove('show'));
 $('btnHist').addEventListener('click',openHist);
+$('btnCo').addEventListener('click',()=>{ if(coop) coQuit(); else coStart(); });
+$('btnCoSend').addEventListener('click',coSend);
 $('btnHistFilter').addEventListener('click',()=>{ histOnlyLeft=!histOnlyLeft; renderHist(); });
 $('btnHistClose').addEventListener('click',()=>$('histOverlay').classList.remove('show'));
 $('btnHistExit').addEventListener('click',exitReplay);
