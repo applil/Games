@@ -41,6 +41,9 @@ const SIZES=list('SIZES',['特大','超特大']);
 const SHAPES=list('SHAPES',['2部屋','3部屋','メガネ','連結回廊','空洞','ドーナツ','U字','迷路']);
 const GOALS=list('GOALS',['四角詰め','二か所詰め','密集','疎な塊']);
 const BEAM=num('BEAM',2500), TRIES=num('TRIES',6), NODES=num('NODES',1.5e6);
+// 逆探索をどこまで潜るか。最短手数の何倍まで引くか。
+// 引きすぎても使わない層を作るだけで、1盤あたりの時間がまるまる増える
+const DEPTH=num('DEPTH', Math.round(MIN_PUSH*1.3));
 
 const LV=path.join(__dirname,'..','warehouse','levels.json');
 const data=JSON.parse(fs.readFileSync(LV,'utf8'));
@@ -70,10 +73,15 @@ while(found.length<WANT && (Date.now()-t0)/1000 < SECS){
   try{
     got=D.harvestDeep(grid, w, gp.goals, {
       minPush:MIN_PUSH, minMano:MIN_MANO, want:PER_BOARD,
-      beam:BEAM, tries:TRIES, nodes:NODES, depth:Math.round(MIN_PUSH*2),
+      beam:BEAM, tries:TRIES, nodes:NODES, depth:DEPTH,
     });
   }catch(e){}
-  if(!got.length){ stat.empty++; continue; }
+  const secs=((Date.now()-t1)/1000).toFixed(0);
+  if(!got.length){
+    stat.empty++;
+    if(process.env.TRACE) console.log(`  - 収穫なし 床${floors.length} 荷物${nbox} ${layout.shape}/${gp.pattern} (${secs}秒)`);
+    continue;
+  }
   for(const g of got){
     const rows=toXSB({grid, w:layout.w, h:layout.h, boxes:g.boxes, goals:gp.goals, player:g.rep});
     const board=rows.join('/');
