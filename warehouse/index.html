@@ -1507,13 +1507,15 @@ function updateCoBanner(){
   const t = coop.e==='lost' ? '詰ませてしまいました。あなたの負けです'
           : coop.e==='oplost' ? '相手が詰ませました。あなたの勝ちです'
           : coop.e==='won'  ? '二人でクリア！'
-          : coMoved ? '荷物を動かしました。「送り返す」で相手の番にできます'
+          : coMoved ? ('荷物を動かしました。「'+(coop.n===0?'送る':'送り返す')+'」で相手の番にできます')
           : (coop.n===0 ? '協力プレイ 第'+coop.lv+'面 ／ あなたが1手目です'
                         : '協力プレイ '+coop.n+'手目 ／ あなたの番');
   $('bannerText').textContent='🤝 '+t;
+  // 1手目はまだ何も受け取っていないので「送り返す」ではない
   $('btnCoSend').textContent = coop.e==='lost' ? '負けを伝える'
     : coop.e==='oplost' ? '結果を伝える'
-    : coop.e==='won' ? 'クリアを伝える' : '送り返す';
+    : coop.e==='won' ? 'クリアを伝える'
+    : coop.n===0 ? '送る' : '送り返す';
   $('btnCoSend').disabled = !coMoved && !coop.e;
 }
 function coSend(){
