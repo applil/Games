@@ -21,15 +21,19 @@ const POOL=process.argv[2]||'/tmp/pool';
 const TARGET=process.argv.find(a=>a.endsWith('levels.json'))||path.join(__dirname,'..','warehouse','levels.json');
 const DRY=process.argv.includes('--dry');
 
-// 区間ごとの設計。base=土台の目安手数, spike=跳ねの下限, spikes=跳ねの数
+/* 区間ごとの設計。
+     base  … 土台の目安手数
+     floor … 土台の下限。これが無いと、簡単な面が後ろの区間まで流れてくる
+     spike … 跳ねの下限
+     spikes… 跳ねの数(区間の面数以上なら、その区間は全部が跳ね級) */
 const BANDS=[
-  {from:301, to:400, base:14, spike:28, spikes:5},
-  {from:401, to:500, base:17, spike:34, spikes:5},
-  {from:501, to:600, base:20, spike:40, spikes:5},
-  {from:601, to:700, base:24, spike:46, spikes:5},
-  {from:701, to:800, base:28, spike:52, spikes:5},
-  {from:801, to:900, base:45, spike:45, spikes:100},   // 全部が跳ね級
-  {from:901, to:1000, base:50, spike:50, spikes:100},
+  {from:301, to:400,  base:14, floor:6,  spike:28, spikes:5},
+  {from:401, to:500,  base:17, floor:8,  spike:34, spikes:5},
+  {from:501, to:600,  base:20, floor:10, spike:40, spikes:5},
+  {from:601, to:700,  base:24, floor:14, spike:46, spikes:5},
+  {from:701, to:800,  base:28, floor:18, spike:52, spikes:5},
+  {from:801, to:900,  base:45, floor:45, spike:45, spikes:100},
+  {from:901, to:1000, base:48, floor:48, spike:48, spikes:100},
 ];
 // 跳ねを置く位置(区間の何番目か)。等間隔だと身構えるので少しずらす
 const SPIKE_SLOTS=[9, 27, 48, 66, 91];
@@ -69,14 +73,20 @@ console.log(`要る枠 ${BANDS[BANDS.length-1].to-300}面`);
 
 // 手数の帯ごとに取り出せるようにする
 const byPush=all.slice();
-const takeNear=target=>{                          // 目安にいちばん近いものを取る
-  if(!byPush.length) return null;
-  let bi=0, bd=Infinity;
+const takeNear=(target, floor)=>{                 // 目安にいちばん近いものを取る
+  let bi=-1, bd=Infinity;
   for(let i=0;i<byPush.length;i++){
+    if(floor && byPush[i].p<floor) continue;      // 下限より軽いものは、この区間では使わない
     const d=Math.abs(byPush[i].p-target);
     if(d<bd){ bd=d; bi=i; }
   }
+  if(bi<0) return null;
   return byPush.splice(bi,1)[0];
+};
+const takeMax=()=>{                               // いちばん深いものを取る(最終面用)
+  let bi=-1;
+  for(let i=0;i<byPush.length;i++) if(bi<0||byPush[i].p>byPush[bi].p) bi=i;
+  return bi<0 ? null : byPush.splice(bi,1)[0];
 };
 const takeAtLeast=min=>{                          // 下限以上でいちばん軽いものを取る
   let bi=-1;
@@ -93,10 +103,11 @@ for(const band of BANDS){
     const wantSpike = band.spikes>=n || spikeAt.has(i);
     let lv = wantSpike ? takeAtLeast(band.spike) : null;
     if(!lv && wantSpike) lv=takeAtLeast(band.spike-4);       // 少し譲る
+    if(!lv && band.from+i===1000) lv=takeMax();                // 最終面はいちばん深いもの
     if(!lv){
       // 土台は、区間の中で軽い側から重い側へ緩やかに上げる
       const t=band.base + Math.round((i/n)*(band.base*0.35));
-      lv=takeNear(t);
+      lv=takeNear(t, band.floor) || takeNear(t);
     }
     if(!lv){ missing.push(band.from+i); continue; }
     out.push({lv, at:band.from+i, spike:wantSpike});
