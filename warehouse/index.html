@@ -83,6 +83,23 @@ body.skin-spring{
   --done-soft:#bde6ce;
   --line:#f2dde6;
 }
+/* 夏の色。壁は濡れた岩、床は波打ち際の浅瀬 */
+body.skin-summer{
+  --ink:#0f4550;
+  --ink-soft:#487f88;
+  --paper:#e9f7f4;
+  --card:#ffffff;
+  --wall:#2c7b84;
+  --wall-top:#3f99a1;
+  --floor:#d9f2ec;
+  /* すいかが赤と緑なので、置き場はどちらとも重ならない珊瑚色に。
+     収まったら紫。暖色と寒色で、色みの向きを変えて見分ける */
+  --goal:#e2591f;
+  --goal-soft:#f7b393;
+  --done:#5b4bc4;
+  --done-soft:#b6aef0;
+  --line:#c3e5dd;
+}
 /* リスの色。壁は苔むした木、床は落ち葉 */
 body.skin-squirrel{
   --ink:#2f3d24;
@@ -573,6 +590,7 @@ body.co #btnReset, body.co #btnUndo{display:none}
      ?skin=squirrel … リスのどんぐり集め。🐥→🐿️ 📦→🌰
      ?skin=winter   … 冬。🐥→⛄ 📦→🧊
      ?skin=spring   … 春。🐥→🐝 📦→🌸
+     ?skin=summer   … 夏。🐥→🦀 📦→🍉
      ?skin=normal   … ふつうに戻す (どれも端末に覚えさせる)
      ?co=…      … 協力プレイ。交互に荷物を1個ずつ動かして送り合う */
 const QS=new URLSearchParams(location.search);
@@ -591,8 +609,9 @@ const SKINS={
   squirrel:{man:'🐿️', box:'🌰', label:'リス',         title:'どんぐり',     icon:'-squirrel'},
   winter:  {man:'⛄',  box:'🧊', label:'冬',           title:'ゆきだるま',   icon:'-winter'},
   spring:  {man:'🐝',  box:'🌸', label:'春',           title:'みつばち',     icon:'-spring'},
+  summer:  {man:'🦀',  box:'🍉', label:'夏',           title:'すいかわり',   icon:'-summer'},
 };
-const SKIN_ORDER=['normal','beetle','squirrel','winter','spring'];
+const SKIN_ORDER=['normal','beetle','squirrel','winter','spring','summer'];
 (function(){
   // ?skin=… と、前からある ?beetle=1/0 の両方を受ける
   let want=QS.get('skin');
@@ -911,6 +930,27 @@ const SFX_SETS={
     undo(){ beep(494, 0.07, 0, 'sine', 0.04); beep(370, 0.1, 0.05, 'sine', 0.04); },
     dead(){ beep(233, 0.13, 0, 'sawtooth', 0.05); beep(175, 0.26, 0.11, 'sawtooth', 0.05); },
     win(){ [587.33,739.99,880,1174.66,1318.51].forEach((f,i)=>beep(f, i===4?0.4:0.14, i*0.1, 'sine', 0.06)); },
+  },
+  summer:{
+    // サクッ。濡れた砂を踏む音。冬の雪より高くて短い
+    step(){ noise(0.05, 0, {from:3200, to:1600, q:1.2, vol:0.02}); },
+    // ゴロン。すいかが転がる。低い胴と、砂を擦る音を重ねる。
+    // 春と同じ理由で、携帯でも出るように1オクターブ上を薄く足す
+    push(){
+      beep(150, 0.16, 0, 'triangle', 0.26);
+      beep(300, 0.12, 0, 'triangle', 0.09);
+      noise(0.18, 0, {from:1000, to:400, q:1.4, vol:0.03});
+    },
+    blocked(){ beep(105, 0.11, 0, 'triangle', 0.09); },
+    // チリーン。風鈴。冬のシャリーンより音が少なく、余韻が長い
+    onGoal(){
+      beep(2093,    0.55, 0,    'sine', 0.05);
+      beep(2637.02, 0.45, 0.04, 'sine', 0.03);
+    },
+    undo(){ beep(523.25, 0.07, 0, 'sine', 0.04); beep(392, 0.1, 0.05, 'sine', 0.04); },
+    dead(){ beep(196, 0.13, 0, 'triangle', 0.06); beep(147, 0.26, 0.11, 'triangle', 0.06); },
+    // 夏祭りの囃子ふうに、都節でなく明るい五音で上がる
+    win(){ [523.25,587.33,698.46,783.99,1046.5].forEach((f,i)=>beep(f, i===4?0.4:0.13, i*0.1, 'sine', 0.06)); },
   },
   squirrel:{
     // 落ち葉を踏むカサカサ
