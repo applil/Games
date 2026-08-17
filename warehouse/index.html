@@ -617,31 +617,48 @@ let actx = null;
 // iOS はアプリを離れて戻ると止まった状態に戻る(電話・Siri・裏に回るなど)。
 // 一度開通したら終わり、にしてはいけない。触られるたびに状態を見て、
 // 動いていなければ何度でも起こす
-let audioUnlocked=false;
-function ensureAudio(){
+let audioStuck=0;
+/* touched=true は「いま指(かキー)の中にいる」という意味。
+   操作の外で箱を作ると、iOS はあとから動かしてくれないことがある。
+   ホーム画面から起動したときに音が出ないのは、たいていこれ。
+     ・箱を作るのは、必ず操作の中だけ
+     ・同じ操作の中で無音を1つ鳴らす。これが開通の実体で、resume() だけでは足りない
+     ・それでも止まったままなら、箱を捨てて次の操作で作り直す */
+function ensureAudio(touched){
   if(!AC) return;
   try{
-    if(!actx) actx = new AC();
-    if(actx.state === 'running') return;
-    actx.resume().then(()=>{
-      // 初回だけ、無音を1つ鳴らして本当に開通したことを確かめる
-      if(audioUnlocked || actx.state!=='running') return;
+    if(!actx){
+      if(!touched) return;                    // 操作の外では作らない
+      actx = new AC();
+    }
+    if(touched){
       try{
         const b=actx.createBuffer(1,1,22050);
         const src=actx.createBufferSource();
         src.buffer=b; src.connect(actx.destination); src.start(0);
-        audioUnlocked=true;
       }catch(e){}
-    }).catch(()=>{});
+    }
+    if(actx.state === 'running'){ audioStuck=0; return; }
+    actx.resume().catch(()=>{});
+    if(!touched) return;
+    setTimeout(()=>{                          // 起きなかったら数え、続くようなら作り直す
+      if(!actx || actx.state==='running'){ audioStuck=0; return; }
+      if(++audioStuck>=3){
+        audioStuck=0;
+        try{ actx.close(); }catch(e){}
+        actx=null;                            // 次に触られたときに作り直す
+      }
+    }, 350);
   }catch(e){}
 }
+const audioTouch=()=>ensureAudio(true);
 for(const ev of ['touchstart','touchend','pointerdown','click','keydown']){
-  document.addEventListener(ev, ensureAudio, {passive:true, capture:true});
+  document.addEventListener(ev, audioTouch, {passive:true, capture:true});
 }
-// 戻ってきた直後にも起こしにいく(ここでは断られることもあるが、次に触れば通る)
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) ensureAudio(); });
-window.addEventListener('pageshow', ensureAudio);
-window.addEventListener('focus', ensureAudio);
+// 戻ってきた直後は、すでにある箱を起こしにいくだけ(ここで新しく作らない)
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) ensureAudio(false); });
+window.addEventListener('pageshow', ()=>ensureAudio(false));
+window.addEventListener('focus', ()=>ensureAudio(false));
 function beep(freq, dur, delay, type, vol){
   // 止まっている間に鳴らそうとすると、時計が進まないので予約が同じ時刻に溜まる。
   // あとで動き出した瞬間、溜まったぶんが一斉に鳴る。鳴らせないときは捨てる
@@ -1153,7 +1170,7 @@ function dirOffset(name){
 function move(name, fromReplay){
   if(!puzzle||finished||EDIT) return;
   if(coReplay && !fromReplay){ coSkip=true; return; }   // 再生中に触られたら飛ばす
-  ensureAudio();
+  if(!fromReplay) ensureAudio(true);
   const d=dirOffset(name);
   const next=player+d, beyond=player+2*d;
   if(puzzle.grid[next]){ SFX.blocked(); return; }
