@@ -27,13 +27,15 @@ const DRY=process.argv.includes('--dry');
      spike … 跳ねの下限
      spikes… 跳ねの数(区間の面数以上なら、その区間は全部が跳ね級) */
 const BANDS=[
-  {from:301, to:400,  base:14, floor:6,  spike:28, spikes:5},
-  {from:401, to:500,  base:17, floor:8,  spike:34, spikes:5},
-  {from:501, to:600,  base:20, floor:10, spike:40, spikes:5},
-  {from:601, to:700,  base:24, floor:14, spike:46, spikes:5},
-  {from:701, to:800,  base:28, floor:18, spike:52, spikes:5},
-  {from:801, to:900,  base:45, floor:45, spike:45, spikes:100},
-  {from:901, to:1000, base:48, floor:48, spike:48, spikes:100},
+  {from:301, to:400,  base:14, floor:6,  ceil:24, spike:28, spikes:5},
+  {from:401, to:500,  base:17, floor:8,  ceil:28, spike:34, spikes:5},
+  {from:501, to:600,  base:20, floor:10, ceil:33, spike:40, spikes:5},
+  {from:601, to:700,  base:24, floor:14, ceil:38, spike:46, spikes:5},
+  {from:701, to:800,  base:28, floor:18, ceil:44, spike:52, spikes:5},
+  {from:801, to:900,  base:45, floor:45, ceil:53, spike:45, spikes:100},
+  // 900面台は46手以上。48手で揃えると採取にあと3時間かかるうえ、
+  // 46手も48手も体感は変わらない(どちらも既存600面の最深56手に迫る帯)
+  {from:901, to:1000, base:46, floor:46, ceil:99, spike:46, spikes:100},
 ];
 // 跳ねを置く位置(区間の何番目か)。等間隔だと身構えるので少しずらす
 const SPIKE_SLOTS=[9, 27, 48, 66, 91];
@@ -73,11 +75,15 @@ console.log(`要る枠 ${BANDS[BANDS.length-1].to-300}面`);
 
 // 手数の帯ごとに取り出せるようにする
 const byPush=all.slice();
-const takeNear=(target, floor)=>{                 // 目安にいちばん近いものを取る
+/* 目安にいちばん近いものを取る。下限と上限の外は使わない。
+   上限が無いと、土台が深い面まで食べてしまう(第701〜800面が中央45手になった) */
+const takeNear=(target, floor, ceil)=>{
   let bi=-1, bd=Infinity;
   for(let i=0;i<byPush.length;i++){
-    if(floor && byPush[i].p<floor) continue;      // 下限より軽いものは、この区間では使わない
-    const d=Math.abs(byPush[i].p-target);
+    const p=byPush[i].p;
+    if(floor && p<floor) continue;
+    if(ceil && p>ceil) continue;
+    const d=Math.abs(p-target);
     if(d<bd){ bd=d; bi=i; }
   }
   if(bi<0) return null;
@@ -96,27 +102,32 @@ const takeAtLeast=min=>{                          // 下限以上でいちばん
 
 // 最終面はいちばん深いものにする。先に取り置きしないと、途中で使われてしまう
 const finale=takeMax();
-const out=[];
-const missing=[];
+/* 置く順番が大事。深い面は取り合いになるので、
+   跳ねと「全部が跳ね級」の区間を先に押さえ、そのあとで土台を敷く。
+   逆にすると、土台が深い面を食べ尽くして後ろが空く。 */
+const slots=[];                                   // {at, band, spike}
 for(const band of BANDS){
   const n=band.to-band.from+1;
   const spikeAt=new Set(band.spikes>=n ? [] : SPIKE_SLOTS.slice(0,band.spikes));
-  for(let i=0;i<n;i++){
-    const wantSpike = band.spikes>=n || spikeAt.has(i);
-    let lv = wantSpike ? takeAtLeast(band.spike) : null;
-    if(!lv && wantSpike) lv=takeAtLeast(band.spike-4);       // 少し譲る
-    if(!lv && band.from+i===1000) lv=finale;                   // 取り置いた最深の面
-    if(!lv){
-      // 土台は、区間の中で軽い側から重い側へ緩やかに上げる
-      const t=band.base + Math.round((i/n)*(band.base*0.35));
-      lv=takeNear(t, band.floor);
-      // 下限を割るものは入れない。在庫が尽きたら、その枠は空けたままにする。
-      // (ここで妥協すると、800面台に11手の面が混ざる)
-    }
-    if(!lv){ missing.push(band.from+i); continue; }
-    out.push({lv, at:band.from+i, spike:wantSpike});
-  }
+  for(let i=0;i<n;i++) slots.push({at:band.from+i, band, i, n, spike:(band.spikes>=n||spikeAt.has(i))});
 }
+const out=[];
+const missing=[];
+// 先に跳ね(深い側から)
+for(const s of slots.filter(s=>s.spike).sort((a,b)=>b.band.spike-a.band.spike)){
+  if(s.at===1000){ s.lv=finale; continue; }
+  s.lv = takeAtLeast(s.band.spike) || takeAtLeast(s.band.spike-4);
+}
+// つぎに土台(重い側から。軽い面は数が多いので、後回しでも困らない)
+for(const s of slots.filter(s=>!s.spike).sort((a,b)=>b.band.base-a.band.base)){
+  const t=s.band.base + Math.round((s.i/s.n)*(s.band.base*0.35));
+  s.lv=takeNear(t, s.band.floor, s.band.ceil);
+}
+for(const s of slots){
+  if(!s.lv){ missing.push(s.at); continue; }
+  out.push({lv:s.lv, at:s.at, spike:s.spike});
+}
+out.sort((a,b)=>a.at-b.at);
 
 console.log(`置けた ${out.length}面 / 足りない ${missing.length}面`);
 if(missing.length) console.log(`  足りないのは 第${missing[0]}面〜第${missing[missing.length-1]}面`);
