@@ -693,7 +693,11 @@ function toneWav(freq, dur, type, vol){
   for(let i=0;i<n;i++){
     const t=i/sr, env=Math.pow(0.001, t/dur);       // 減衰は WebAudio 側と同じ形
     const ph=(t*freq)%1;
-    const w = type==='triangle' ? (4*Math.abs(ph-0.5)-1) : (ph<0.5?1:-1);
+    const w = type==='noise' ? (Math.random()*2-1)
+            : type==='triangle' ? (4*Math.abs(ph-0.5)-1)
+            : type==='sine' ? Math.sin(2*Math.PI*ph)
+            : type==='sawtooth' ? (2*ph-1)
+            : (ph<0.5?1:-1);
     dv.setInt16(44+i*2, Math.max(-1,Math.min(1, w*env*(vol||0.06)*3))*32767, true);
   }
   let str='';
@@ -710,15 +714,103 @@ function playWav(freq,dur,delay,type,vol){
   const go=()=>{ try{ const a=wavFor(freq,dur,type,vol); a.currentTime=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); audioLog.wav++; }catch(e){} };
   if(delay) setTimeout(go, delay*1000); else go();
 }
-const SFX = {
-  step(){ beep(520, 0.04, 0, 'square', 0.025); },
-  push(){ beep(300, 0.07, 0, 'square', 0.05); },
-  blocked(){ beep(150, 0.1, 0, 'square', 0.05); },
-  onGoal(){ beep(784, 0.08, 0, 'square', 0.06); beep(1046.5, 0.12, 0.07, 'square', 0.06); },
-  undo(){ beep(400, 0.06, 0, 'triangle', 0.05); beep(300, 0.08, 0.05, 'triangle', 0.05); },
-  dead(){ beep(196, 0.12, 0, 'square', 0.05); beep(155, 0.22, 0.1, 'square', 0.05); },
-  win(){ [523.25,659.25,783.99,1046.5,1318.51].forEach((f,i)=>beep(f, i===4?0.34:0.13, i*0.11, 'square', 0.07)); },
+/* ざらっとした音(シューッ、ザッ、カサカサ)。音程ではなく雑音を作って、
+   通す帯を動かして色をつける。滑る音・足音・葉ずれは、これでないと出せない */
+let noiseBuf=null;
+function noise(dur, delay, opt){
+  opt=opt||{};
+  if(!actx || actx.state!=='running'){
+    if(audioLog.touch) playWav(0, dur, delay, 'noise', opt.vol);
+    return;
+  }
+  try{
+    if(!noiseBuf){
+      const n=Math.floor(actx.sampleRate*0.7);
+      noiseBuf=actx.createBuffer(1,n,actx.sampleRate);
+      const d=noiseBuf.getChannelData(0);
+      for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
+    }
+    const t=actx.currentTime+(delay||0);
+    const src=actx.createBufferSource(); src.buffer=noiseBuf; src.loop=true;
+    const f=actx.createBiquadFilter();
+    f.type=opt.type||'bandpass';
+    f.frequency.setValueAtTime(opt.from||1500, t);
+    if(opt.to) f.frequency.exponentialRampToValueAtTime(opt.to, t+dur);
+    f.Q.value=opt.q||1;
+    const g=actx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(opt.vol||0.04, t+Math.min(0.02,dur*0.3));
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    src.connect(f).connect(g).connect(actx.destination);
+    src.start(t); src.stop(t+dur+0.02);
+  }catch(e){}
+}
+
+/* 着せ替えごとの音。
+   ふつう(ヒヨコ)は元のまま。
+   冬 … 滑るシューッ、雪を踏むザッザッ、氷が収まるシャリーン
+   フンコロガシ … 転がすゴロゴロ、砂を掻くカサッ、収まるとポフッ
+   リス … 木の実のコロン、落ち葉のカサカサ、収まると木琴のコロン */
+const SFX_SETS={
+  normal:{
+    step(){ beep(520, 0.04, 0, 'square', 0.025); },
+    push(){ beep(300, 0.07, 0, 'square', 0.05); },
+    blocked(){ beep(150, 0.1, 0, 'square', 0.05); },
+    onGoal(){ beep(784, 0.08, 0, 'square', 0.06); beep(1046.5, 0.12, 0.07, 'square', 0.06); },
+    undo(){ beep(400, 0.06, 0, 'triangle', 0.05); beep(300, 0.08, 0.05, 'triangle', 0.05); },
+    dead(){ beep(196, 0.12, 0, 'square', 0.05); beep(155, 0.22, 0.1, 'square', 0.05); },
+    win(){ [523.25,659.25,783.99,1046.5,1318.51].forEach((f,i)=>beep(f, i===4?0.34:0.13, i*0.11, 'square', 0.07)); },
+  },
+  winter:{
+    // ザッ。雪を踏む音。控えめに
+    step(){ noise(0.06, 0, {from:1400, to:700, q:0.8, vol:0.022}); },
+    // シューッ。氷が滑って止まるまで。滑りの0.5秒に合わせる
+    push(){ noise(0.42, 0, {from:2600, to:500, q:0.7, vol:0.05}); },
+    blocked(){ noise(0.1, 0, {from:400, to:180, q:1.2, vol:0.05}); },
+    // シャリーン。高い音を少しずらして重ねる
+    onGoal(){
+      beep(1567.98, 0.5, 0,    'sine', 0.05);
+      beep(2093,    0.45, 0.03,'sine', 0.035);
+      beep(3135.96, 0.3, 0.06, 'sine', 0.02);
+      noise(0.25, 0, {from:6000, to:3000, q:2, vol:0.015});
+    },
+    undo(){ beep(600, 0.08, 0, 'sine', 0.04); beep(450, 0.1, 0.06, 'sine', 0.04); },
+    dead(){ beep(220, 0.14, 0, 'sine', 0.05); beep(165, 0.26, 0.12, 'sine', 0.05); },
+    win(){ [1046.5,1318.51,1567.98,2093].forEach((f,i)=>beep(f, i===3?0.6:0.2, i*0.12, 'sine', 0.05)); },
+  },
+  beetle:{
+    // カサッ。砂を掻く
+    step(){ noise(0.05, 0, {from:700, to:400, q:1, vol:0.02}); },
+    // ゴロゴロ。重い塊を転がす
+    push(){
+      beep(70, 0.22, 0, 'sawtooth', 0.05);
+      noise(0.22, 0, {type:'lowpass', from:320, to:160, vol:0.04});
+    },
+    blocked(){ beep(90, 0.13, 0, 'square', 0.055); },
+    // ポフッ。乾いた土に収まる
+    onGoal(){
+      beep(196, 0.12, 0, 'sine', 0.06);
+      beep(147, 0.18, 0.05, 'sine', 0.05);
+      noise(0.12, 0, {type:'lowpass', from:500, to:200, vol:0.03});
+    },
+    undo(){ beep(160, 0.09, 0, 'sawtooth', 0.045); beep(120, 0.12, 0.06, 'sawtooth', 0.045); },
+    dead(){ beep(110, 0.16, 0, 'sawtooth', 0.05); beep(82, 0.3, 0.13, 'sawtooth', 0.05); },
+    win(){ [130.8,164.8,196,261.6,392].forEach((f,i)=>beep(f, i===4?0.4:0.15, i*0.12, 'sawtooth', 0.05)); },
+  },
+  squirrel:{
+    // 落ち葉を踏むカサカサ
+    step(){ noise(0.05, 0, {from:3000, to:1600, q:0.9, vol:0.018}); },
+    // コロン。木の実が転がる木の音
+    push(){ beep(190, 0.1, 0, 'triangle', 0.05); noise(0.05, 0, {from:1800, q:2, vol:0.02}); },
+    blocked(){ beep(140, 0.11, 0, 'triangle', 0.05); },
+    // 木琴のコロン。巣穴に納まる
+    onGoal(){ beep(1046.5, 0.16, 0, 'triangle', 0.06); beep(1396.9, 0.22, 0.06, 'triangle', 0.05); },
+    undo(){ beep(392, 0.07, 0, 'triangle', 0.045); beep(294, 0.1, 0.05, 'triangle', 0.045); },
+    dead(){ beep(196, 0.13, 0, 'triangle', 0.05); beep(147, 0.24, 0.11, 'triangle', 0.05); },
+    win(){ [523.25,698.46,880,1174.66,1396.9].forEach((f,i)=>beep(f, i===4?0.36:0.14, i*0.1, 'triangle', 0.06)); },
+  },
 };
+const SFX = SFX_SETS[skinName] || SFX_SETS.normal;
 
 async function shareLink(url, text){
   if(navigator.share){
