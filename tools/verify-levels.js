@@ -21,6 +21,25 @@ const SHARDS=+(process.env.SHARDS||1), SHARD=+(process.env.SHARD||0);
 const FILE=process.argv[2]||path.join(__dirname,'..','warehouse','levels.json');
 const data=JSON.parse(fs.readFileSync(FILE,'utf8'));
 
+/* 済んだぶんの控え。1000面ぜんぶで1時間以上かかるので、途中で止まっても
+   やり直しにならないよう、面ごとに書き足していく。ID をそのまま鍵にするので、
+   並べ替えても控えはそのまま使える。/tmp は消えるのでリポジトリの中に置く */
+const CACHE=path.join(__dirname,'stock','verified.json');
+let done={};
+try{ done=JSON.parse(fs.readFileSync(CACHE,'utf8')); }catch(e){}
+function remember(id, d){
+  done[id]=d;
+  try{
+    // 同時に4本走るので、自分のぶんを書いてから読み直して混ぜる
+    let cur={};
+    try{ cur=JSON.parse(fs.readFileSync(CACHE,'utf8')); }catch(e){}
+    cur[id]=d;
+    fs.writeFileSync(CACHE+'.'+SHARD, JSON.stringify(cur));
+    fs.renameSync(CACHE+'.'+SHARD, CACHE);
+    done=cur;
+  }catch(e){}
+}
+
 function parse(board){
   const rows=board.split('/');
   const h=rows.length, w=Math.max(...rows.map(r=>r.length));
@@ -102,8 +121,13 @@ data.levels.forEach((lv,i)=>{
   if(!p.boxes.length){ console.log(`${where}: 荷物がない`); bad++; return; }
   if(!connected(p)){ console.log(`${where}: 床が分断されている`); bad++; return; }
   if(p.boxes.every(b=>p.goals.includes(b))){ console.log(`${where}: 最初から完成している`); bad++; return; }
-  let d=forwardSolve(p), how='BFS';
-  if(d==='over'){ d=deepSolve(p); how='A*'; deep++; }
+  let d, how;
+  if(done[lv.id]!==undefined){ d=done[lv.id]; how='控え'; }   // 前回の続き
+  else {
+    d=forwardSolve(p); how='BFS';
+    if(d==='over'){ d=deepSolve(p); how='A*'; deep++; }
+    remember(lv.id, d);
+  }
   checked++;
   if(d==='over'){ console.log(`${where}: A*でも上限超え(検証できず)`); unchecked++; return; }
   if(d===null){ console.log(`${where}: 解けない`); bad++; return; }
