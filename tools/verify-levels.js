@@ -15,6 +15,8 @@ const E=require(path.join(__dirname,'..','warehouse','engine.js')).WarehouseEngi
 const {regionRep, pushesFrom, keyOf}=E;
 const {minPushes}=require(path.join(__dirname,'astar.js'));
 const BFS_CAP=+(process.env.BFS_CAP||400000);        // これを超えたら A* に回す
+// 1000面を一本で回すと1時間では終わらない。SHARDS=4 SHARD=0..3 で分けて同時に走らせる
+const SHARDS=+(process.env.SHARDS||1), SHARD=+(process.env.SHARD||0);
 
 const FILE=process.argv[2]||path.join(__dirname,'..','warehouse','levels.json');
 const data=JSON.parse(fs.readFileSync(FILE,'utf8'));
@@ -89,6 +91,9 @@ data.levels.forEach((lv,i)=>{
   const where=`第${i+1}面 (${lv.id})`;
   if(ids.has(lv.id)){ console.log(`${where}: IDが重複`); bad++; }
   ids.add(lv.id);
+  if(i%SHARDS!==SHARD) return;                        // 自分の担当ぶんだけ
+  // どこまで進んだかを、経過とともに横に出す(標準エラーなので結果には混ざらない)
+  process.stderr.write(`[${SHARD}] 第${i+1}面 ${((Date.now()-t0)/1000).toFixed(0)}秒\n`);
   let p;
   try{ p=parse(lv.b); }
   catch(e){ console.log(`${where}: 盤面を読めない — ${e.message}`); bad++; return; }
@@ -106,7 +111,8 @@ data.levels.forEach((lv,i)=>{
 });
 
 const sec=((Date.now()-t0)/1000).toFixed(1);
-console.log(`\n${data.levels.length}面 / ID重複なし:${ids.size===data.levels.length} / ${checked}面を検証 (${sec}秒)`
+console.log(`\n${data.levels.length}面 / ID重複なし:${ids.size===data.levels.length}`
+  +(SHARDS>1?` / 担当${SHARD}(${SHARDS}分割)`:'')+` / ${checked}面を検証 (${sec}秒)`
   +(deep?` — うち${deep}面は深すぎるので A* で検証`:'')
   +(unchecked?` / ${unchecked}面は検証できず`:''));
 console.log(bad ? `❌ ${bad}件の問題` : '✅ 全件で問題なし — すべて解けて、最短手数も記録と一致');
