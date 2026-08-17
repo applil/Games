@@ -625,18 +625,6 @@ const audioLog={touch:0, make:0, resume:0, ok:0, wav:0, err:'', ses:''};
    代わりに、iOS で頑固に開かないときの定石を使う:
    指の中でまず <audio> を鳴らして音の道を開き、そのあとで WebAudio を起こす。
    逆順だと、標準の音の箱がずっと止まったままのことがある */
-/* 何度操作しても音の箱が開かないときは、たいてい本体の消音スイッチ。
-   ここで止まっていると不具合だと思われるので、一度だけ知らせる */
-let silentHintDone=false;
-function silentHint(){
-  if(silentHintDone) return;
-  if(audioLog.touch<3) return;
-  if(actx && actx.state==='running') return;
-  try{ if(store.get('silenthint')==='1'){ silentHintDone=true; return; } }catch(e){}
-  silentHintDone=true;
-  try{ store.set('silenthint','1'); }catch(e){}
-  showMsg('音が鳴らないときは、本体の消音スイッチ（マナーモード）を確かめてください。', true);
-}
 const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 let silentEl=null;
 function pokeMedia(){
@@ -674,7 +662,6 @@ function ensureAudio(touched){
     if(!touched) return;
     setTimeout(()=>{                          // 起きなかったら数え、続くようなら作り直す
       if(!actx || actx.state==='running'){ audioStuck=0; return; }
-      silentHint();                           // 何度触っても開かないなら、たぶんマナーモード
       if(++audioStuck>=3){
         audioStuck=0;
         try{ actx.close(); }catch(e){}
@@ -797,19 +784,20 @@ const SFX_SETS={
   winter:{
     // ザッ。雪を踏む音。控えめに
     step(){ noise(0.06, 0, {from:1400, to:700, q:0.8, vol:0.022}); },
-    // シューッ。滑りは0.5秒のままだが、音は短くていい。
+    // シューッ。氷が滑って止まるまで。滑りの0.5秒に合わせる。
     // 通す帯を狭く(q=3)して高めから落とすと、こもらず澄んで聞こえる
     push(){
-      noise(0.2, 0, {from:5200, to:1600, q:3, vol:0.045});
-      beep(2600, 0.16, 0, 'sine', 0.012);      // 芯になる高い音をひとつまみ
+      noise(0.42, 0, {from:5200, to:1200, q:3, vol:0.045});
+      beep(2600, 0.3, 0, 'sine', 0.012);       // 芯になる高い音をひとつまみ
     },
     blocked(){ noise(0.1, 0, {from:400, to:180, q:1.2, vol:0.05}); },
     // シャリーン。高い音を少しずらして重ねる
-    // シャリーン。うるさかったので、音量を半分・長さも短くした
+    // シャリーン。高い音を少しずらして重ねる
     onGoal(){
-      beep(1567.98, 0.32, 0,    'sine', 0.026);
-      beep(2093,    0.28, 0.03, 'sine', 0.018);
-      beep(3135.96, 0.18, 0.06, 'sine', 0.009);
+      beep(1567.98, 0.5, 0,    'sine', 0.05);
+      beep(2093,    0.45, 0.03,'sine', 0.035);
+      beep(3135.96, 0.3, 0.06, 'sine', 0.02);
+      noise(0.25, 0, {from:6000, to:3000, q:2, vol:0.015});
     },
     undo(){ beep(600, 0.08, 0, 'sine', 0.04); beep(450, 0.1, 0.06, 'sine', 0.04); },
     dead(){ beep(220, 0.14, 0, 'sine', 0.05); beep(165, 0.26, 0.12, 'sine', 0.05); },
@@ -835,8 +823,8 @@ const SFX_SETS={
     win(){ [130.8,164.8,196,261.6,392].forEach((f,i)=>beep(f, i===4?0.4:0.15, i*0.12, 'sawtooth', 0.05)); },
   },
   squirrel:{
-    // 落ち葉のカサカサ。重かったので、高いところだけを短く鳴らす
-    step(){ noise(0.035, 0, {from:6000, to:3200, q:2.2, vol:0.014}); },
+    // 落ち葉を踏むカサカサ
+    step(){ noise(0.05, 0, {from:3000, to:1600, q:0.9, vol:0.018}); },
     // コロン。木の実が転がる木の音
     push(){ beep(190, 0.1, 0, 'triangle', 0.05); noise(0.05, 0, {from:1800, q:2, vol:0.02}); },
     blocked(){ beep(140, 0.11, 0, 'triangle', 0.05); },
