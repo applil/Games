@@ -755,7 +755,23 @@ function playWav(freq,dur,delay,type,vol){
 }
 /* ざらっとした音(シューッ、ザッ、カサカサ)。音程ではなく雑音を作って、
    通す帯を動かして色をつける。滑る音・足音・葉ずれは、これでないと出せない */
-let noiseBuf=null;
+let noiseBuf=null, smoothBuf=null;
+/* 粒の粗い雑音は「砂」に聞こえる。値を数サンプルおきに作って間をつなぐと、
+   粒が滑らかになり、氷や風のような音に寄る */
+function makeNoise(smooth){
+  const n=Math.floor(actx.sampleRate*0.7);
+  const buf=actx.createBuffer(1,n,actx.sampleRate);
+  const d=buf.getChannelData(0);
+  if(!smooth){ for(let i=0;i<n;i++) d[i]=Math.random()*2-1; return buf; }
+  const step=3;                                  // 3サンプルに1回だけ値を決めて、間は直線でつなぐ
+  let prev=Math.random()*2-1, next=Math.random()*2-1;
+  for(let i=0;i<n;i++){
+    const k=i%step;
+    if(k===0){ prev=next; next=Math.random()*2-1; }
+    d[i]=prev+(next-prev)*(k/step);
+  }
+  return buf;
+}
 function noise(dur, delay, opt){
   opt=opt||{};
   if(!actx || actx.state!=='running'){
@@ -763,14 +779,11 @@ function noise(dur, delay, opt){
     return;
   }
   try{
-    if(!noiseBuf){
-      const n=Math.floor(actx.sampleRate*0.7);
-      noiseBuf=actx.createBuffer(1,n,actx.sampleRate);
-      const d=noiseBuf.getChannelData(0);
-      for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
-    }
+    if(opt.smooth){ if(!smoothBuf) smoothBuf=makeNoise(true); }
+    else if(!noiseBuf) noiseBuf=makeNoise(false);
     const t=actx.currentTime+(delay||0);
-    const src=actx.createBufferSource(); src.buffer=noiseBuf; src.loop=true;
+    const src=actx.createBufferSource();
+    src.buffer=opt.smooth?smoothBuf:noiseBuf; src.loop=true;
     const f=actx.createBiquadFilter();
     f.type=opt.type||'bandpass';
     f.frequency.setValueAtTime(opt.from||1500, t);
@@ -803,12 +816,10 @@ const SFX_SETS={
   winter:{
     // ザッ。雪を踏む音。控えめに
     step(){ noise(0.06, 0, {from:1400, to:700, q:0.8, vol:0.022}); },
-    // シューッ。氷が滑って止まるまで。滑りの0.5秒に合わせる。
-    // 低いところを残すと「ジャー」になる。高いところだけを通して「スー」に寄せる。
-    // 帯を狭めると笛のように鳴いてしまうので、広めのまま高い側だけ残す
-    push(){ noise(0.42, 0, {type:'highpass', from:4200, to:2600, q:0.7, vol:0.035}); },
+    // シューッ。粒を滑らかにした雑音を、少し狭い帯(q=5)で高いほうから落とす。
+    // 粗い雑音のままだと砂を擦る音になり、帯を狭くしすぎると笛になる。その中間
+    push(){ noise(0.42, 0, {type:'bandpass', from:4000, to:1800, q:5, vol:0.04, smooth:true}); },
     blocked(){ noise(0.1, 0, {from:400, to:180, q:1.2, vol:0.05}); },
-    // シャリーン。高い音を少しずらして重ねる
     // シャリーン。高い音を少しずらして重ねる
     onGoal(){
       beep(1567.98, 0.5, 0,    'sine', 0.05);
