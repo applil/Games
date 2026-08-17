@@ -619,7 +619,19 @@ let actx = null;
 // 動いていなければ何度でも起こす
 let audioStuck=0;
 // 何が起きているか見えるようにする(デバッグ表示に出す)
-const audioLog={touch:0, make:0, resume:0, ok:0, wav:0, err:''};
+const audioLog={touch:0, make:0, resume:0, ok:0, wav:0, err:'', ses:''};
+/* iPhone の消音スイッチが入っていると、WebAudio も <audio> も黙る。
+   用途を「再生」と宣言しておくと、スイッチに関係なく鳴らしてもらえる
+   (iOS 16.4 以降)。対応していない端末では何も起きない */
+function claimAudioSession(){
+  try{
+    if(navigator.audioSession){
+      navigator.audioSession.type='playback';
+      audioLog.ses=navigator.audioSession.type||'playback';
+    }else audioLog.ses='なし';
+  }catch(e){ audioLog.ses='×'; }
+}
+claimAudioSession();
 /* touched=true は「いま指(かキー)の中にいる」という意味。
    操作の外で箱を作ると、iOS はあとから動かしてくれないことがある。
    ホーム画面から起動したときに音が出ないのは、たいていこれ。
@@ -629,7 +641,7 @@ const audioLog={touch:0, make:0, resume:0, ok:0, wav:0, err:''};
 function ensureAudio(touched){
   if(!AC) return;
   try{
-    if(touched) audioLog.touch++;
+    if(touched){ audioLog.touch++; claimAudioSession(); }
     if(!actx){
       if(!touched) return;                    // 操作の外では作らない
       actx = new AC(); audioLog.make++;
@@ -711,7 +723,12 @@ function wavFor(freq,dur,type,vol){
   return WAV[k];
 }
 function playWav(freq,dur,delay,type,vol){
-  const go=()=>{ try{ const a=wavFor(freq,dur,type,vol); a.currentTime=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); audioLog.wav++; }catch(e){} };
+  const go=()=>{ try{
+    const a=wavFor(freq,dur,type,vol); a.currentTime=0;
+    const p=a.play();
+    if(p&&p.catch) p.catch(e=>{ audioLog.err='波:'+String(e&&e.name||e).slice(0,10); });
+    audioLog.wav++;
+  }catch(e){ audioLog.err='波:'+String(e&&e.name||e).slice(0,10); } };
   if(delay) setTimeout(go, delay*1000); else go();
 }
 /* ざらっとした音(シューッ、ザッ、カサカサ)。音程ではなく雑音を作って、
@@ -1208,6 +1225,7 @@ function updateStats(){
       +' / 表'+(dist?dist.size+'状態':'計算中…')
       +' / 音'+(!AC?'非対応':!actx?'未作成':actx.state)
       +'(触'+audioLog.touch+' 作'+audioLog.make+' 起'+audioLog.resume+' 波'+audioLog.wav
+      +' 用'+(audioLog.ses||'-')
       +(audioLog.err?' '+audioLog.err:'')+')'
       +'\n'+(lv.sh||'-')+' '+(lv.sz||'')+' '+(lv.gp||'')+' '+tags.join(' ');
   }
