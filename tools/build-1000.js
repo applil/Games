@@ -123,6 +123,19 @@ for(const s of slots.filter(s=>!s.spike).sort((a,b)=>b.band.base-a.band.base)){
   const t=s.band.base + Math.round((s.i/s.n)*(s.band.base*0.35));
   s.lv=takeNear(t, s.band.floor, s.band.ceil);
 }
+/* 取った面を、区間の中で手数順に並べ直す。
+   在庫の減り具合で拾う順が乱れるので、そのままだと区間の後半で手数が下がる。
+   跳ねは置いた位置のまま動かさない。
+   第801〜1000面は、2区間まとめてひと続きの坂にする(境目で落とさないため) */
+const GROUPS=[[301,400],[401,500],[501,600],[601,700],[701,800],[801,1000]];
+for(const [ga,gb] of GROUPS){
+  const inGroup=slots.filter(s=>s.at>=ga&&s.at<=gb&&s.lv);
+  const bases=inGroup.filter(s=>!(s.spike&&gb<801));      // 深い区間は全部が跳ね扱いなので、まとめて並べる
+  const sorted=bases.map(s=>s.lv).sort((x,y)=>x.p-y.p);
+  const fin=bases.find(s=>s.at===1000);                   // 最終面は取り置いた最深のまま
+  if(fin){ const i=sorted.indexOf(fin.lv); if(i>=0){ sorted.splice(i,1); sorted.push(fin.lv); } }
+  bases.slice().sort((x,y)=>x.at-y.at).forEach((s,i)=>{ s.lv=sorted[i]; });
+}
 for(const s of slots){
   if(!s.lv){ missing.push(s.at); continue; }
   out.push({lv:s.lv, at:s.at, spike:s.spike});
