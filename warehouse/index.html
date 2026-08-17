@@ -618,6 +618,8 @@ let actx = null;
 // 一度開通したら終わり、にしてはいけない。触られるたびに状態を見て、
 // 動いていなければ何度でも起こす
 let audioStuck=0;
+// 何が起きているか見えるようにする(デバッグ表示に出す)
+const audioLog={touch:0, make:0, resume:0, ok:0, wav:0, err:''};
 /* touched=true は「いま指(かキー)の中にいる」という意味。
    操作の外で箱を作ると、iOS はあとから動かしてくれないことがある。
    ホーム画面から起動したときに音が出ないのは、たいていこれ。
@@ -627,9 +629,10 @@ let audioStuck=0;
 function ensureAudio(touched){
   if(!AC) return;
   try{
+    if(touched) audioLog.touch++;
     if(!actx){
       if(!touched) return;                    // 操作の外では作らない
-      actx = new AC();
+      actx = new AC(); audioLog.make++;
     }
     if(touched){
       try{
@@ -638,8 +641,9 @@ function ensureAudio(touched){
         src.buffer=b; src.connect(actx.destination); src.start(0);
       }catch(e){}
     }
-    if(actx.state === 'running'){ audioStuck=0; return; }
-    actx.resume().catch(()=>{});
+    if(actx.state === 'running'){ audioStuck=0; audioLog.ok++; return; }
+    audioLog.resume++;
+    actx.resume().catch(e=>{ audioLog.err=String(e&&e.name||e).slice(0,12); });
     if(!touched) return;
     setTimeout(()=>{                          // 起きなかったら数え、続くようなら作り直す
       if(!actx || actx.state==='running'){ audioStuck=0; return; }
@@ -649,7 +653,7 @@ function ensureAudio(touched){
         actx=null;                            // 次に触られたときに作り直す
       }
     }, 350);
-  }catch(e){}
+  }catch(e){ audioLog.err=String(e&&e.name||e).slice(0,12); }
 }
 const audioTouch=()=>ensureAudio(true);
 for(const ev of ['touchstart','touchend','pointerdown','click','keydown']){
@@ -662,7 +666,10 @@ window.addEventListener('focus', ()=>ensureAudio(false));
 function beep(freq, dur, delay, type, vol){
   // 止まっている間に鳴らそうとすると、時計が進まないので予約が同じ時刻に溜まる。
   // あとで動き出した瞬間、溜まったぶんが一斉に鳴る。鳴らせないときは捨てる
-  if(!actx || actx.state !== 'running') return;
+  if(!actx || actx.state !== 'running'){
+    if(audioLog.touch) playWav(freq, dur, delay, type, vol);   // 触られているのに開かない端末むけ
+    return;
+  }
   const t = actx.currentTime + (delay||0);
   const o = actx.createOscillator(), g = actx.createGain();
   o.type = type || 'square';
@@ -671,6 +678,37 @@ function beep(freq, dur, delay, type, vol){
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g).connect(actx.destination);
   o.start(t); o.stop(t + dur);
+}
+/* WebAudio がどうしても開かない端末がある(ホーム画面のアプリで起きやすい)。
+   そのときは、同じ音を波形データにして <audio> で鳴らす。開通の作法が別なので通ることがある。
+   8kHz・16bitの短い音なので、作るのも一瞬 */
+function toneWav(freq, dur, type, vol){
+  const sr=8000, n=Math.max(1,Math.floor(sr*dur)), bytes=44+n*2;
+  const b=new Uint8Array(bytes), dv=new DataView(b.buffer);
+  const put=(o,str)=>{ for(let i=0;i<str.length;i++) b[o+i]=str.charCodeAt(i); };
+  put(0,'RIFF'); dv.setUint32(4, bytes-8, true); put(8,'WAVEfmt ');
+  dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
+  dv.setUint32(24,sr,true); dv.setUint32(28,sr*2,true); dv.setUint16(32,2,true); dv.setUint16(34,16,true);
+  put(36,'data'); dv.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){
+    const t=i/sr, env=Math.pow(0.001, t/dur);       // 減衰は WebAudio 側と同じ形
+    const ph=(t*freq)%1;
+    const w = type==='triangle' ? (4*Math.abs(ph-0.5)-1) : (ph<0.5?1:-1);
+    dv.setInt16(44+i*2, Math.max(-1,Math.min(1, w*env*(vol||0.06)*3))*32767, true);
+  }
+  let str='';
+  for(let i=0;i<bytes;i++) str+=String.fromCharCode(b[i]);
+  return 'data:audio/wav;base64,'+btoa(str);
+}
+const WAV={};
+function wavFor(freq,dur,type,vol){
+  const k=freq+'_'+dur+'_'+type+'_'+vol;
+  if(!WAV[k]){ const a=new Audio(toneWav(freq,dur,type,vol)); a.preload='auto'; WAV[k]=a; }
+  return WAV[k];
+}
+function playWav(freq,dur,delay,type,vol){
+  const go=()=>{ try{ const a=wavFor(freq,dur,type,vol); a.currentTime=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); audioLog.wav++; }catch(e){} };
+  if(delay) setTimeout(go, delay*1000); else go();
 }
 const SFX = {
   step(){ beep(520, 0.04, 0, 'square', 0.025); },
@@ -1077,6 +1115,8 @@ function updateStats(){
     $('boardNote').textContent='最短'+lv.p+'手 / 罠率'+lv.tr+'% / 自己ベスト'+(b==null?'--':b+'手')
       +' / 表'+(dist?dist.size+'状態':'計算中…')
       +' / 音'+(!AC?'非対応':!actx?'未作成':actx.state)
+      +'(触'+audioLog.touch+' 作'+audioLog.make+' 起'+audioLog.resume+' 波'+audioLog.wav
+      +(audioLog.err?' '+audioLog.err:'')+')'
       +'\n'+(lv.sh||'-')+' '+(lv.sz||'')+' '+(lv.gp||'')+' '+tags.join(' ');
   }
 }
