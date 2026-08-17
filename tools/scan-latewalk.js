@@ -24,18 +24,28 @@ const NODES=+(process.env.NODES||2e6);       // 親を覚えるぶん重いの�
 const FILE=process.argv[2]||path.join(__dirname,'..','warehouse','levels.json');
 const data=JSON.parse(fs.readFileSync(FILE,'utf8'));
 
-const CACHE=path.join(__dirname,'stock','latewalk.json');
-let done={};
-try{ done=JSON.parse(fs.readFileSync(CACHE,'utf8')); }catch(e){}
+/* 済んだぶんの控え。
+   同時に何本も走るので、1つのファイルを読んで書き足す形にすると、
+   後から書いたほうが前のを丸ごと上書きしてしまう(実際に132面ぶん消えた)。
+   担当ごとに別のファイルに書き、読むときだけ全部を混ぜる。これなら競合しない */
+const STOCK=path.join(__dirname,'stock');
+const MINE=path.join(STOCK,`latewalk.${SHARD}.json`);
+function loadAll(){
+  const out={};
+  for(const f of fs.readdirSync(STOCK)){
+    if(!/^latewalk(\.\d+)?\.json$/.test(f)) continue;
+    try{ Object.assign(out, JSON.parse(fs.readFileSync(path.join(STOCK,f),'utf8'))); }catch(e){}
+  }
+  return out;
+}
+const done=loadAll();
+let mine={};
+try{ mine=JSON.parse(fs.readFileSync(MINE,'utf8')); }catch(e){}
 function remember(id, v){
-  done[id]=v;
+  done[id]=v; mine[id]=v;
   try{
-    let cur={};
-    try{ cur=JSON.parse(fs.readFileSync(CACHE,'utf8')); }catch(e){}
-    cur[id]=v;
-    fs.writeFileSync(CACHE+'.'+SHARD, JSON.stringify(cur));
-    fs.renameSync(CACHE+'.'+SHARD, CACHE);
-    done=cur;
+    fs.writeFileSync(MINE+'.tmp', JSON.stringify(mine));
+    fs.renameSync(MINE+'.tmp', MINE);
   }catch(e){}
 }
 
