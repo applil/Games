@@ -41,7 +41,7 @@ const hit=[];
 const t0=Date.now();
 data.levels.forEach((lv,i)=>{
   const p=parse(lv.b);
-  const gd=goalDist(p.grid,p.w,p.goals);
+  const gd=p.goals.map(g=>goalDist(p.grid,p.w,g));   // 置き場ごとに1枚ずつ
   const r0=regionRep(p.grid,p.w,new Set(p.boxes),p.player);
   if(naiveSolvable(p.grid,p.w,p.goals,gd,p.boxes,r0.rep)) hit.push({at:i+1, id:lv.id, p:lv.p, nbox:lv.nbox, mano:lv.mano});
 });
