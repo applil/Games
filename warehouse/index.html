@@ -285,7 +285,7 @@ body.edit .cell{cursor:pointer}
 body.mod #btnUndo, body.mod #btnHint, body.mod #btnWipe{display:none}
 body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
 body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
-body:not(.debug) #btnFresh, body:not(.debug) #btnSkin{display:none}
+body:not(.debug) #btnFresh, body:not(.debug) #btnSkin, body:not(.debug) #btnSoundTest{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -421,6 +421,7 @@ body.co #btnReset, body.co #btnUndo{display:none}
     <button class="btn" id="btnWipe">記録を消す</button>
     <button class="btn" id="btnMark">ここまで進んだことにする</button>
     <button class="btn" id="btnFresh">最新に更新</button>
+    <button class="btn" id="btnSoundTest">音を試す</button>
     <button class="btn" id="btnSkin">見た目</button>
     <button class="btn" id="btnPrev">◀</button>
     <button class="btn" id="btnNext">▶</button>
@@ -620,18 +621,20 @@ let actx = null;
 let audioStuck=0;
 // 何が起きているか見えるようにする(デバッグ表示に出す)
 const audioLog={touch:0, make:0, resume:0, ok:0, wav:0, err:'', ses:''};
-/* iPhone の消音スイッチが入っていると、WebAudio も <audio> も黙る。
-   用途を「再生」と宣言しておくと、スイッチに関係なく鳴らしてもらえる
-   (iOS 16.4 以降)。対応していない端末では何も起きない */
-function claimAudioSession(){
+/* 消音スイッチが入っているときは、黙るのが正しい。用途は宣言しない。
+   代わりに、iOS で頑固に開かないときの定石を使う:
+   指の中でまず <audio> を鳴らして音の道を開き、そのあとで WebAudio を起こす。
+   逆順だと、標準の音の箱がずっと止まったままのことがある */
+const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+let silentEl=null;
+function pokeMedia(){
   try{
-    if(navigator.audioSession){
-      navigator.audioSession.type='playback';
-      audioLog.ses=navigator.audioSession.type||'playback';
-    }else audioLog.ses='なし';
+    if(!silentEl){ silentEl=new Audio(SILENT); silentEl.preload='auto'; }
+    const p=silentEl.play();
+    if(p&&p.then) p.then(()=>{ audioLog.ses='開'; }).catch(e=>{ audioLog.ses='×'+String(e&&e.name||'').slice(0,8); });
+    else audioLog.ses='開?';
   }catch(e){ audioLog.ses='×'; }
 }
-claimAudioSession();
 /* touched=true は「いま指(かキー)の中にいる」という意味。
    操作の外で箱を作ると、iOS はあとから動かしてくれないことがある。
    ホーム画面から起動したときに音が出ないのは、たいていこれ。
@@ -641,7 +644,7 @@ claimAudioSession();
 function ensureAudio(touched){
   if(!AC) return;
   try{
-    if(touched){ audioLog.touch++; claimAudioSession(); }
+    if(touched){ audioLog.touch++; pokeMedia(); }
     if(!actx){
       if(!touched) return;                    // 操作の外では作らない
       actx = new AC(); audioLog.make++;
@@ -1225,7 +1228,7 @@ function updateStats(){
       +' / 表'+(dist?dist.size+'状態':'計算中…')
       +' / 音'+(!AC?'非対応':!actx?'未作成':actx.state)
       +'(触'+audioLog.touch+' 作'+audioLog.make+' 起'+audioLog.resume+' 波'+audioLog.wav
-      +' 用'+(audioLog.ses||'-')
+      +' 道'+(audioLog.ses||'-')
       +(audioLog.err?' '+audioLog.err:'')+')'
       +'\n'+(lv.sh||'-')+' '+(lv.sz||'')+' '+(lv.gp||'')+' '+tags.join(' ');
   }
@@ -2155,6 +2158,32 @@ $('btnMark').addEventListener('click',()=>{
 // ホーム画面のアプリはキャッシュが頑固で、下に引っぱっての更新もできない
 // (画面のスワイプはゲームの操作に使っているため)。ここから取り直す
 $('btnFresh').addEventListener('click',forceFresh);
+// 音が出ないときの切り分け。2つの経路で大きめの音を鳴らし、結果をそのまま出す
+$('btnSoundTest').addEventListener('click',()=>{
+  pokeMedia();
+  ensureAudio(true);
+  const out=[];
+  out.push('箱:'+(!AC?'非対応':!actx?'未作成':actx.state));
+  try{
+    if(actx && actx.state==='running'){
+      const t=actx.currentTime, o=actx.createOscillator(), g=actx.createGain();
+      o.type='square'; o.frequency.value=440;
+      g.gain.setValueAtTime(0.2, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t+0.6);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t+0.6);
+      out.push('WebAudio:鳴らした');
+    }else out.push('WebAudio:止まっている');
+  }catch(e){ out.push('WebAudio:'+(e&&e.name||e)); }
+  try{
+    const a=new Audio(toneWav(440,0.6,'square',0.25));
+    a.volume=1;
+    const p=a.play();
+    if(p&&p.then) p.then(()=>showMsg(out.concat('波形:鳴らした','消音スイッチが入っていれば、どちらも鳴りません').join(' / ')))
+                   .catch(e=>showMsg(out.concat('波形:'+(e&&e.name||e)).join(' / '), true));
+    else out.push('波形:たぶん鳴らした');
+  }catch(e){ out.push('波形:'+(e&&e.name||e)); }
+  showMsg(out.join(' / '));
+});
 $('btnBad').addEventListener('click',toggleBad);
 $('btnBadWin').addEventListener('click',toggleBad);
 $('btnBadExport').addEventListener('click',exportBads);
