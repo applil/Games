@@ -67,6 +67,22 @@ body.skin-winter{
   --done-soft:#5fa8ee;
   --line:#cfe3f0;
 }
+/* 春の色。壁は若葉、床は花びら */
+body.skin-spring{
+  --ink:#4a2c3a;
+  --ink-soft:#8a6473;
+  --paper:#fdf2f6;
+  --card:#fffafc;
+  --wall:#8fb45c;
+  --wall-top:#a8c97a;
+  --floor:#fdeef3;
+  /* 花びらの床と紛れないよう、置き場は濃い桃色 */
+  --goal:#d9538a;
+  --goal-soft:#f6bed6;
+  --done:#3f9a6a;
+  --done-soft:#bde6ce;
+  --line:#f2dde6;
+}
 /* リスの色。壁は苔むした木、床は落ち葉 */
 body.skin-squirrel{
   --ink:#2f3d24;
@@ -554,6 +570,7 @@ body.co #btnReset, body.co #btnUndo{display:none}
      ?skin=beetle   … フンコロガシ。🐥→🪲 📦→💩
      ?skin=squirrel … リスのどんぐり集め。🐥→🐿️ 📦→🌰
      ?skin=winter   … 冬。🐥→⛄ 📦→🧊
+     ?skin=spring   … 春。🐥→🐝 📦→🌸
      ?skin=normal   … ふつうに戻す (どれも端末に覚えさせる)
      ?co=…      … 協力プレイ。交互に荷物を1個ずつ動かして送り合う */
 const QS=new URLSearchParams(location.search);
@@ -571,8 +588,9 @@ const SKINS={
   beetle:  {man:'🪲',  box:'💩', label:'フンコロガシ', title:'フンコロガシ', icon:'-beetle'},
   squirrel:{man:'🐿️', box:'🌰', label:'リス',         title:'どんぐり',     icon:'-squirrel'},
   winter:  {man:'⛄',  box:'🧊', label:'冬',           title:'ゆきだるま',   icon:'-winter'},
+  spring:  {man:'🐝',  box:'🌸', label:'春',           title:'みつばち',     icon:'-spring'},
 };
-const SKIN_ORDER=['normal','beetle','squirrel','winter'];
+const SKIN_ORDER=['normal','beetle','squirrel','winter','spring'];
 (function(){
   // ?skin=… と、前からある ?beetle=1/0 の両方を受ける
   let want=QS.get('skin');
@@ -820,6 +838,21 @@ const SFX_SETS={
     undo(){ beep(160, 0.09, 0, 'sawtooth', 0.045); beep(120, 0.12, 0.06, 'sawtooth', 0.045); },
     dead(){ beep(110, 0.16, 0, 'sawtooth', 0.05); beep(82, 0.3, 0.13, 'sawtooth', 0.05); },
     win(){ [130.8,164.8,196,261.6,392].forEach((f,i)=>beep(f, i===4?0.4:0.15, i*0.12, 'sawtooth', 0.05)); },
+  },
+  spring:{
+    // 草を踏むふわっとした音。軽く
+    step(){ noise(0.045, 0, {from:4000, to:2200, q:1.4, vol:0.015}); },
+    // 花を押すときの、はちの羽音。短くブンと
+    push(){
+      beep(180, 0.13, 0, 'sawtooth', 0.035);
+      beep(186, 0.13, 0, 'sawtooth', 0.03);      // わずかにずらして唸らせる
+    },
+    blocked(){ beep(120, 0.11, 0, 'sawtooth', 0.05); },
+    // 花が咲くようなポワン
+    onGoal(){ beep(880, 0.14, 0, 'sine', 0.055); beep(1318.51, 0.24, 0.06, 'sine', 0.05); },
+    undo(){ beep(494, 0.07, 0, 'sine', 0.04); beep(370, 0.1, 0.05, 'sine', 0.04); },
+    dead(){ beep(233, 0.13, 0, 'sawtooth', 0.05); beep(175, 0.26, 0.11, 'sawtooth', 0.05); },
+    win(){ [587.33,739.99,880,1174.66,1318.51].forEach((f,i)=>beep(f, i===4?0.4:0.14, i*0.1, 'sine', 0.06)); },
   },
   squirrel:{
     // 落ち葉を踏むカサカサ
