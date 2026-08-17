@@ -107,7 +107,8 @@ function minPushes(grid, w, goals, boxes0, player0, opt){
   const push=(f, item)=>{ (buckets[f]||(buckets[f]=[])).push(item); };
   const seen=new Map();                       // 状態キー → そこまでの最小 g
   seen.set(keyOf(start, rep0), 0);
-  push(h0, {boxes:start, rep:rep0, g:0});
+  const WANT=!!opt.path;                      // 経路も欲しいときだけ親を覚える
+  push(h0, {boxes:start, rep:rep0, g:0, from:null, mv:null});
 
   let nodes=0;
   const done=v=>{ if(opt.stat) opt.stat.nodes=nodes; return v; };
@@ -118,7 +119,15 @@ function minPushes(grid, w, goals, boxes0, player0, opt){
       const st=bucket.pop();
       const key=keyOf(st.boxes, st.rep);
       if(seen.get(key)<st.g) continue;        // もっと安く来られた
-      if(st.boxes.every(b=>goalSet.has(b))) return done(st.g);
+      if(st.boxes.every(b=>goalSet.has(b))){
+        if(!WANT) return done(st.g);
+        // 逆にたどって、押し手の並び(荷物の位置と押した向き)を組み立てる
+        const seq=[];
+        for(let c=st; c && c.mv; c=c.from) seq.push(c.mv);
+        seq.reverse();
+        opt.path=seq;
+        return done(st.g);
+      }
       if(++nodes>NODES) return done(undefined);
 
       const boxSet=new Set(st.boxes);
@@ -150,7 +159,8 @@ function minPushes(grid, w, goals, boxes0, player0, opt){
           const old=seen.get(nk);
           if(old!==undefined && old<=ng) continue;
           seen.set(nk, ng);
-          push(ng+h, {boxes:nb, rep:nrep, g:ng});
+          push(ng+h, WANT ? {boxes:nb, rep:nrep, g:ng, from:st, mv:{box:b, dir:d, stand:stand, to:to, rep:st.rep}}
+                          : {boxes:nb, rep:nrep, g:ng});
         }
       }
     }
