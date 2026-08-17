@@ -23,20 +23,29 @@ const data=JSON.parse(fs.readFileSync(FILE,'utf8'));
 
 /* 済んだぶんの控え。1000面ぜんぶで1時間以上かかるので、途中で止まっても
    やり直しにならないよう、面ごとに書き足していく。ID をそのまま鍵にするので、
-   並べ替えても控えはそのまま使える。/tmp は消えるのでリポジトリの中に置く */
-const CACHE=path.join(__dirname,'stock','verified.json');
-let done={};
-try{ done=JSON.parse(fs.readFileSync(CACHE,'utf8')); }catch(e){}
+   並べ替えても控えはそのまま使える。/tmp は消えるのでリポジトリの中に置く。
+
+   担当ごとに別のファイルに書くこと。1つのファイルを読んで書き足す形にすると、
+   同時に走った別の担当が、後から自分の分だけを書いて前の分を丸ごと消す
+   (回り込みの測定で実際に132面ぶん消えた)。読むときだけ全部を混ぜる */
+const STOCK=path.join(__dirname,'stock');
+const MINE=path.join(STOCK,`verified.${SHARD}.json`);
+function loadAll(){
+  const out={};
+  for(const f of fs.readdirSync(STOCK)){
+    if(!/^verified(\.\d+)?\.json$/.test(f)) continue;
+    try{ Object.assign(out, JSON.parse(fs.readFileSync(path.join(STOCK,f),'utf8'))); }catch(e){}
+  }
+  return out;
+}
+const done=loadAll();
+let mine={};
+try{ mine=JSON.parse(fs.readFileSync(MINE,'utf8')); }catch(e){}
 function remember(id, d){
-  done[id]=d;
+  done[id]=d; mine[id]=d;
   try{
-    // 同時に4本走るので、自分のぶんを書いてから読み直して混ぜる
-    let cur={};
-    try{ cur=JSON.parse(fs.readFileSync(CACHE,'utf8')); }catch(e){}
-    cur[id]=d;
-    fs.writeFileSync(CACHE+'.'+SHARD, JSON.stringify(cur));
-    fs.renameSync(CACHE+'.'+SHARD, CACHE);
-    done=cur;
+    fs.writeFileSync(MINE+'.tmp', JSON.stringify(mine));
+    fs.renameSync(MINE+'.tmp', MINE);
   }catch(e){}
 }
 
