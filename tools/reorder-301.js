@@ -13,9 +13,13 @@
  * クリア履歴も自己ベストもそのまま残る。
  *
  *   node tools/reorder-301.js [--write]
+ *
+ * 済んだ作業。2026-08-17 に適用して、第400面まで固定になった。
+ * これ以降の並べ替えは 401面から。tools/frozen.js を必ず見ること
  */
 const fs=require('fs');
 const path=require('path');
+const {FROZEN}=require(path.join(__dirname,'frozen.js'));
 
 const FILE=path.join(__dirname,'..','warehouse','levels.json');
 const data=JSON.parse(fs.readFileSync(FILE,'utf8'));
@@ -23,6 +27,9 @@ const L=data.levels;
 if(L.length!==1000) throw new Error('1000面ではありません: '+L.length);
 
 const FROM=300, TO=800;                       // 0起点。301面〜800面
+if(FROM<FROZEN) throw new Error(
+  `第${FROZEN}面までは固定です。この道具は第${FROM+1}面から動かそうとしています。`
+  +' 並べ替えるなら FROM を '+FROZEN+' 以上にしてください (tools/frozen.js)');
 const SLOT=[9,27,48,66,91];                   // 百面の中で山を置いた位置
 const spike=new Set();
 for(let b=FROM;b<TO;b+=100) SLOT.forEach(s=>spike.add(b+s));
