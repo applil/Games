@@ -618,7 +618,6 @@ let actx = null;
 // iOS はアプリを離れて戻ると止まった状態に戻る(電話・Siri・裏に回るなど)。
 // 一度開通したら終わり、にしてはいけない。触られるたびに状態を見て、
 // 動いていなければ何度でも起こす
-let audioStuck=0;
 // 何が起きているか見えるようにする(デバッグ表示に出す)
 const audioLog={touch:0, make:0, resume:0, ok:0, wav:0, err:'', ses:''};
 /* 消音スイッチが入っているときは、黙るのが正しい。用途は宣言しない。
@@ -626,58 +625,58 @@ const audioLog={touch:0, make:0, resume:0, ok:0, wav:0, err:'', ses:''};
    指の中でまず <audio> を鳴らして音の道を開き、そのあとで WebAudio を起こす。
    逆順だと、標準の音の箱がずっと止まったままのことがある */
 const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
-let silentEl=null;
+let silentEl=null, mediaNo=0;
 function pokeMedia(){
+  if(mediaNo>=3) return;                       // 断られ続けるなら、もう叩かない
   try{
     if(!silentEl){ silentEl=new Audio(SILENT); silentEl.preload='auto'; }
     const p=silentEl.play();
-    if(p&&p.then) p.then(()=>{ audioLog.ses='開'; }).catch(e=>{ audioLog.ses='×'+String(e&&e.name||'').slice(0,8); });
+    if(p&&p.then) p.then(()=>{ audioLog.ses='開'; mediaNo=0; })
+                   .catch(e=>{ mediaNo++; audioLog.ses='×'+String(e&&e.name||'').slice(0,8); });
     else audioLog.ses='開?';
-  }catch(e){ audioLog.ses='×'; }
+  }catch(e){ mediaNo++; audioLog.ses='×'; }
 }
 /* touched=true は「いま指(かキー)の中にいる」という意味。
    操作の外で箱を作ると、iOS はあとから動かしてくれないことがある。
    ホーム画面から起動したときに音が出ないのは、たいていこれ。
-     ・箱を作るのは、必ず操作の中だけ
+     ・箱を作るのは、必ず操作の中で、一度だけ
      ・同じ操作の中で無音を1つ鳴らす。これが開通の実体で、resume() だけでは足りない
-     ・それでも止まったままなら、箱を捨てて次の操作で作り直す */
+     ・開かないまま粘らない。作り直しは、箱を8個も作って画面を固まらせた */
+const AUDIO_TRIES=8;
+let audioTries=0;
 function ensureAudio(touched){
-  if(!AC) return;
+  if(!AC || !touched) return;                 // 操作の外では何もしない
+  audioLog.touch++;
   try{
-    if(touched){ audioLog.touch++; pokeMedia(); }
     if(!actx){
-      if(!touched) return;                    // 操作の外では作らない
+      if(audioTries>=AUDIO_TRIES) return;
       actx = new AC(); audioLog.make++;
     }
-    if(touched){
-      try{
+    if(actx.state === 'running'){
+      audioLog.ok++;
+      try{                                    // 開いているときだけ、無音で温める
         const b=actx.createBuffer(1,1,22050);
         const src=actx.createBufferSource();
         src.buffer=b; src.connect(actx.destination); src.start(0);
       }catch(e){}
+      return;
     }
-    if(actx.state === 'running'){ audioStuck=0; audioLog.ok++; return; }
+    if(audioTries>=AUDIO_TRIES) return;        // これ以上ねばらない。鳴らないなら黙る
+    audioTries++;
     audioLog.resume++;
+    pokeMedia();                               // 先に音の道を開く
     actx.resume().catch(e=>{ audioLog.err=String(e&&e.name||e).slice(0,12); });
-    if(!touched) return;
-    setTimeout(()=>{                          // 起きなかったら数え、続くようなら作り直す
-      if(!actx || actx.state==='running'){ audioStuck=0; return; }
-      if(++audioStuck>=3){
-        audioStuck=0;
-        try{ actx.close(); }catch(e){}
-        actx=null;                            // 次に触られたときに作り直す
-      }
-    }, 350);
   }catch(e){ audioLog.err=String(e&&e.name||e).slice(0,12); }
 }
 const audioTouch=()=>ensureAudio(true);
 for(const ev of ['touchstart','touchend','pointerdown','click','keydown']){
   document.addEventListener(ev, audioTouch, {passive:true, capture:true});
 }
-// 戻ってきた直後は、すでにある箱を起こしにいくだけ(ここで新しく作らない)
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) ensureAudio(false); });
-window.addEventListener('pageshow', ()=>ensureAudio(false));
-window.addEventListener('focus', ()=>ensureAudio(false));
+// 戻ってきた直後は、すでにある箱を起こすだけ(新しく作らない・数えない)
+const wakeAudio=()=>{ try{ if(actx && actx.state!=='running') actx.resume().catch(()=>{}); }catch(e){} };
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) wakeAudio(); });
+window.addEventListener('pageshow', wakeAudio);
+window.addEventListener('focus', wakeAudio);
 function beep(freq, dur, delay, type, vol){
   // 止まっている間に鳴らそうとすると、時計が進まないので予約が同じ時刻に溜まる。
   // あとで動き出した瞬間、溜まったぶんが一斉に鳴る。鳴らせないときは捨てる
@@ -725,11 +724,13 @@ function wavFor(freq,dur,type,vol){
   if(!WAV[k]){ const a=new Audio(toneWav(freq,dur,type,vol)); a.preload='auto'; WAV[k]=a; }
   return WAV[k];
 }
+let wavNo=0;
 function playWav(freq,dur,delay,type,vol){
+  if(wavNo>=3) return;                         // 断られ続けるなら、もう鳴らそうとしない
   const go=()=>{ try{
     const a=wavFor(freq,dur,type,vol); a.currentTime=0;
     const p=a.play();
-    if(p&&p.catch) p.catch(e=>{ audioLog.err='波:'+String(e&&e.name||e).slice(0,10); });
+    if(p&&p.catch) p.catch(e=>{ wavNo++; audioLog.err='波:'+String(e&&e.name||e).slice(0,10); });
     audioLog.wav++;
   }catch(e){ audioLog.err='波:'+String(e&&e.name||e).slice(0,10); } };
   if(delay) setTimeout(go, delay*1000); else go();
