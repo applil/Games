@@ -800,6 +800,40 @@ function noise(dur, delay, opt){
     src.start(t); src.stop(t+dur+0.02);
   }catch(e){}
 }
+/* 続けて鳴らすと、切れずにつながる音。
+   一歩ごとに音を作ると、速く歩いたとき「ブンブンブン」と刻まれてしまう。
+   鳴りっぱなしの音をひとつ持っておいて、一歩ごとに寿命を延ばすだけにすると、
+   間が空かないかぎり「ブーーーん」と一本に聞こえる。
+   最後の一歩から tail 秒たつと、細くなって黙る */
+let buzz=null;
+function buzzOn(freqs, vol, tail){
+  if(!actx || actx.state!=='running'){
+    if(audioLog.touch) playWav(freqs[0], tail, 0, 'sawtooth', vol);
+    return;
+  }
+  try{
+    if(!buzz || buzz.ctx!==actx){
+      const g=actx.createGain();
+      g.gain.value=0.0001;
+      g.connect(actx.destination);
+      // わずかにずらした音を重ねて唸らせる。作るのは最初の一度だけ
+      const os=freqs.map(f=>{
+        const o=actx.createOscillator();
+        o.type='sawtooth'; o.frequency.value=f;
+        o.connect(g); o.start();
+        return o;
+      });
+      buzz={ctx:actx, g, os};
+    }
+    const t=actx.currentTime, p=buzz.g.gain;
+    // いま出ている大きさから続ける。切って作り直さないので、継ぎ目が鳴らない
+    p.cancelScheduledValues(t);
+    p.setValueAtTime(Math.max(p.value, 0.0001), t);
+    p.exponentialRampToValueAtTime(vol, t+0.015);
+    p.setValueAtTime(vol, t+tail*0.5);
+    p.exponentialRampToValueAtTime(0.0001, t+tail);
+  }catch(e){}
+}
 
 /* 着せ替えごとの音。
    ふつう(ヒヨコ)は元のまま。
@@ -857,11 +891,9 @@ const SFX_SETS={
     win(){ [130.8,164.8,196,261.6,392].forEach((f,i)=>beep(f, i===4?0.4:0.15, i*0.12, 'sawtooth', 0.05)); },
   },
   spring:{
-    // 移動も羽音。押すときのブンより、音程をかなり下げて、音量も少し下げる
-    step(){
-      beep(104, 0.075, 0, 'sawtooth', 0.026);
-      beep(108, 0.075, 0, 'sawtooth', 0.022);    // わずかにずらして唸らせる
-    },
+    // 移動も羽音。押すときのブンより、音程をかなり下げて、音量も少し下げる。
+    // 続けて歩くと切れずにつながる(0.14秒あいだが空くと止まる)
+    step(){ buzzOn([104,108], 0.026, 0.14); },
     // 花を押すときの、はちの羽音。短くブンと
     push(){
       beep(180, 0.13, 0, 'sawtooth', 0.035);
