@@ -243,7 +243,8 @@ h1{
 .dpad button[data-dir="right"]{--rot:90deg}
 .dpad button[data-dir="down"] {--rot:180deg}
 .dpad button[data-dir="left"] {--rot:270deg}
-/* キーの光りは、動いた向きのものだけ。点けるのは JS の flashKey ひとつに絞る。
+/* キーの光りは、動いた向きのものだけ。タップ・フリック・クリック・キーボードの
+   どれで動かしても、点けるのは JS の flashKey ひとつに絞る。
    :active に任せると、スワイプを始めた指の下のキーまで光ってしまう。
    マウスのときだけは、押している間の手応えとして :active も使う */
 @media (hover:hover){
@@ -2512,6 +2513,7 @@ document.addEventListener('keydown',e=>{
   const dir=KEYMAP[e.key];
   if(!dir) return;
   e.preventDefault();
+  flashKey(dir);            // 押しっぱなしの間は点いたまま(押すたびに寿命が延びる)
   move(dir);
 });
 document.querySelectorAll('.dpad button[data-dir]').forEach(b=>{
