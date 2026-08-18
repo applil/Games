@@ -636,7 +636,7 @@ const QS=new URLSearchParams(location.search);
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
 // ?debug=1 / ?debug=0 は、その場かぎりではなく端末に覚えさせる。
-// URL には書き戻さないので、リンクを踏んだあとも住所は素のまま残る
+// URL には書き戻さないので、リンクを踏んだあとも URL は素のまま残る
 if(QS.get('debug')==='1'||QS.get('debug')==='0'){
   try{ localStorage.setItem('warehouse-debug', QS.get('debug')); }catch(e){}
 }
@@ -1051,12 +1051,12 @@ const bestOf=lv=>lv&&progress.cleared[lv.id];
 // 「ここまで進んだことにする」で入れた仮の記録。実際に解いた手数ではない
 const NOREC=999;
 
-/* ================= 引っ越し(じゅもん) =================
+/* ================= 引っ越し =================
    別の端末へ、クリア記録をまるごと持っていくための仕組み。
    記録は端末の中にしか無いので、持ち出す道が要る。
 
    並び順ではなく「IDを並べ替えた順」を土台にする。面を並べ替えても
-   じゅもんは壊れない(IDは面が生まれたときから変わらない)。
+   引っ越しデータは壊れない(IDは面が生まれたときから変わらない)。
 
    中身:
      0         … 形式の版
@@ -1188,7 +1188,7 @@ function makeSpell(){
   return b64url(out);
 }
 
-/* じゅもんを読む。読めなければ理由を返す */
+/* 引っ越しデータを読む。読めなければ理由を返す */
 function readSpell(str){
   let b;
   try{ b=unb64url(String(str||'').trim()); }catch(e){ return {err:'引っ越しデータとして読めませんでした。コピーし損ねていないか確かめてください'}; }
@@ -1630,7 +1630,7 @@ function startLevel(i){
   updateBadButton();
   updateReplayBanner();
   if(NAV) updateNav();
-  // debug は URL に書かない。書くと履歴に残った住所から復活し続けて外せなくなる
+  // debug は URL に書かない。書くと履歴に残った URL から復活し続けて外せなくなる
   const q=(MOD?'mod=1&':'')+((SHARED||DEBUG||MOD)?('lv='+(index+1)):'');
   try{ history.replaceState(null,'', q?('?'+q.replace(/&$/,'')):location.pathname); }catch(e){}
 }
@@ -2681,11 +2681,11 @@ async function copyMove(){
 function pasteMove(){
   const s=$('movePasteBox').value;
   if(!s.trim()){ showMsg('貼り付ける欄が空です'); return; }
-  // 住所ごと貼られても拾えるように
+  // リンクごと貼られても拾えるように
   const m=/[?&]move=([A-Za-z0-9_-]+)/.exec(s);
   if(takeSpell(m?m[1]:s.trim(), true)) $('movePasteBox').value='';
 }
-/* じゅもんを取り込む。黙って上書きしない。何面ぶん増えるかを見せて聞く */
+/* 引っ越しデータを入れる。黙って上書きしない。何面ぶん増えるかを見せて聞く */
 function takeSpell(code, fromPaste){
   const res=readSpell(code);
   if(res.err){ alert('入れられませんでした。\n\n'+res.err); return false; }
@@ -2711,7 +2711,7 @@ $('btnMovePaste').addEventListener('click',pasteMove);
 $('moveOverlay').addEventListener('click',e=>{ if(e.target===$('moveOverlay')) closeMove(); });
 
 /* ?move=… で開かれたときの取り込み。面が揃ってから、始める面を決める前に呼ぶ。
-   住所からは必ず消す。残すと、再読込のたびに同じことを聞かれる */
+   URL からは必ず消す。残すと、再読込のたびに同じことを聞かれる */
 function takeMoveFromUrl(){
   const code=QS.get('move');
   if(!code) return;
