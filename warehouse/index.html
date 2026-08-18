@@ -244,6 +244,10 @@ h1{
 .dpad button[data-dir="down"] {--rot:180deg}
 .dpad button[data-dir="left"] {--rot:270deg}
 .dpad button:active{background:var(--floor)}
+/* フリックで動かしたとき、そのキーを一瞬光らせる。指はキーに触れていないので、
+   どちらへ動かしたのかを目で補う。点くのは即時、消えるのはゆっくり */
+.dpad button.lit{background:var(--floor)}
+.dpad button:not(.lit){transition:background .18s ease-out}
 /* 対角線は見た目だけ。押せる面積は削らない */
 .dpad::before,.dpad::after{
   content:'';position:absolute;left:50%;top:0;width:1px;height:100%;
@@ -2565,6 +2569,20 @@ document.addEventListener('touchstart',e=>{
   const t=e.changedTouches[0]; tsx=t.clientX; tsy=t.clientY; swiped=false;
   e.preventDefault();
 },{passive:false});
+/* フリックで動かしたとき、対応する十字キーを一瞬光らせてから動かす。
+   壁でも光らせる。どちらへ弾いたかが伝わることのほうが大事 */
+let litTimer=null;
+function flashKey(dir){
+  const b=document.querySelector('.dpad button[data-dir="'+dir+'"]');
+  if(!b) return;
+  document.querySelectorAll('.dpad button.lit').forEach(x=>x.classList.remove('lit'));
+  b.classList.add('lit');
+  clearTimeout(litTimer);
+  litTimer=setTimeout(()=>b.classList.remove('lit'), 120);
+}
+const swipeDir=(dx,dy)=>Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up');
+function swipeMove(dx,dy){ const d=swipeDir(dx,dy); flashKey(d); move(d); }
+
 document.addEventListener('touchmove',e=>{
   if(!tracking) return;
   e.preventDefault();
@@ -2573,7 +2591,7 @@ document.addEventListener('touchmove',e=>{
   const dx=t.clientX-tsx, dy=t.clientY-tsy;
   if(Math.abs(dx)<20&&Math.abs(dy)<20) return;
   swiped=true;
-  move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
+  swipeMove(dx,dy);
 },{passive:false});
 document.addEventListener('touchend',e=>{
   if(!tracking) return;
@@ -2588,7 +2606,7 @@ document.addEventListener('touchend',e=>{
     else if(tapTitle) bumpFreshTap();
     return;
   }
-  move(Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up'));
+  swipeMove(dx,dy);
 },{passive:false});
 document.addEventListener('touchcancel',()=>{ tracking=false; });
 
