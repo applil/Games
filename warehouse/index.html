@@ -330,7 +330,6 @@ body:not(.debug) #btnEffort, body.mod #btnEffort, body.edit #btnEffort{display:n
   border:1px solid var(--line);border-radius:10px;background:var(--paper);
   padding:8px;resize:none;word-break:break-all;
 }
-body:not(.debug) #btnMove{display:none}
 
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
@@ -463,7 +462,6 @@ body.co #btnReset, body.co #btnUndo{display:none}
     <button class="btn" id="btnCheck">解けるか確かめる</button>
     <button class="btn" id="btnEditReset">編集を戻す</button>
     <button class="btn" id="btnEditExport">書き出す</button>
-    <button class="btn" id="btnMove">引っ越し</button>
     <button class="btn" id="btnEffort">手こずり具合を書き出す</button>
     <button class="btn" id="btnWipe">記録を消す</button>
     <button class="btn" id="btnMark">ここまで進んだことにする</button>
@@ -575,6 +573,19 @@ body.co #btnReset, body.co #btnUndo{display:none}
   </div>
 </div>
 
+<div class="overlay" id="histOverlay">
+  <div class="picker">
+    <h2>クリア履歴</h2>
+    <div class="histsum" id="histSum"></div>
+    <div class="chapters" id="histChapters"></div>
+    <div class="chapters histfilter"><button id="btnHistFilter">最短でない面だけ</button></div>
+    <div class="histlist" id="histList"></div>
+    <div class="chapters histmove"><button id="btnMoveOpen">📦 別の端末に引っ越す</button></div>
+    <button class="btn btn-new" id="btnHistClose">とじる</button>
+    <button class="btn" id="btnHistExit">本編にもどる</button>
+  </div>
+</div>
+
 <div class="overlay" id="moveOverlay">
   <div class="picker">
     <h2>引っ越し</h2>
@@ -586,18 +597,6 @@ body.co #btnReset, body.co #btnUndo{display:none}
       <button id="btnMovePaste">じゅもんを貼って取り込む</button>
     </div>
     <button class="btn btn-new" id="btnMoveClose">とじる</button>
-  </div>
-</div>
-
-<div class="overlay" id="histOverlay">
-  <div class="picker">
-    <h2>クリア履歴</h2>
-    <div class="histsum" id="histSum"></div>
-    <div class="chapters" id="histChapters"></div>
-    <div class="chapters histfilter"><button id="btnHistFilter">最短でない面だけ</button></div>
-    <div class="histlist" id="histList"></div>
-    <button class="btn btn-new" id="btnHistClose">とじる</button>
-    <button class="btn" id="btnHistExit">本編にもどる</button>
   </div>
 </div>
 
@@ -1539,7 +1538,8 @@ loadJSON(FILE)
       $('stageLabel').textContent='送られたステージ';
     }
     const co=QS.get('co') && dec(QS.get('co'));
-    if(co && co.b && co.lv){ coResume(co); return; }          // 協力プレイの続き
+    // 協力プレイを止めている間は、送られてきたリンクも本編として開く
+    if(COOP_ON && co && co.b && co.lv){ coResume(co); return; }
     takeMoveFromUrl();                    // 引っ越しは、始める面を決める前に取り込む
     const start=(WANT>=1&&WANT<=LEVELS.length) ? WANT-1 : unlockedMax();
     startLevel(start);
@@ -2111,7 +2111,12 @@ function coPick(){
   if(!ok.length) return index;
   return ok[Math.floor(Math.random()*ok.length)];
 }
+/* 協力プレイは、いったん止めてある(2026-08-18、本人の指示)。
+   作りは丸ごと残してあるので、復活させるときはここを true に戻す。
+   止めるのはここ1箇所。ボタンを隠し、送られてきたリンクも開かない */
+const COOP_ON=false;
 function coStart(){
+  if(!COOP_ON) return;
   if(!puzzle) return;
   coBack=index;
   const i=coPick();
@@ -2683,7 +2688,7 @@ function takeSpell(code, fromPaste){
   if(fromPaste) closeMove();
   return true;
 }
-$('btnMove').addEventListener('click',openMove);
+$('btnMoveOpen').addEventListener('click',openMove);
 $('btnMoveClose').addEventListener('click',closeMove);
 $('btnMoveCopy').addEventListener('click',copyMove);
 $('btnMovePaste').addEventListener('click',pasteMove);
@@ -2731,7 +2736,8 @@ $('btnHint').addEventListener('click',hint);
 $('btnPick').addEventListener('click',openPicker);
 $('btnPickClose').addEventListener('click',()=>$('pickOverlay').classList.remove('show'));
 $('btnHist').addEventListener('click',openHist);
-$('btnCo').addEventListener('click',()=>{ if(coop) coQuit(); else coStart(); });
+if(COOP_ON) $('btnCo').addEventListener('click',()=>{ if(coop) coQuit(); else coStart(); });
+else { $('btnCo').style.display='none'; $('btnCoSend').style.display='none'; }
 $('btnCoSend').addEventListener('click',coSend);
 $('btnHistFilter').addEventListener('click',()=>{ histOnlyLeft=!histOnlyLeft; renderHist(); });
 $('btnHistClose').addEventListener('click',()=>$('histOverlay').classList.remove('show'));
