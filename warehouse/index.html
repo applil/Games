@@ -323,6 +323,12 @@ body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
 body:not(.debug) #btnFresh, body:not(.debug) #btnSkin, body:not(.debug) #btnSoundTest{display:none}
 body:not(.debug) #btnEffort, body.mod #btnEffort, body.edit #btnEffort{display:none}
 
+.movehead{
+  font-size:13px;font-weight:700;color:var(--ink);text-align:center;
+  margin-top:16px;margin-bottom:8px;padding-top:14px;border-top:1px solid var(--line);
+}
+.movehead:first-of-type{margin-top:4px;padding-top:0;border-top:0}
+#movePasteBox{color:var(--ink)}
 .movesum{font-size:13px;font-weight:700;color:var(--ink);text-align:center;line-height:1.9}
 .movehint{font-size:12px;color:var(--ink-soft);text-align:center;line-height:1.9;margin:6px 0}
 .movebox{
@@ -583,7 +589,7 @@ body.co #btnReset, body.co #btnUndo{display:none}
     <div class="chapters" id="histChapters"></div>
     <div class="chapters histfilter"><button id="btnHistFilter">最短でない面だけ</button></div>
     <div class="histlist" id="histList"></div>
-    <div class="chapters histmove"><button id="btnMoveOpen">📦 別の端末に引っ越す</button></div>
+    <div class="chapters histmove"><button id="btnMoveOpen">📦 これまでの記録を引っ越し</button></div>
     <button class="btn btn-new" id="btnHistClose">とじる</button>
     <button class="btn" id="btnHistExit">本編にもどる</button>
   </div>
@@ -592,13 +598,18 @@ body.co #btnReset, body.co #btnUndo{display:none}
 <div class="overlay" id="moveOverlay">
   <div class="picker">
     <h2>引っ越し</h2>
+
+    <h3 class="movehead">ほかの端末に引っ越し</h3>
     <div class="movesum" id="moveSum"></div>
     <div class="movehint">この住所を、新しい端末で開いてください。<br>開くとクリア記録が入ります。</div>
     <textarea class="movebox" id="moveUrl" readonly rows="4"></textarea>
-    <div class="chapters">
-      <button id="btnMoveCopy">住所をコピー</button>
-      <button id="btnMovePaste">じゅもんを貼って取り込む</button>
-    </div>
+    <div class="chapters"><button id="btnMoveCopy">住所をコピー</button></div>
+
+    <h3 class="movehead">引っ越しデータを入力</h3>
+    <div class="movehint">前の端末で出した住所か、じゅもんを貼り付け</div>
+    <textarea class="movebox" id="movePasteBox" rows="3" placeholder="ここに貼り付け"></textarea>
+    <div class="chapters"><button id="btnMovePaste">取り込む</button></div>
+
     <button class="btn btn-new" id="btnMoveClose">とじる</button>
   </div>
 </div>
@@ -2658,6 +2669,7 @@ function openMove(){
   const url=spellUrl();
   $('moveSum').textContent = n ? (n+'面ぶんの記録を持ち出します') : 'まだクリアした面がありません';
   $('moveUrl').value=url;
+  $('movePasteBox').value='';
   $('moveOverlay').classList.add('show');
 }
 function closeMove(){ $('moveOverlay').classList.remove('show'); }
@@ -2667,11 +2679,11 @@ async function copyMove(){
   catch(e){ $('moveUrl').select(); showMsg('長押しして「コピー」を選んでください'); }
 }
 function pasteMove(){
-  const s=prompt('じゅもん、または引っ越しの住所を貼り付けてください');
-  if(s==null) return;
+  const s=$('movePasteBox').value;
+  if(!s.trim()){ showMsg('貼り付ける欄が空です'); return; }
   // 住所ごと貼られても拾えるように
   const m=/[?&]move=([A-Za-z0-9_-]+)/.exec(s);
-  takeSpell(m?m[1]:s.trim(), true);
+  if(takeSpell(m?m[1]:s.trim(), true)) $('movePasteBox').value='';
 }
 /* じゅもんを取り込む。黙って上書きしない。何面ぶん増えるかを見せて聞く */
 function takeSpell(code, fromPaste){
