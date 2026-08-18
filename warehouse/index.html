@@ -323,6 +323,15 @@ body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
 body:not(.debug) #btnFresh, body:not(.debug) #btnSkin, body:not(.debug) #btnSoundTest{display:none}
 body:not(.debug) #btnEffort, body.mod #btnEffort, body.edit #btnEffort{display:none}
 
+.movesum{font-size:13px;font-weight:700;color:var(--ink);text-align:center;line-height:1.9}
+.movehint{font-size:12px;color:var(--ink-soft);text-align:center;line-height:1.9;margin:6px 0}
+.movebox{
+  width:100%;font:inherit;font-size:11px;line-height:1.5;color:var(--ink-soft);
+  border:1px solid var(--line);border-radius:10px;background:var(--paper);
+  padding:8px;resize:none;word-break:break-all;
+}
+body:not(.debug) #btnMove{display:none}
+
 .banner{
   flex:0 0 auto;display:none;background:#fff;border:2px solid var(--goal);border-radius:12px;
   padding:7px 10px;font-size:11.5px;font-weight:700;margin-top:6px;text-align:center;line-height:1.6;
@@ -454,6 +463,7 @@ body.co #btnReset, body.co #btnUndo{display:none}
     <button class="btn" id="btnCheck">解けるか確かめる</button>
     <button class="btn" id="btnEditReset">編集を戻す</button>
     <button class="btn" id="btnEditExport">書き出す</button>
+    <button class="btn" id="btnMove">引っ越し</button>
     <button class="btn" id="btnEffort">手こずり具合を書き出す</button>
     <button class="btn" id="btnWipe">記録を消す</button>
     <button class="btn" id="btnMark">ここまで進んだことにする</button>
@@ -562,6 +572,20 @@ body.co #btnReset, body.co #btnUndo{display:none}
     <div class="chapters" id="chapters"></div>
     <div class="grid-stages" id="stageGrid"></div>
     <button class="btn" id="btnPickClose">とじる</button>
+  </div>
+</div>
+
+<div class="overlay" id="moveOverlay">
+  <div class="picker">
+    <h2>引っ越し</h2>
+    <div class="movesum" id="moveSum"></div>
+    <div class="movehint">この住所を、新しい端末で開いてください。<br>開くとクリア記録が入ります。</div>
+    <textarea class="movebox" id="moveUrl" readonly rows="4"></textarea>
+    <div class="chapters">
+      <button id="btnMoveCopy">住所をコピー</button>
+      <button id="btnMovePaste">じゅもんを貼って取り込む</button>
+    </div>
+    <button class="btn btn-new" id="btnMoveClose">とじる</button>
   </div>
 </div>
 
@@ -1014,6 +1038,130 @@ const bestOf=lv=>lv&&progress.cleared[lv.id];
 // 「ここまで進んだことにする」で入れた仮の記録。実際に解いた手数ではない
 const NOREC=999;
 
+/* ================= 引っ越し(じゅもん) =================
+   別の端末へ、クリア記録をまるごと持っていくための仕組み。
+   記録は端末の中にしか無いので、持ち出す道が要る。
+
+   並び順ではなく「IDを並べ替えた順」を土台にする。面を並べ替えても
+   じゅもんは壊れない(IDは面が生まれたときから変わらない)。
+
+   中身:
+     0         … 形式の版
+     1-2       … 送り主が知っていた面の数
+     3-6       … 面ぞろえの指紋(ずれた端末どうしを弾く)
+     7         … 着せ替え
+     8-        … クリアしたかどうかの旗を1面1ビット
+     そのあと  … クリアした面ぶんだけ、最短からの超過を6ビット
+                 (62でうちどめ。63は「ここまで進んだことにする」の仮記録)
+
+   超過を入れるのは、生の手数より値が小さくて詰められるから。
+   1000面ぜんぶクリアでも875バイト、base64で1168文字に収まる */
+const SPELL_VER=1;
+const SPELL_MAX=62;                        // 超過はここでうちどめ
+const SPELL_NOREC=63;                      // 仮記録の印
+
+function canonIds(){ return LEVELS.map(l=>l.id).slice().sort(); }
+// 面ぞろえの指紋。FNV-1a を32ビットで
+function levelsFingerprint(ids){
+  let h=0x811c9dc5;
+  for(const id of ids){
+    for(let i=0;i<id.length;i++){ h^=id.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; }
+  }
+  return h>>>0;
+}
+const b64url=bytes=>{
+  let s='';
+  for(let i=0;i<bytes.length;i++) s+=String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+};
+const unb64url=str=>{
+  const s=str.replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(s+'==='.slice(0,(4-s.length%4)%4));
+  const out=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+  return out;
+};
+
+function makeSpell(){
+  const ids=canonIds(), n=ids.length;
+  const byId={};
+  LEVELS.forEach(l=>{ byId[l.id]=l; });
+  const flags=new Uint8Array(Math.ceil(n/8));
+  const vals=[];
+  ids.forEach((id,i)=>{
+    const best=progress.cleared[id];
+    if(best===undefined) return;
+    flags[i>>3] |= 1<<(i&7);
+    if(best===NOREC){ vals.push(SPELL_NOREC); return; }
+    const over=Math.max(0, Math.min(SPELL_MAX, best-(byId[id].p||0)));
+    vals.push(over);
+  });
+  const bits=new Uint8Array(Math.ceil(vals.length*6/8));
+  vals.forEach((v,k)=>{
+    const at=k*6;
+    // 6ビットは byte をまたぐ。下位から詰める
+    bits[at>>3] |= (v<<(at&7)) & 0xFF;
+    if((at&7)>2) bits[(at>>3)+1] |= v>>(8-(at&7));
+  });
+  const fp=levelsFingerprint(ids);
+  const out=new Uint8Array(8+flags.length+bits.length);
+  out[0]=SPELL_VER;
+  out[1]=n&0xFF; out[2]=(n>>8)&0xFF;
+  out[3]=fp&0xFF; out[4]=(fp>>8)&0xFF; out[5]=(fp>>16)&0xFF; out[6]=(fp>>>24)&0xFF;
+  out[7]=Math.max(0, SKIN_ORDER.indexOf(skinName));
+  out.set(flags, 8);
+  out.set(bits, 8+flags.length);
+  return b64url(out);
+}
+
+/* じゅもんを読む。読めなければ理由を返す */
+function readSpell(str){
+  let b;
+  try{ b=unb64url(String(str||'').trim()); }catch(e){ return {err:'形が違います'}; }
+  if(b.length<8) return {err:'短すぎます'};
+  if(b[0]!==SPELL_VER) return {err:'知らない版のじゅもんです（版'+b[0]+'）'};
+  const n=b[1]|(b[2]<<8);
+  const fp=(b[3]|(b[4]<<8)|(b[5]<<16)|(b[6]<<24))>>>0;
+  const ids=canonIds();
+  if(n!==ids.length || fp!==levelsFingerprint(ids))
+    return {err:'面ぞろえが違います。両方の端末で表題を5回たたいて最新に更新してから、もう一度お試しください'};
+  const flagBytes=Math.ceil(n/8);
+  if(b.length<8+flagBytes) return {err:'途中で切れています'};
+  const flags=b.subarray(8, 8+flagBytes);
+  const bits=b.subarray(8+flagBytes);
+  const byId={};
+  LEVELS.forEach(l=>{ byId[l.id]=l; });
+
+  const cleared={};
+  let k=0, cut=false;
+  for(let i=0;i<n;i++){
+    if(!(flags[i>>3]>>(i&7) & 1)) continue;
+    const at=k*6;
+    if((at+6) > bits.length*8){ cut=true; break; }
+    let v=bits[at>>3]>>(at&7);
+    if((at&7)>2) v |= bits[(at>>3)+1]<<(8-(at&7));
+    v&=63; k++;
+    const lv=byId[ids[i]];
+    cleared[ids[i]] = v===SPELL_NOREC ? NOREC : (lv.p||0)+v;
+  }
+  if(cut) return {err:'途中で切れています'};
+  return {cleared, skin:SKIN_ORDER[b[7]]||'normal', count:k};
+}
+
+/* 取り込む。いまの記録は消さず、良いほうを残す */
+function applySpell(res){
+  let added=0, better=0, same=0;
+  for(const id of Object.keys(res.cleared)){
+    const inc=res.cleared[id], cur=progress.cleared[id];
+    if(cur===undefined){ progress.cleared[id]=inc; added++; continue; }
+    // 手数は少ないほうが良い。仮記録(NOREC)は本物に負ける
+    if(inc<cur){ progress.cleared[id]=inc; better++; }
+    else same++;
+  }
+  saveProgress();
+  return {added, better, same};
+}
+
 /* ================= 手こずり具合の記録 =================
    面の並べ替えに使う「難易度」の実測値。いままで手数(最短押し回数)しか
    材料がなく、それは難しさそのものではなかった。実際に解いた人がどれだけ
@@ -1285,6 +1433,7 @@ loadJSON(FILE)
     }
     const co=QS.get('co') && dec(QS.get('co'));
     if(co && co.b && co.lv){ coResume(co); return; }          // 協力プレイの続き
+    takeMoveFromUrl();                    // 引っ越しは、始める面を決める前に取り込む
     const start=(WANT>=1&&WANT<=LEVELS.length) ? WANT-1 : unlockedMax();
     startLevel(start);
     // ?history=1 は、右下のボタンを押したのと同じ。履歴を開いた状態で始める
@@ -2384,6 +2533,64 @@ $('btnBad').addEventListener('click',toggleBad);
 $('btnBadWin').addEventListener('click',toggleBad);
 $('btnBadExport').addEventListener('click',exportBads);
 $('btnEffort').addEventListener('click',exportEfforts);
+
+/* ================= 引っ越しの画面 ================= */
+function spellUrl(){
+  return location.origin + location.pathname.replace(/[^/]*$/,'') + '?move=' + makeSpell();
+}
+function openMove(){
+  const n=Object.keys(progress.cleared).length;
+  const url=spellUrl();
+  $('moveSum').textContent = n ? (n+'面ぶんの記録を持ち出します') : 'まだクリアした面がありません';
+  $('moveUrl').value=url;
+  $('moveOverlay').classList.add('show');
+}
+function closeMove(){ $('moveOverlay').classList.remove('show'); }
+async function copyMove(){
+  const url=$('moveUrl').value;
+  try{ await navigator.clipboard.writeText(url); showMsg('住所をコピーしました'); }
+  catch(e){ $('moveUrl').select(); showMsg('長押しして「コピー」を選んでください'); }
+}
+function pasteMove(){
+  const s=prompt('じゅもん、または引っ越しの住所を貼り付けてください');
+  if(s==null) return;
+  // 住所ごと貼られても拾えるように
+  const m=/[?&]move=([A-Za-z0-9_-]+)/.exec(s);
+  takeSpell(m?m[1]:s.trim(), true);
+}
+/* じゅもんを取り込む。黙って上書きしない。何面ぶん増えるかを見せて聞く */
+function takeSpell(code, fromPaste){
+  const res=readSpell(code);
+  if(res.err){ alert('取り込めませんでした。\n'+res.err); return false; }
+  const n=Object.keys(progress.cleared).length;
+  if(!confirm(`${res.count}面ぶんの記録が入っています。\n`
+    +`いまのこの端末は${n}面。\n\n`
+    +`取り込みますか？\n(いまの記録は消えません。手数の少ないほうが残ります)`)) return false;
+  const r=applySpell(res);
+  if(res.skin && res.skin!==skinName){ try{ localStorage.setItem('warehouse-skin', res.skin); }catch(e){} }
+  updateStats(); updateNav && NAV && updateNav();
+  alert(`取り込みました。\n新しく増えた: ${r.added}面\n記録が縮んだ: ${r.better}面\nそのまま: ${r.same}面`
+    + (res.skin!==skinName ? '\n\n着せ替えは次に開いたときから変わります' : ''));
+  if(fromPaste) closeMove();
+  return true;
+}
+$('btnMove').addEventListener('click',openMove);
+$('btnMoveClose').addEventListener('click',closeMove);
+$('btnMoveCopy').addEventListener('click',copyMove);
+$('btnMovePaste').addEventListener('click',pasteMove);
+$('moveOverlay').addEventListener('click',e=>{ if(e.target===$('moveOverlay')) closeMove(); });
+
+/* ?move=… で開かれたときの取り込み。面が揃ってから、始める面を決める前に呼ぶ。
+   住所からは必ず消す。残すと、再読込のたびに同じことを聞かれる */
+function takeMoveFromUrl(){
+  const code=QS.get('move');
+  if(!code) return;
+  try{ takeSpell(code, false); }catch(e){ alert('取り込めませんでした。\n'+e.message); }
+  try{
+    const u=new URL(location.href); u.searchParams.delete('move');
+    history.replaceState(null,'', u.pathname+(u.search||''));
+  }catch(e){}
+}
 $('btnBadWipe').addEventListener('click',wipeMarks);
 $('btnCheck').addEventListener('click',editCheck);
 $('btnEditReset').addEventListener('click',editReset);
