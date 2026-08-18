@@ -243,9 +243,13 @@ h1{
 .dpad button[data-dir="right"]{--rot:90deg}
 .dpad button[data-dir="down"] {--rot:180deg}
 .dpad button[data-dir="left"] {--rot:270deg}
-.dpad button:active{background:var(--floor)}
-/* フリックで動かしたとき、そのキーを一瞬光らせる。指はキーに触れていないので、
-   どちらへ動かしたのかを目で補う。点くのは即時、消えるのはゆっくり */
+/* キーの光りは、動いた向きのものだけ。点けるのは JS の flashKey ひとつに絞る。
+   :active に任せると、スワイプを始めた指の下のキーまで光ってしまう。
+   マウスのときだけは、押している間の手応えとして :active も使う */
+@media (hover:hover){
+  body:not(.swiping) .dpad button:active{background:var(--floor)}
+}
+/* 点くのは即時、消えるのはゆっくり */
 .dpad button.lit{background:var(--floor)}
 .dpad button:not(.lit){transition:background .18s ease-out}
 /* 対角線は見た目だけ。押せる面積は削らない */
@@ -2511,7 +2515,7 @@ document.addEventListener('keydown',e=>{
   move(dir);
 });
 document.querySelectorAll('.dpad button[data-dir]').forEach(b=>{
-  b.addEventListener('click',()=>move(b.dataset.dir));
+  b.addEventListener('click',()=>{ flashKey(b.dataset.dir); move(b.dataset.dir); });
 });
 // スワイプは画面のどこでも受け付ける。ページごとスクロールしないよう既定の動作を止める。
 // ただしボタン類とモーダルの上では、押せなくなってしまうので受け付けない
@@ -2591,24 +2595,26 @@ document.addEventListener('touchmove',e=>{
   const dx=t.clientX-tsx, dy=t.clientY-tsy;
   if(Math.abs(dx)<20&&Math.abs(dy)<20) return;
   swiped=true;
+  document.body.classList.add('swiping');    // 指の下のキーの光りを止める
   swipeMove(dx,dy);
 },{passive:false});
 document.addEventListener('touchend',e=>{
   if(!tracking) return;
   tracking=false;
+  document.body.classList.remove('swiping');
   e.preventDefault();
   if(swiped) return;
   const t=e.changedTouches[0];
   const dx=t.clientX-tsx, dy=t.clientY-tsy;
   if(Math.abs(dx)<12&&Math.abs(dy)<12){
-    if(tapDir) move(tapDir);
+    if(tapDir){ flashKey(tapDir); move(tapDir); }
     else if(tapLabel) bumpDebugTap();
     else if(tapTitle) bumpFreshTap();
     return;
   }
   swipeMove(dx,dy);
 },{passive:false});
-document.addEventListener('touchcancel',()=>{ tracking=false; });
+document.addEventListener('touchcancel',()=>{ tracking=false; document.body.classList.remove('swiping'); });
 
 /* ================= ボタン ================= */
 $('btnDpadMode').addEventListener('click',()=>{
