@@ -382,6 +382,9 @@ body:not(.debug) #btnEffort, body.mod #btnEffort, body.edit #btnEffort{display:n
 .picker{background:var(--card);border-radius:20px;padding:16px 14px 12px;width:min(400px,92vw);max-height:80vh;display:flex;flex-direction:column}
 .picker h2{font-size:14px;font-weight:800;margin-bottom:8px;text-align:center}
 .chapters{display:flex;gap:6px;justify-content:center;padding-bottom:8px;margin-bottom:8px}
+/* .chapters は見出しの直後に置く前提で、上の余白を持っていない。
+   上に別のものが来る場所で使い回すと、直前にぴったりくっついてしまう */
+.histmove, #moveOverlay .chapters{margin-top:10px}
 .chapters button{
   flex:0 0 auto;border:1px solid var(--line);background:var(--paper);border-radius:999px;
   font:inherit;font-size:11px;font-weight:700;color:var(--ink-soft);padding:5px 9px;cursor:pointer;
