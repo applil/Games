@@ -601,14 +601,14 @@ body.co #btnReset, body.co #btnUndo{display:none}
 
     <h3 class="movehead">ほかの端末に引っ越し</h3>
     <div class="movesum" id="moveSum"></div>
-    <div class="movehint">この住所を、新しい端末で開いてください。<br>開くとクリア記録が入ります。</div>
+    <div class="movehint">下のリンクをコピーして、新しい端末で開いてください。<br>開いた端末に、これまでの記録が入ります。</div>
     <textarea class="movebox" id="moveUrl" readonly rows="4"></textarea>
-    <div class="chapters"><button id="btnMoveCopy">住所をコピー</button></div>
+    <div class="chapters"><button id="btnMoveCopy">リンクをコピー</button></div>
 
     <h3 class="movehead">引っ越しデータを入力</h3>
-    <div class="movehint">前の端末で出した住所か、じゅもんを貼り付け</div>
-    <textarea class="movebox" id="movePasteBox" rows="3" placeholder="ここに貼り付け"></textarea>
-    <div class="chapters"><button id="btnMovePaste">取り込む</button></div>
+    <div class="movehint">前の端末でコピーしたものを貼り付け</div>
+    <textarea class="movebox" id="movePasteBox" rows="3" placeholder="ここに貼り付けてください"></textarea>
+    <div class="chapters"><button id="btnMovePaste">この端末に入れる</button></div>
 
     <button class="btn btn-new" id="btnMoveClose">とじる</button>
   </div>
@@ -1191,19 +1191,19 @@ function makeSpell(){
 /* じゅもんを読む。読めなければ理由を返す */
 function readSpell(str){
   let b;
-  try{ b=unb64url(String(str||'').trim()); }catch(e){ return {err:'形が違います'}; }
-  if(b.length<8) return {err:'短すぎます'};
-  if(b[0]!==SPELL_VER) return {err:'知らない版のじゅもんです（版'+b[0]+'）'};
+  try{ b=unb64url(String(str||'').trim()); }catch(e){ return {err:'引っ越しデータとして読めませんでした。コピーし損ねていないか確かめてください'}; }
+  if(b.length<8) return {err:'引っ越しデータが足りません。全部コピーできているか確かめてください'};
+  if(b[0]!==SPELL_VER) return {err:'この引っ越しデータは、いまより新しい形式です。この端末を最新にしてから、もう一度お試しください'};
   const n=b[1]|(b[2]<<8);
   const fp=(b[3]|(b[4]<<8)|(b[5]<<16)|(b[6]<<24))>>>0;
   const ids=canonIds();
   if(n!==ids.length || fp!==levelsFingerprint(ids))
-    return {err:'面ぞろえが違います。両方の端末で表題を5回たたいて最新に更新してから、もう一度お試しください'};
+    return {err:'ふたつの端末で、面の内容が違います。\nどちらも最新にしてから、もう一度お試しください。\n(タイトルの「倉庫パズル」を5回たたくと最新になります)'};
   const byId={};
   LEVELS.forEach(l=>{ byId[l.id]=l; });
 
   const r=BitIn(b.subarray(8));
-  const cut={err:'途中で切れています'};
+  const cut={err:'引っ越しデータが途中で切れています。全部コピーできているか確かめてください'};
   const done=[];
   for(let i=0;i<n;i++){
     const v=r.get(1);
@@ -2667,7 +2667,7 @@ function spellUrl(){
 function openMove(){
   const n=Object.keys(progress.cleared).length;
   const url=spellUrl();
-  $('moveSum').textContent = n ? (n+'面ぶんの記録を持ち出します') : 'まだクリアした面がありません';
+  $('moveSum').textContent = n ? ('クリアした'+n+'面ぶんの記録を持っていけます') : 'まだクリアした面がありません';
   $('moveUrl').value=url;
   $('movePasteBox').value='';
   $('moveOverlay').classList.add('show');
@@ -2675,7 +2675,7 @@ function openMove(){
 function closeMove(){ $('moveOverlay').classList.remove('show'); }
 async function copyMove(){
   const url=$('moveUrl').value;
-  try{ await navigator.clipboard.writeText(url); showMsg('住所をコピーしました'); }
+  try{ await navigator.clipboard.writeText(url); showMsg('リンクをコピーしました'); }
   catch(e){ $('moveUrl').select(); showMsg('長押しして「コピー」を選んでください'); }
 }
 function pasteMove(){
@@ -2688,18 +2688,19 @@ function pasteMove(){
 /* じゅもんを取り込む。黙って上書きしない。何面ぶん増えるかを見せて聞く */
 function takeSpell(code, fromPaste){
   const res=readSpell(code);
-  if(res.err){ alert('取り込めませんでした。\n'+res.err); return false; }
+  if(res.err){ alert('入れられませんでした。\n\n'+res.err); return false; }
   const n=Object.keys(progress.cleared).length;
-  if(!confirm(`${res.count}面ぶんの記録が入っています。\n`
-    +`いまのこの端末は${n}面。\n\n`
-    +`取り込みますか？\n(いまの記録は消えません。手数の少ないほうが残ります)`)) return false;
+  if(!confirm(`受け取ったデータには ${res.count}面ぶんの記録があります。\n`
+    +`いまのこの端末は ${n}面です。\n\n`
+    +`この端末に入れますか？\n`
+    +`いまの記録は消えません。同じ面は、手数の少ないほうが残ります。`)) return false;
   const r=applySpell(res);
   if(res.skin && res.skin!==skinName){ try{ localStorage.setItem('warehouse-skin', res.skin); }catch(e){} }
   if(res.dpad && res.dpad!==dpadMode){ dpadMode=res.dpad; store.set('dpad', dpadMode); applyDpadMode(); }
   updateStats(); updateNav && NAV && updateNav();
-  alert(`取り込みました。\n新しく増えた: ${r.added}面\n記録が縮んだ: ${r.better}面\nそのまま: ${r.same}面`
-    + (r.eAdded ? `\n手こずり具合: ${r.eAdded}面ぶん` : '')
-    + (res.skin!==skinName ? '\n\n着せ替えは次に開いたときから変わります' : ''));
+  alert(`入れました。\n\n新しく増えた面: ${r.added}\n手数が縮んだ面: ${r.better}\n変わらなかった面: ${r.same}`
+    + (r.eAdded ? `\n解いたときの記録: ${r.eAdded}面ぶん` : '')
+    + (res.skin!==skinName ? '\n\n見た目は、次に開いたときから変わります' : ''));
   if(fromPaste) closeMove();
   return true;
 }
@@ -2714,7 +2715,7 @@ $('moveOverlay').addEventListener('click',e=>{ if(e.target===$('moveOverlay')) c
 function takeMoveFromUrl(){
   const code=QS.get('move');
   if(!code) return;
-  try{ takeSpell(code, false); }catch(e){ alert('取り込めませんでした。\n'+e.message); }
+  try{ takeSpell(code, false); }catch(e){ alert('入れられませんでした。\n\n'+e.message); }
   try{
     const u=new URL(location.href); u.searchParams.delete('move');
     history.replaceState(null,'', u.pathname+(u.search||''));
