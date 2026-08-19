@@ -12,7 +12,7 @@
      この部分だけを読むので、着せ替えごとの絵は別の入口(beetle/ など)に置く -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="倉庫パズル">
-<meta property="og:description" content="🐥 が 📦 を置き場まで運ぶパズル。全600面。">
+<meta property="og:description" content="🐥 が 📦 を置き場まで運ぶパズル。">
 <meta property="og:image" content="https://applil.github.io/Games/warehouse/icon-512.png">
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
@@ -2011,7 +2011,8 @@ function checkWin(){
   }else{
     $('winSub').innerHTML='このステージの最短は <b>'+lv.p+'手</b>'
       +(first||SHARED?'':'<br>自己ベスト '+Math.min(prev,pushCount)+'手')
-      +(SHARED?'':'<br>クリア '+clearedCount()+' / '+LEVELS.length);
+      // 全体で何面あるかは出さない。先が見えないほうがいい
+      +(SHARED?'':'<br>クリア '+clearedCount()+'面');
     const last=index>=LEVELS.length-1;
     $('btnNextStage').textContent = SHARED ? '本編へ' : (last ? 'とじる' : '次のステージへ');
   }
