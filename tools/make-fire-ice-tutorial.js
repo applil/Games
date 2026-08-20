@@ -1,6 +1,7 @@
 'use strict';
 /* 炎と氷ステージ版を組み立てる。
- * 4×4レッスン + 4×4パック + 6×6レッスン + 本編100面。
+ * レッスン + 4×4パック + 本編100面。
+ * レッスンは「直前までのルールでは独解にならず、新しいルールで初めて解ける」面にする。
  *
  *   node tools/make-fire-ice-tutorial.js
  */
@@ -16,6 +17,100 @@ const PACK100=path.join(DIR,'pack-original.json');
 
 function idx(n,r,c){ return r*n+c; }
 
+/* ルールを足し引きして独解か見る。
+ * count: 各行・列の同数 / triple: 3連続禁止 / unique: 同じ並び禁止 / cons: ＝× */
+function countSol(n, g0, cons, rules, limit){
+  const HALF=n/2;
+  const consMap=Array.from({length:n*n},()=>[]);
+  for(const cn of cons||[]){
+    consMap[cn.a].push({other:cn.b,type:cn.type});
+    consMap[cn.b].push({other:cn.a,type:cn.type});
+  }
+  function lineCount(g,idx,isRow){
+    let c0=0,c1=0;
+    for(let k=0;k<n;k++){ const v=isRow?g[idx*n+k]:g[k*n+idx]; if(v===1)c1++; else if(v===0)c0++; }
+    return c0<=HALF && c1<=HALF;
+  }
+  function lineTriple(g,idx,isRow){
+    let run=1, prev=null;
+    for(let k=0;k<n;k++){
+      const v=isRow?g[idx*n+k]:g[k*n+idx];
+      if(v!==null && v===prev){ run++; if(run>=3) return false; }
+      else { run=1; prev=v===null?Symbol():v; }
+    }
+    return true;
+  }
+  function lineComplete(g,idx,isRow){
+    for(let k=0;k<n;k++) if((isRow?g[idx*n+k]:g[k*n+idx])===null) return false;
+    return true;
+  }
+  function linesEqual(g,a,b,isRow){
+    for(let k=0;k<n;k++) if((isRow?g[a*n+k]:g[k*n+a])!==(isRow?g[b*n+k]:g[k*n+b])) return false;
+    return true;
+  }
+  function uniqueOk(g,r,c){
+    if(lineComplete(g,r,true)){
+      for(let r2=0;r2<n;r2++) if(r2!==r && lineComplete(g,r2,true) && linesEqual(g,r,r2,true)) return false;
+    }
+    if(lineComplete(g,c,false)){
+      for(let c2=0;c2<n;c2++) if(c2!==c && lineComplete(g,c2,false) && linesEqual(g,c,c2,false)) return false;
+    }
+    return true;
+  }
+  function consOk(g,i){
+    if(g[i]===null) return true;
+    for(const {other,type} of consMap[i]){
+      const ov=g[other]; if(ov===null) continue;
+      if(type==='eq' && ov!==g[i]) return false;
+      if(type==='ne' && ov===g[i]) return false;
+    }
+    return true;
+  }
+  function placeOk(g,r,c,v){
+    const i=r*n+c; g[i]=v;
+    let ok=true;
+    if(rules.count && (!lineCount(g,r,true)||!lineCount(g,c,false))) ok=false;
+    if(ok && rules.triple && (!lineTriple(g,r,true)||!lineTriple(g,c,false))) ok=false;
+    if(ok && rules.unique && !uniqueOk(g,r,c)) ok=false;
+    if(ok && rules.cons && !consOk(g,i)) ok=false;
+    g[i]=null; return ok;
+  }
+  function propagate(g){
+    let progress=true;
+    while(progress){
+      progress=false;
+      for(let i=0;i<n*n;i++){
+        if(g[i]!==null) continue;
+        const r=i/n|0, c=i%n;
+        const can0=placeOk(g,r,c,0), can1=placeOk(g,r,c,1);
+        if(!can0 && !can1) return false;
+        if(can0!==can1){ g[i]=can1?1:0; progress=true; }
+      }
+    }
+    return true;
+  }
+  let nsol=0;
+  function rec(g){
+    if(nsol>=limit) return;
+    if(!propagate(g)) return;
+    const i=g.indexOf(null);
+    if(i<0){ nsol++; return; }
+    const r=i/n|0, c=i%n;
+    for(const v of [1,0]){
+      if(!placeOk(g,r,c,v)) continue;
+      const t=g.slice(); t[i]=v; rec(t);
+    }
+  }
+  rec(g0.slice());
+  return nsol;
+}
+
+const COUNT={count:true,triple:false,unique:false,cons:false};
+const COUNT_TRIPLE={count:true,triple:true,unique:false,cons:false};
+const COUNT_TRIPLE_CONS={count:true,triple:true,unique:false,cons:true};
+const LOGIC={count:true,triple:true,unique:true,cons:true};
+const NONE={count:false,triple:false,unique:false,cons:false};
+
 function pack(n, puz, sol, cons, lesson, extra){
   const eng=E.makeEngine(n, ()=>0);
   eng.setConstraints(cons);
@@ -25,6 +120,14 @@ function pack(n, puz, sol, cons, lesson, extra){
     throw new Error('単純推理で解けない（想定外）: '+lesson.slice(0,20));
   if(extra && extra.simple===false && info.simple)
     throw new Error('背理法なしで解けてしまう: '+lesson.slice(0,20));
+  if(extra && extra.before){
+    const a=countSol(n, puz, cons, extra.before, 3);
+    if(a===1) throw new Error('旧ルールだけで解けてしまう: '+lesson.slice(0,24)+' sols='+a);
+  }
+  if(extra && extra.after){
+    const b=countSol(n, puz, cons, extra.after, 3);
+    if(b!==1) throw new Error('新ルールで独解にならない: '+lesson.slice(0,24)+' sols='+b);
+  }
   const fp=n+'|'+E.encodeGrid(puz)+'|'+JSON.stringify(E.encodeCons(cons));
   return {
     id:'tut-'+E.hashId(fp),
@@ -62,33 +165,105 @@ function makeHand(rows, holes, consSpec, lesson, extra){
   return pack(n, puz, sol, cons, lesson, extra);
 }
 
-function find6x6(pred, seed0){
-  for(let s=seed0;s<seed0+8000;s++){
-    const eng=E.makeEngine(6, E.mulberry32(s));
-    const made=eng.makePuzzle(36, 0);
-    if(!made) continue;
-    const g=made.solution;
-    for(let r=0;r<6;r++){
-      const row=g.slice(r*6, r*6+6);
-      if(!pred(row)) continue;
-      // 目的の行を一番上へ。行の入れ替えは成立を壊さない
-      const sol=g.slice();
-      for(let c=0;c<6;c++){
-        const tmp=sol[c];
-        sol[c]=sol[r*6+c];
-        sol[r*6+c]=tmp;
-      }
-      return sol;
-    }
-  }
-  throw new Error('6x6の種が見つからない seed='+seed0);
+function shiftGrid(g,n,dr,dc){
+  const out=Array(n*n);
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++)
+    out[r*n+c]=g[((r+dr)%n)*n+((c+dc)%n)];
+  return out;
+}
+function shiftCons(cons,n,dr,dc){
+  const map=i=>{
+    const r=i/n|0, c=i%n;
+    return ((r-dr+n)%n)*n+((c-dc+n)%n);
+  };
+  return (cons||[]).map(cn=>({a:map(cn.a), b:map(cn.b), horiz:cn.horiz, type:cn.type}));
 }
 
-function punch(sol, holes, cons, lesson, extra){
-  const n=Math.sqrt(sol.length)|0;
-  const puz=sol.slice();
-  for(const [r,c] of holes) puz[idx(n,r,c)]=null;
-  return pack(n, puz, sol, cons||[], lesson, extra);
+/* 11.. または 00.. のあとに 2×2 空き。同数では2通り、3連続で独解 */
+function findRunLesson(sym, seed0){
+  const n=6;
+  for(let s=seed0;s<seed0+8000;s++){
+    const eng=E.makeEngine(n, E.mulberry32(s));
+    const made=eng.makePuzzle(n*n, 0);
+    if(!made) continue;
+    const sol=made.solution;
+    for(let r=0;r<n-1;r++) for(let c=0;c<n-3;c++){
+      if(sol[r*n+c]!==sym || sol[r*n+c+1]!==sym) continue;
+      const puz=sol.slice();
+      puz[r*n+c+2]=null; puz[r*n+c+3]=null;
+      puz[(r+1)*n+c+2]=null; puz[(r+1)*n+c+3]=null;
+      if(countSol(n,puz,[],COUNT,3)===1) continue;
+      if(countSol(n,puz,[],COUNT_TRIPLE,3)!==1) continue;
+      return {
+        puz:shiftGrid(puz,n,r,c),
+        sol:shiftGrid(sol,n,r,c),
+        cons:[]
+      };
+    }
+  }
+  throw new Error('3連続レッスンの種がない sym='+sym);
+}
+
+/* 4×4 の 2×2 空きに、片方がヒントの＝または×。同数だけでは決まらない */
+function findConsLesson(type, seed0){
+  const n=4;
+  for(let s=seed0;s<seed0+8000;s++){
+    const eng=E.makeEngine(n, E.mulberry32(s));
+    const made=eng.makePuzzle(n*n, 0);
+    if(!made) continue;
+    const sol=made.solution;
+    for(let r=0;r<n-1;r++) for(let c=1;c<n-1;c++){
+      const puz=sol.slice();
+      puz[r*n+c]=null; puz[r*n+c+1]=null;
+      puz[(r+1)*n+c]=null; puz[(r+1)*n+c+1]=null;
+      const a=r*n+c-1, b=r*n+c;
+      if(sol[a]!==1) continue;
+      const want=type==='eq' ? sol[a]===sol[b] : sol[a]!==sol[b];
+      if(!want) continue;
+      const cons=[{a,b,horiz:true,type}];
+      if(countSol(n,puz,[],COUNT_TRIPLE,3)<2) continue;
+      if(countSol(n,puz,cons,COUNT_TRIPLE_CONS,3)!==1) continue;
+      return {
+        puz:shiftGrid(puz,n,r,c-1),
+        sol:shiftGrid(sol,n,r,c-1),
+        cons:shiftCons(cons,n,r,c-1)
+      };
+    }
+  }
+  throw new Error('制約レッスンの種がない type='+type);
+}
+
+function findUniqueLesson(seed0){
+  const n=4;
+  for(let s=seed0;s<seed0+8000;s++){
+    const eng=E.makeEngine(n, E.mulberry32(s));
+    const made=eng.makePuzzle(n*n, 0);
+    if(!made) continue;
+    const sol=made.solution;
+    const puz=sol.slice();
+    puz[2]=null; puz[3]=null; puz[6]=null; puz[7]=null;
+    if(countSol(n,puz,[],COUNT_TRIPLE_CONS,3)<2) continue;
+    if(countSol(n,puz,[],LOGIC,3)!==1) continue;
+    return {puz, sol, cons:[]};
+  }
+  throw new Error('同じ並びレッスンの種がない');
+}
+
+function findComboLesson(seed0){
+  const n=4;
+  for(let s=seed0;s<seed0+8000;s++){
+    const eng=E.makeEngine(n, E.mulberry32(s));
+    const made=eng.makePuzzle(11, 3);
+    if(!made) continue;
+    const puz=made.puzzle, sol=made.solution, cons=made.consList;
+    const empty=puz.filter(v=>v===null).length;
+    if(empty<3 || empty>6) continue;
+    if(!cons.some(cn=>cn.type==='eq') || !cons.some(cn=>cn.type==='ne')) continue;
+    if(countSol(n,puz,cons,COUNT,3)===1) continue;
+    if(countSol(n,puz,cons,LOGIC,3)!==1) continue;
+    return {puz, sol, cons};
+  }
+  throw new Error('組み合わせレッスンの種がない');
 }
 
 function contradictionLessons(){
@@ -142,115 +317,61 @@ function contradictionLessons(){
   return out;
 }
 
+function packFound(found, lesson, extra){
+  const n=Math.sqrt(found.puz.length)|0;
+  return pack(n, found.puz, found.sol, found.cons, lesson, extra);
+}
+
 function tutorials(){
-  const simple={simple:true};
   const list=[];
 
-  // 1 4×4 空き1マスをワンタップ（炎は1タップ）
+  // 1-2 同数。ルールなしでは決まらず、同数で初めて独解
   list.push(makeHand(
     ['1100','0011','1010','0101'],
     [[0,0]],
     [],
     '空いているマスを1回タップして、🔥を置いてみよう。各行・各列に🔥と🧊が2つずつ入るよ。',
-    simple
+    {simple:true, before:NONE, after:COUNT}
   ));
-
-  // 2 空き2マス。上は炎(1タップ)、下は氷(2タップ)
   list.push(makeHand(
     ['1100','0011','1010','0101'],
     [[0,0],[1,0]],
     [],
     '空いている2マスを埋めよう。1回タップで🔥、もう1回タップすると🧊になるよ。',
-    simple
+    {simple:true, before:NONE, after:COUNT}
   ));
 
-  // 3 3連続禁止だけで埋まる（🔥🔥□）
-  list.push(makeHand(
-    ['1100','0011','1010','0101'],
-    [[0,2]],
-    [],
-    '同じマークは3つ続けて置けない。🔥🔥の隣は🧊になるよ。',
-    simple
+  // 3-4 同数だけでは2通り。3連続禁止で初めて独解（4×4では同数と3連続が同じになるので6×6）
+  list.push(packFound(findRunLesson(1, 1),
+    '同じマークは3つ続けて置けない。🔥🔥の隣を🔥にすると3つ続くから、ここは🧊だよ。同数だけでは、まだどちらにもできる。',
+    {simple:true, before:COUNT, after:COUNT_TRIPLE}
+  ));
+  list.push(packFound(findRunLesson(0, 1),
+    '🧊🧊の隣も同じ。🧊を置くと3つ続いてしまうから🔥。🧊と🧊に挟まったマスも、これで🔥と分かるよ。',
+    {simple:true, before:COUNT, after:COUNT_TRIPLE}
   ));
 
-  // 4 氷と氷に挟まれたマスは炎
-  list.push(makeHand(
-    ['0101','1010','1100','0011'],
-    [[0,1]],
-    [],
-    '🧊と🧊に挟まれたマスは、🧊を置くと3つ続いてしまう。だから🔥だよ。',
-    simple
+  // 5-6 同数+3連続では決まらず、＝/×で初めて独解
+  list.push(packFound(findConsLesson('eq', 1),
+    '＝でつながったマスは、同じマーク。同数だけ見てもまだ2通りある。＝を使うと、隣の🔥と同じだと分かるよ。',
+    {simple:true, before:COUNT_TRIPLE, after:COUNT_TRIPLE_CONS}
+  ));
+  list.push(packFound(findConsLesson('ne', 1),
+    '×でつながったマスは、違うマーク。同数と3連続だけでは決まらない。×を使うと、隣の🔥と反対で🧊だと分かるよ。',
+    {simple:true, before:COUNT_TRIPLE, after:COUNT_TRIPLE_CONS}
   ));
 
-  // 5 = 初登場
-  list.push(makeHand(
-    ['1100','0011','1010','0101'],
-    [[0,1]],
-    [[0,0,0,1,'eq']],
-    '＝でつながったマスは、同じマーク。隣の🔥と同じだから、ここも🔥だよ。',
-    simple
+  // 7 同じ並び。それ以外では2通り
+  list.push(packFound(findUniqueLesson(0),
+    '同じ並びの行は作れない。上の2行を同じにすると負け。数字をそろえるだけ、3連続だけ、ではまだ決まらないよ。',
+    {before:COUNT_TRIPLE_CONS, after:LOGIC}
   ));
 
-  // 6 × 初登場
-  list.push(makeHand(
-    ['1010','0101','1001','0110'],
-    [[0,1]],
-    [[0,0,0,1,'ne']],
-    '×でつながったマスは、違うマーク。隣が🔥だから、ここは🧊だよ。',
-    simple
+  // 8 今までの組み合わせ。同数だけでは決まらない
+  list.push(packFound(findComboLesson(1),
+    '今までの技を順番に。＝、3連続、×、同じ並び。1マスずつ埋めていけるよ。',
+    {simple:true, before:COUNT, after:LOGIC}
   ));
-
-  // 7 同じ並びの行はダメ
-  list.push(makeHand(
-    ['1010','1001','0110','0101'],
-    [[1,2],[1,3],[2,2],[2,3]],
-    [],
-    '同じ並びの行は作れない。1行目が🔥🧊🔥🧊なので、2行目を同じにすると負け。2行目は🔥🧊🧊🔥だよ。'
-    // 残り2マス以上あるときの「同じ行はダメ」は、単純な1マス確定では解けない。
-    // 人は行を見比べるだけだが、プログラム上は仮置きになる
-  ));
-
-  // 8 これまでの要素を順に使うやさしい面
-  list.push(makeHand(
-    ['1100','0011','1010','0101'],
-    [[0,1],[0,2],[1,2],[3,1]],
-    [[0,0,0,1,'eq'],[1,1,1,2,'ne'],[3,0,3,1,'ne']],
-    '今までの技を順番に。＝、3連続、×、挟み。1マスずつ埋めていけるよ。',
-    simple
-  ));
-
-  // 9 炎の隣の、＝でつながった2マス → 3連続を避けると両方氷
-  list.push(makeHand(
-    ['1001','0101','1010','0110'],
-    [[0,1],[0,2]],
-    [[0,1,0,2,'eq']],
-    '🔥の隣に、＝でつながった2マスがある。ここに🔥を置くと3つ続いてしまうから、どちらも🧊だよ。',
-    simple
-  ));
-
-  // 10 6x6 両端が炎 → その内側は氷
-  {
-    const sol=find6x6(row=>row[0]===1 && row[1]===0 && row[4]===0 && row[5]===1, 100);
-    list.push(punch(
-      sol,
-      [[0,1],[0,4]],
-      [],
-      '6×6になったよ。行の両端が🔥なら、すぐ内側は🧊。内側を🔥にすると、残りが🧊だらけで3つ続いてしまうから。',
-      simple
-    ));
-  }
-
-  // 11 左から氷氷火 → 一番右は火（001101）
-  {
-    const sol=find6x6(row=>row[0]===0 && row[1]===0 && row[2]===1 && row[3]===1 && row[4]===0 && row[5]===1, 200);
-    list.push(punch(
-      sol,
-      [[0,3],[0,4],[0,5]],
-      [],
-      '左が🧊🧊🔥のとき、残りは🔥🧊🔥しかない。一番右は🔥になるよ。',
-      simple
-    ));
-  }
 
   list.push(...contradictionLessons());
   return list;
@@ -260,8 +381,6 @@ function main(){
   const intro=JSON.parse(fs.readFileSync(PACK4,'utf8')).levels.filter(lv=>!lv.tut && lv.n===4);
   const orig=JSON.parse(fs.readFileSync(PACK100,'utf8')).levels.filter(lv=>!lv.tut);
   const tut=tutorials();
-  const tut4=tut.filter(lv=>lv.n===4);
-  const tutBig=tut.filter(lv=>lv.n!==4);
   for(const lv of tut){
     const eng=E.makeEngine(lv.n, ()=>0);
     eng.setConstraints(E.decodeCons(lv.c));
@@ -272,7 +391,7 @@ function main(){
   }
   const seen=new Set();
   const levels=[];
-  for(const lv of tut4.concat(intro).concat(tutBig).concat(orig)){
+  for(const lv of tut.concat(intro).concat(orig)){
     if(seen.has(lv.id)) throw new Error('id重複 '+lv.id);
     seen.add(lv.id);
     levels.push(lv);
@@ -283,7 +402,7 @@ function main(){
     levels
   };
   fs.writeFileSync(FILE, JSON.stringify(data));
-  console.log('tutorial4 '+tut4.length+' + 4x4 '+intro.length+' + tutorial6 '+tutBig.length+' + original '+orig.length+' = '+levels.length);
+  console.log('tutorial '+tut.length+' + 4x4 '+intro.length+' + original '+orig.length+' = '+levels.length);
 }
 
 main();
