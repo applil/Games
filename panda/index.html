@@ -151,6 +151,13 @@ function checkWin(puzzle, board) {
   return true;
 }
 
+function fillEmptyGrass(puzzle, board) {
+  const { bambooSet } = puzzle;
+  return board.map((row, r) =>
+    row.map((v, c) => (v === 0 && !bambooSet.has(`${r},${c}`) ? 2 : v))
+  );
+}
+
 /* ---- 演繹ソルバー ----
    状態: 0:不明 1:パンダ 2:草 3:竹
    R1: 竹に隣接しないマスは草
@@ -658,9 +665,11 @@ function PandaPuzzle() {
       SFX.win();
       setMemoCells({});
       setMemoMode(false);
+      setBoard(fillEmptyGrass(puzzle, next));
       // 盤面のお祝いアニメーションを見せてからクリア画面へ
       setCelebrate(true);
       setTimeout(() => { setCelebrate(false); setWon(true); }, 1700);
+      return;
     } else if (
       (!wasR && rowClues[r] > 0 && countRow(next, r) === rowClues[r]) ||
       (!wasC && colClues[c] > 0 && countCol(next, c) === colClues[c])
@@ -682,10 +691,12 @@ function PandaPuzzle() {
       next[h.r][h.c] = h.val;
       if (checkWin(puzzle, next)) {
         SFX.win();
+        setBoard(fillEmptyGrass(puzzle, next));
         setCelebrate(true);
         setTimeout(() => { setCelebrate(false); setWon(true); }, 1700);
+      } else {
+        setBoard(next);
       }
-      setBoard(next);
       setHintMsg(h.msg);
       setHintCell(`${h.r},${h.c}`);
     }

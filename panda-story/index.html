@@ -290,7 +290,12 @@ function unlockedMax(){
 }
 const clearedCount=()=>Object.keys(progress.cleared).length;
 
-function emptyBoard(sz){ return Array.from({length:sz},()=>Array(sz).fill(0)); }
+function fillEmptyGrass(puzzle, board){
+  const {bambooSet}=puzzle;
+  return board.map((row,r)=>
+    row.map((v,c)=> (v===0 && !bambooSet.has(`${r},${c}`)) ? 2 : v)
+  );
+}
 function countRow(bd,r){ return bd[r].filter(v=>v===1).length; }
 function countCol(bd,c){ return bd.reduce((a,row)=>a+(row[c]===1?1:0),0); }
 
@@ -355,6 +360,7 @@ function tap(r,c){
   if(E.checkWin(puzzle, board)){
     SFX.win();
     clearMemo();
+    board=fillEmptyGrass(puzzle, board);
     celebrate=true;
     paint();
     setTimeout(()=>{ celebrate=false; onWin(); },1700);
@@ -482,6 +488,7 @@ function hint(){
   if(E.checkWin(puzzle, board)){
     SFX.win();
     clearMemo();
+    board=fillEmptyGrass(puzzle, board);
     celebrate=true;
     paint();
     setTimeout(()=>{ celebrate=false; onWin(); },1700);
