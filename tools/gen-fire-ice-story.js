@@ -14,15 +14,13 @@ const SEED=20260821;
 /* 帯ごとに多めに作って、スコア順に間引く。
    サイズが上がるところで一段難しくなるよう、帯の順そのものが難易度順 */
 const BANDS=[
-  {n:2, want:8,  min:3,  cons:2},
-  {n:2, want:4,  min:1,  cons:3},
-  {n:2, want:2,  min:0,  cons:2},
-  {n:4, want:8,  min:12, cons:6},
-  {n:4, want:6,  min:8,  cons:5},
-  {n:4, want:6,  min:4,  cons:4},
-  {n:4, want:4,  min:0,  cons:3, extra:{tries:12, removals:4}},
-  {n:6, want:8,  min:22, cons:6},
-  {n:6, want:6,  min:18, cons:5},
+  // 2×2はレッスン2面で足りる。本編は4×4から
+  {n:4, want:10, min:12, cons:6},
+  {n:4, want:8,  min:8,  cons:5},
+  {n:4, want:8,  min:4,  cons:4},
+  {n:4, want:6,  min:0,  cons:3, extra:{tries:12, removals:4}},
+  {n:6, want:12, min:22, cons:6},
+  {n:6, want:8,  min:18, cons:5},
   {n:6, want:6,  min:14, cons:6},
   {n:6, want:4,  min:11, cons:6},
   {n:6, want:4,  min:6,  cons:5, extra:{tries:10, removals:3}},
