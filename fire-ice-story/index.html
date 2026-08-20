@@ -83,7 +83,9 @@ h1 .to{font-size:15px;color:var(--ink-soft);margin:0 1px}
   background:var(--card);border:1px solid var(--line);border-radius:20px;
   padding:12px;box-shadow:0 8px 30px rgba(28,43,70,.07);position:relative;
 }
-.board{display:grid;gap:5px;position:relative}
+.board{display:grid;gap:5px;position:relative;margin:0 auto}
+.board.n2{max-width:220px;gap:8px}
+.board.n4{max-width:300px;gap:6px}
 .board.n8{gap:4px}
 .cell{
   aspect-ratio:1;border-radius:12px;border:0;cursor:pointer;
@@ -91,6 +93,8 @@ h1 .to{font-size:15px;color:var(--ink-soft);margin:0 1px}
   display:flex;align-items:center;justify-content:center;
   user-select:none;
 }
+.board.n2 .cell{font-size:clamp(36px,14vw,56px);border-radius:16px}
+.board.n4 .cell{font-size:clamp(24px,9vw,40px)}
 .board.n8 .cell{font-size:clamp(16px,5.4vw,24px);border-radius:9px}
 .cell:active{transform:scale(.93)}
 .cell.given{cursor:default;box-shadow:inset 0 0 0 1.5px var(--line)}
@@ -108,6 +112,7 @@ h1 .to{font-size:15px;color:var(--ink-soft);margin:0 1px}
   display:flex;align-items:center;justify-content:center;
   transform:translate(-50%,-50%);pointer-events:none;z-index:2;
 }
+.board.n2 .cons{width:24px;height:24px;font-size:16px}
 .board.n8 .cons{width:17px;height:17px;font-size:11px}
 .cons.err{border-color:var(--error);color:var(--error)}
 .loading{
@@ -210,7 +215,7 @@ body:not(.replaying) #btnHistExit{display:none}
     <div style="font-size:17px;font-weight:800;text-align:center;margin-bottom:12px">ルール</div>
     <div class="rules">
       <p>マスをタップすると 空 → 🔥 → 🧊 → 空 と切り替わります。</p>
-      <p>各行・各列に 🔥 と 🧊 を<b>同じ数ずつ</b>入れます（6×6なら3つ、8×8なら4つ）。</p>
+      <p>各行・各列に 🔥 と 🧊 を<b>同じ数ずつ</b>入れます（2×2なら1つ、4×4なら2つ、6×6なら3つ）。</p>
       <p>同じマークを縦・横に<b>3つ以上連続</b>させてはいけません。</p>
       <p><b>同じ並びの行</b>や<b>同じ並びの列</b>を作ってはいけません。</p>
       <p><b>＝</b>でつながれた隣り合うマスは<b>同じマーク</b>、<b>×</b>は<b>違うマーク</b>です。</p>
@@ -415,6 +420,8 @@ function startLevel(i){
 function buildBoard(){
   boardEl.innerHTML='';
   boardEl.style.gridTemplateColumns=`repeat(${N},1fr)`;
+  boardEl.classList.toggle('n2', N===2);
+  boardEl.classList.toggle('n4', N===4);
   boardEl.classList.toggle('n8', N===8);
   for(let i=0;i<N*N;i++){
     const b=document.createElement('button');

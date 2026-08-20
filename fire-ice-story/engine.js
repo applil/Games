@@ -240,7 +240,8 @@ function hashId(str){
 
 function difficultyScore(n, info){
   // 大きいほど難しい。サイズが土台、空きマスと背理法が上乗せ
-  const size=n===8?4000:0;
+  const byN={2:0,4:1600,6:3200,8:5000};
+  const size=byN[n]??(n*400);
   const empty=info.empty||0;
   const hard=info.hard||0;
   const rounds=info.rounds||0;

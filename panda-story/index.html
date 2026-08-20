@@ -367,7 +367,8 @@ function tap(r,c){
 
 function buildBoard(){
   boardEl.style.gridTemplateColumns=`repeat(${n+1}, auto)`;
-  boardEl.style.setProperty('--cell', `min(calc((min(100vw, 430px) - ${52+n*4}px) / ${n+1}), 52px)`);
+  const cap=n<=2?88:n<=4?72:52;
+  boardEl.style.setProperty('--cell', `min(calc((min(100vw, 430px) - ${52+n*4}px) / ${n+1}), ${cap}px)`);
   paint();
 }
 

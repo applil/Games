@@ -26,8 +26,11 @@ function shuffle(arr, rng){
   return a;
 }
 
-function generatePuzzle(n, div, rng){
-  const target=Math.max(3, Math.floor((n*n)/div));
+function generatePuzzle(n, div, rng, targetOverride){
+  // 2×2は斜め込みで隣り合うのでパンダは1頭まで。小さい盤は下限3をかけない
+  const raw=Math.floor((n*n)/div);
+  const target=targetOverride!=null ? targetOverride
+    : n<=2 ? 1 : n<=4 ? Math.max(1, raw) : Math.max(3, raw);
   for(let attempt=0; attempt<300; attempt++){
     const pandaSet=new Set();
     const cells=shuffle(
@@ -277,7 +280,8 @@ function hashId(str){
 }
 
 function difficultyScore(n, info){
-  const size=n===5?0:n===7?2500:5500;
+  const byN={2:0,3:800,4:1600,5:2500,7:4500,9:7000};
+  const size=byN[n]??(n*400);
   const hard=info.hard||0;
   const rounds=info.rounds||0;
   const contra=info.depth?900:0;

@@ -14,15 +14,22 @@ const SEED=20260821;
 /* 帯ごとに多めに作って、スコア順に間引く。
    サイズが上がるところで一段難しくなるよう、帯の順そのものが難易度順 */
 const BANDS=[
-  {n:6, want:12, min:22, cons:6},
-  {n:6, want:12, min:18, cons:5},
-  {n:6, want:12, min:14, cons:6},
-  {n:6, want:10, min:11, cons:6},
-  {n:6, want:10, min:6,  cons:5, extra:{tries:10, removals:3}},
-  {n:6, want:8,  min:0,  cons:4, extra:{tries:16, removals:6}},
-  {n:6, want:6,  min:0,  cons:2, extra:{tries:24, removals:9}},
+  {n:2, want:8,  min:3,  cons:2},
+  {n:2, want:4,  min:1,  cons:3},
+  {n:2, want:2,  min:0,  cons:2},
+  {n:4, want:8,  min:12, cons:6},
+  {n:4, want:6,  min:8,  cons:5},
+  {n:4, want:6,  min:4,  cons:4},
+  {n:4, want:4,  min:0,  cons:3, extra:{tries:12, removals:4}},
+  {n:6, want:8,  min:22, cons:6},
+  {n:6, want:6,  min:18, cons:5},
+  {n:6, want:6,  min:14, cons:6},
+  {n:6, want:4,  min:11, cons:6},
+  {n:6, want:4,  min:6,  cons:5, extra:{tries:10, removals:3}},
+  {n:6, want:4,  min:0,  cons:4, extra:{tries:16, removals:6}},
+  {n:6, want:2,  min:0,  cons:2, extra:{tries:24, removals:9}},
   {n:8, want:8,  min:36, cons:10},
-  {n:8, want:8,  min:28, cons:9},
+  {n:8, want:6,  min:28, cons:9},
   {n:8, want:6,  min:20, cons:10},
   {n:8, want:4,  min:8,  cons:6, extra:{tries:12, removals:4}},
   {n:8, want:4,  min:0,  cons:3, extra:{tries:24, removals:9}},
@@ -85,7 +92,7 @@ function main(){
       +' → '+got.length+'面 ('+(Date.now()-t0)+'ms) 累計='+levels.length);
   }
 
-  levels.sort((a,b)=>a.score-b.score || a.n-b.n || a.empty-b.empty || a.hard-b.hard);
+  levels.sort((a,b)=>a.n-b.n || a.score-b.score || a.empty-b.empty || a.hard-b.hard);
   const ids=new Set();
   for(const lv of levels){
     let id=lv.id, n=0;
