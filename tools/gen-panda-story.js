@@ -1,5 +1,6 @@
 'use strict';
-/* パンダと竹ステージ版の100面を、やさしい順に作る。
+/* パンダと竹ステージ版の本編100面を、やさしい順に作る。
+ * 出力は pack-original.json。levels.json はチュートリアル組み立てで作る。
  *
  *   node tools/gen-panda-story.js
  */
@@ -8,29 +9,28 @@ const fs=require('fs');
 const path=require('path');
 const E=require(path.join(__dirname,'..','panda-story','engine.js'));
 
-const OUT=path.join(__dirname,'..','panda-story','levels.json');
+const OUT=path.join(__dirname,'..','panda-story','pack-original.json');
 const SEED=20260821;
 
 const BANDS=[
-  {n:4, want:8,  div:16,  depth:0, target:1, maxRounds:3},
-  {n:4, want:14, div:5.0, depth:0, target:2, maxRounds:4},
-  {n:4, want:14, div:4.0, depth:0, target:3},
-  {n:4, want:14, div:4.4, depth:1, target:3, minHard:1},
-  {n:5, want:8,  div:4.2, depth:0, maxRounds:4},
-  {n:5, want:6,  div:4.4, depth:1, minHard:1},
-  {n:7, want:8,  div:4.2, depth:0, maxRounds:5},
-  {n:7, want:6,  div:4.4, depth:1, minHard:1},
-  {n:7, want:4,  div:4.8, depth:1, minHard:3},
-  {n:9, want:6,  div:4.2, depth:0, maxRounds:6},
-  {n:9, want:4,  div:4.4, depth:1, minHard:1},
+  {n:5, want:14, div:4.0, depth:0, maxRounds:3},
+  {n:5, want:12, div:4.2, depth:0, maxRounds:6},
+  {n:5, want:10, div:4.2, depth:0},
+  {n:5, want:8,  div:4.4, depth:1, minHard:1},
+  {n:7, want:10, div:4.2, depth:0, maxRounds:5},
+  {n:7, want:10, div:4.2, depth:0},
+  {n:7, want:8,  div:4.4, depth:1, minHard:1},
+  {n:7, want:6,  div:4.8, depth:1, minHard:3},
+  {n:9, want:8,  div:4.2, depth:0, maxRounds:6},
+  {n:9, want:6,  div:4.4, depth:1, minHard:1},
   {n:9, want:8,  div:4.8, depth:1, minHard:3},
 ];
 
 function harvestBand(band, rng, seen){
   const pool=[];
-  const tries=band.want*(band.depth?200:80);
+  const tries=band.want*80;
   for(let i=0;i<tries && pool.length<band.want*10;i++){
-    const p=E.generatePuzzle(band.n, band.div, rng, band.target);
+    const p=E.generatePuzzle(band.n, band.div, rng);
     if(!p) continue;
     const r0=E.deduce(p, 0);
     if(band.depth===0){
@@ -90,21 +90,7 @@ function main(){
       +' → '+got.length+'面 ('+(Date.now()-t0)+'ms) 累計='+levels.length);
   }
 
-  for(const fill of [
-    {n:5, div:4.2, depth:0},
-    {n:5, div:4.4, depth:1, minHard:1},
-    {n:7, div:4.2, depth:0},
-  ]){
-    if(levels.length>=100) break;
-    fill.want=100-levels.length;
-    const t0=Date.now();
-    const got=harvestBand(fill, rng, seen);
-    levels.push(...got.slice(0, fill.want));
-    console.log('補充 n='+fill.n+' → +'+got.length+' 累計='+levels.length+' ('+(Date.now()-t0)+'ms)');
-  }
-  if(levels.length>100) levels.length=100;
-
-  levels.sort((a,b)=>a.n-b.n || a.score-b.score || a.hard-b.hard || a.rounds-b.rounds);
+  levels.sort((a,b)=>a.score-b.score || a.n-b.n || a.hard-b.hard || a.rounds-b.rounds);
   const ids=new Set();
   for(const lv of levels){
     let id=lv.id, n=0;

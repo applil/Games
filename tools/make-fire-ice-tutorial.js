@@ -1,6 +1,6 @@
 'use strict';
-/* 炎と氷ステージ版の先頭に、ルールを1つずつ教えるチュートリアルを足す。
- * 既存の100面は後ろに残す。
+/* 炎と氷ステージ版を組み立てる。
+ * 4×4レッスン + 4×4パック + 6×6レッスン + 本編100面。
  *
  *   node tools/make-fire-ice-tutorial.js
  */
@@ -9,7 +9,10 @@ const fs=require('fs');
 const path=require('path');
 const E=require(path.join(__dirname,'..','fire-ice-story','engine.js'));
 
-const FILE=path.join(__dirname,'..','fire-ice-story','levels.json');
+const DIR=path.join(__dirname,'..','fire-ice-story');
+const FILE=path.join(DIR,'levels.json');
+const PACK4=path.join(DIR,'pack-4x4.json');
+const PACK100=path.join(DIR,'pack-original.json');
 
 function idx(n,r,c){ return r*n+c; }
 
@@ -254,9 +257,11 @@ function tutorials(){
 }
 
 function main(){
-  const data=JSON.parse(fs.readFileSync(FILE,'utf8'));
-  const rest=data.levels.filter(lv=>!lv.tut);
+  const intro=JSON.parse(fs.readFileSync(PACK4,'utf8')).levels.filter(lv=>!lv.tut && lv.n===4);
+  const orig=JSON.parse(fs.readFileSync(PACK100,'utf8')).levels.filter(lv=>!lv.tut);
   const tut=tutorials();
+  const tut4=tut.filter(lv=>lv.n===4);
+  const tutBig=tut.filter(lv=>lv.n!==4);
   for(const lv of tut){
     const eng=E.makeEngine(lv.n, ()=>0);
     eng.setConstraints(E.decodeCons(lv.c));
@@ -265,10 +270,20 @@ function main(){
     console.log((lv.tut?'T':' ')+' n='+lv.n+' empty='+lv.empty+' hard='+lv.hard+' simple='+info.simple
       +'  '+(lv.lesson||'').slice(0,40));
   }
-  data.levels=tut.concat(rest);
-  data.generated=new Date().toISOString().slice(0,10);
+  const seen=new Set();
+  const levels=[];
+  for(const lv of tut4.concat(intro).concat(tutBig).concat(orig)){
+    if(seen.has(lv.id)) throw new Error('id重複 '+lv.id);
+    seen.add(lv.id);
+    levels.push(lv);
+  }
+  const data={
+    v:1,
+    generated:new Date().toISOString().slice(0,10),
+    levels
+  };
   fs.writeFileSync(FILE, JSON.stringify(data));
-  console.log('tutorial '+tut.length+' + rest '+rest.length+' = '+data.levels.length);
+  console.log('tutorial4 '+tut4.length+' + 4x4 '+intro.length+' + tutorial6 '+tutBig.length+' + original '+orig.length+' = '+levels.length);
 }
 
 main();
