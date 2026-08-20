@@ -49,7 +49,9 @@ a.game:active{transform:scale(.98)}
   display:flex;align-items:center;justify-content:center;
 }
 .game.fire-ice .emoji{background:linear-gradient(135deg,#ffe9df 0%,#e3f1ff 100%)}
+.game.fire-ice-story .emoji{background:linear-gradient(135deg,#ffe9df 0%,#e3f1ff 100%)}
 .game.panda .emoji{background:linear-gradient(135deg,#e7f0d8 0%,#cfe3c2 100%)}
+.game.panda-story .emoji{background:linear-gradient(135deg,#e7f0d8 0%,#cfe3c2 100%)}
 .game.maze .emoji{background:linear-gradient(135deg,#e5e9f5 0%,#d4d9ea 100%)}
 .game.warehouse .emoji{background:linear-gradient(135deg,#fff2dc 0%,#e2f5eb 100%)}
 .info{flex:1;min-width:0}
@@ -76,11 +78,27 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
       </span>
       <span class="arrow">›</span>
     </a>
+    <a class="game fire-ice-story" href="fire-ice-story/">
+      <span class="emoji">🔥📋</span>
+      <span class="info">
+        <span class="name">炎と氷 ステージ</span>
+        <span class="desc">同じルールで、やさしい面から順に進む。1面から100面</span>
+      </span>
+      <span class="arrow">›</span>
+    </a>
     <a class="game panda" href="panda/">
       <span class="emoji">🐼🎋</span>
       <span class="info">
         <span class="name">パンダと竹</span>
         <span class="desc">竹1本にパンダ1頭を隣り合わせる。パンダ同士は隣り合わない。5×5 / 7×7 / 9×9</span>
+      </span>
+      <span class="arrow">›</span>
+    </a>
+    <a class="game panda-story" href="panda-story/">
+      <span class="emoji">🐼📋</span>
+      <span class="info">
+        <span class="name">パンダと竹 ステージ</span>
+        <span class="desc">同じルールで、やさしい面から順に進む。1面から100面</span>
       </span>
       <span class="arrow">›</span>
     </a>
@@ -102,7 +120,7 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
     </a>
   </nav>
 
-  <footer>炎と氷・パンダと竹・3D迷路は、開くたびに新しい問題が出ます</footer>
+  <footer>炎と氷・パンダと竹・3D迷路は、開くたびに新しい問題が出ます。<br>ステージ版と倉庫パズルは、1面から順に進みます</footer>
 </div>
 </body>
 </html>
