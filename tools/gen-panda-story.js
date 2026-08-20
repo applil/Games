@@ -12,12 +12,10 @@ const OUT=path.join(__dirname,'..','panda-story','levels.json');
 const SEED=20260821;
 
 const BANDS=[
-  {n:2, want:2,  div:4.0, depth:0, target:1},
-  {n:3, want:14, div:9.0, depth:0, target:1, maxRounds:4},
-  {n:3, want:10, div:4.0, depth:0, target:2},
-  {n:4, want:10, div:5.0, depth:0, target:2, maxRounds:4},
-  {n:4, want:8,  div:4.0, depth:0, target:3},
-  {n:4, want:6,  div:4.4, depth:1, target:3, minHard:1},
+  {n:4, want:8,  div:16,  depth:0, target:1, maxRounds:3},
+  {n:4, want:14, div:5.0, depth:0, target:2, maxRounds:4},
+  {n:4, want:14, div:4.0, depth:0, target:3},
+  {n:4, want:14, div:4.4, depth:1, target:3, minHard:1},
   {n:5, want:8,  div:4.2, depth:0, maxRounds:4},
   {n:5, want:6,  div:4.4, depth:1, minHard:1},
   {n:7, want:8,  div:4.2, depth:0, maxRounds:5},
