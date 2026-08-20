@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>炎と氷 ステージ</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
+<style>
+:root{
+  --ink:#1c2b46;
+  --ink-soft:#5a6b8c;
+  --paper:#f6f8fc;
+  --card:#ffffff;
+  --fire:#ff6b35;
+  --ice:#3d9bff;
+  --line:#dce5f2;
+  --error:#e5484d;
+  --ok:#2fa46a;
+  --ok-soft:#bde8d0;
+  --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{height:100%}
+body{
+  font-family:'Hiragino Maru Gothic ProN','Zen Maru Gothic','Hiragino Kaku Gothic ProN','Yu Gothic',system-ui,sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(120% 90% at -10% -10%, rgba(255,107,53,.10), transparent 55%),
+    radial-gradient(120% 90% at 110% 110%, rgba(61,155,255,.12), transparent 55%),
+    var(--paper);
+  min-height:100%;
+  display:flex;justify-content:center;
+}
+.app{width:100%;max-width:430px;padding:16px 16px 28px}
+
+header{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:34px;margin-bottom:6px}
+h1{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-size:22px;font-weight:800;letter-spacing:.04em;line-height:1;
+  display:inline-flex;align-items:baseline;gap:2px;white-space:nowrap;pointer-events:none;
+}
+h1 .fire{color:var(--fire)}
+h1 .ice{color:var(--ice)}
+h1 .to{font-size:15px;color:var(--ink-soft);margin:0 1px}
+.iconbtn{
+  background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:6px 12px;font:inherit;font-size:12px;font-weight:700;color:var(--ink-soft);
+  text-decoration:none;cursor:pointer;line-height:1.4;
+}
+
+.stagebar{position:relative;text-align:center;padding:10px 0 8px}
+.stagebar .time{
+  position:absolute;left:0;top:50%;transform:translateY(-50%);
+  font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink);
+}
+.stagelabel{font-size:11px;font-weight:700;color:var(--ink-soft);letter-spacing:.16em}
+.stageno{font-size:28px;font-weight:800;line-height:1.15}
+.stagebar .reset{position:absolute;right:0;top:50%;transform:translateY(-50%)}
+
+.banner{
+  display:none;background:#fff;border:2px solid var(--fire);border-radius:var(--radius);
+  padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:12px;text-align:center;line-height:1.7;
+}
+
+.btn{
+  border:0;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;
+  padding:9px 16px;font-size:13px;transition:transform .1s;
+  background:var(--card);border:1px solid var(--line);color:var(--ink);
+}
+.btn:active{transform:scale(.96)}
+.btn-new{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn-row{display:flex;gap:8px;margin:12px 0 10px}
+.btn-row .btn{flex:1}
+#btnMemo.active,#btnMemoCommit{background:var(--ink);color:#fff;border-color:var(--ink)}
+#btnMemo.shrink{flex:0 0 auto;padding:9px 12px}
+.hint-msg{
+  display:none;background:var(--card);border:1px solid var(--line);
+  border-left:4px solid var(--ok);border-radius:var(--radius);
+  padding:10px 12px;font-size:12.5px;line-height:1.7;margin-bottom:12px;
+}
+
+.board-wrap{
+  background:var(--card);border:1px solid var(--line);border-radius:20px;
+  padding:12px;box-shadow:0 8px 30px rgba(28,43,70,.07);position:relative;
+}
+.board{display:grid;gap:5px;position:relative}
+.board.n8{gap:4px}
+.cell{
+  aspect-ratio:1;border-radius:12px;border:0;cursor:pointer;
+  background:var(--paper);font-size:clamp(22px,7.5vw,32px);line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  user-select:none;
+}
+.board.n8 .cell{font-size:clamp(16px,5.4vw,24px);border-radius:9px}
+.cell:active{transform:scale(.93)}
+.cell.given{cursor:default;box-shadow:inset 0 0 0 1.5px var(--line)}
+.cell.given:active{transform:none}
+.cell.memo{outline:2.5px dashed #8fa3c7;outline-offset:-3px}
+.cell.err{box-shadow:inset 0 0 0 2.5px var(--error)}
+.cell.pulse{animation:pulse .5s ease 2}
+@keyframes pulse{50%{box-shadow:inset 0 0 0 3px var(--ok);transform:scale(1.06)}}
+.board.celebrate .cell{animation:winwave .9s ease both}
+@keyframes winwave{35%{transform:scale(1.14) rotate(6deg);filter:brightness(1.35)}}
+.cons{
+  position:absolute;width:20px;height:20px;border-radius:50%;
+  background:#fff;border:1.5px solid var(--line);
+  color:var(--ink-soft);font-size:13px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+  transform:translate(-50%,-50%);pointer-events:none;z-index:2;
+}
+.board.n8 .cons{width:17px;height:17px;font-size:11px}
+.cons.err{border-color:var(--error);color:var(--error)}
+.loading{
+  position:absolute;inset:0;background:rgba(255,255,255,.92);
+  display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;
+  border-radius:18px;font-size:13px;font-weight:700;color:var(--ink-soft);
+}
+.loading.show{display:flex}
+
+.foot{display:flex;justify-content:flex-end;margin-top:14px}
+.foot .btn i{font-style:normal;font-size:10px;margin-right:3px}
+
+.overlay{
+  position:fixed;inset:0;background:rgba(28,43,70,.45);
+  display:flex;align-items:center;justify-content:center;z-index:10;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.overlay.show{opacity:1;pointer-events:auto}
+.win-card{
+  background:var(--card);border-radius:24px;padding:28px 24px;text-align:center;
+  width:min(320px,86vw);
+}
+.win-emoji{font-size:44px;margin-bottom:8px}
+.win-title{font-size:20px;font-weight:800;margin-bottom:4px}
+.win-time{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin:8px 0 2px}
+.win-sub{font-size:12px;color:var(--ink-soft);margin-bottom:16px;line-height:1.8}
+.win-card .btn{width:100%}
+#btnShare{margin-bottom:8px}
+.rules p{font-size:12.5px;line-height:1.85;color:var(--ink-soft);margin-bottom:9px;text-align:left}
+.rules b{color:var(--ink)}
+
+.picker{background:var(--card);border-radius:20px;padding:16px 14px 12px;width:min(400px,92vw);max-height:80vh;display:flex;flex-direction:column}
+.picker h2{font-size:14px;font-weight:800;margin-bottom:8px;text-align:center}
+.histsum{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-align:center;line-height:1.7;padding-bottom:8px}
+.histlist{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:4px;padding:2px}
+.histlist button{
+  display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;
+  border:1px solid var(--line);background:var(--paper);border-radius:10px;cursor:pointer;
+  font:inherit;font-size:12px;font-weight:700;color:var(--ink);text-align:left;
+  font-variant-numeric:tabular-nums;
+}
+.histlist .no{flex:0 0 auto;width:64px;font-size:11px;color:var(--ink-soft)}
+.histlist .sc{flex:1}
+.histlist button.current{outline:2px solid var(--ink);outline-offset:-2px}
+body:not(.replaying) #btnHistExit{display:none}
+.picker .btn{margin-top:10px;width:100%}
+
+@media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <a class="iconbtn" href="../">◀ メニュー</a>
+    <h1><span class="fire">炎</span><span class="to">と</span><span class="ice">氷</span></h1>
+    <button class="iconbtn" id="btnRules">ルール</button>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="stagebar">
+    <div class="time" id="timer">0:00</div>
+    <div class="stagelabel" id="stageLabel">ステージ</div>
+    <div class="stageno" id="stageNo">--</div>
+    <button class="iconbtn reset" id="btnReset">やり直し</button>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board" id="board" role="grid" aria-label="パズル盤面"></div>
+    <div class="loading show" id="loading"><div>読み込み中…</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="btnMemo">✏️ メモ</button>
+    <button class="btn" id="btnMemoCommit" style="display:none">✔ 確定</button>
+    <button class="btn" id="btnMemoDiscard" style="display:none">✖ 取消</button>
+    <button class="btn" id="btnHint">💡 ヒント</button>
+  </div>
+  <div class="hint-msg" id="hintMsg"></div>
+
+  <div class="foot">
+    <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
+    <button class="btn" id="btnHist"><i>📋</i>履歴</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="win-card">
+    <div class="win-emoji">🔥🎉🧊</div>
+    <div class="win-title" id="winTitle">クリア！</div>
+    <div class="win-time" id="winTime">0:00</div>
+    <div class="win-sub" id="winSub"></div>
+    <button class="btn" id="btnShare">📨 結果を送る</button>
+    <button class="btn btn-new" id="btnNextStage">次のステージへ</button>
+  </div>
+</div>
+
+<div class="overlay" id="rulesOverlay">
+  <div class="win-card" style="text-align:left">
+    <div style="font-size:17px;font-weight:800;text-align:center;margin-bottom:12px">ルール</div>
+    <div class="rules">
+      <p>マスをタップすると 空 → 🔥 → 🧊 → 空 と切り替わります。</p>
+      <p>各行・各列に 🔥 と 🧊 を<b>同じ数ずつ</b>入れます（6×6なら3つ、8×8なら4つ）。</p>
+      <p>同じマークを縦・横に<b>3つ以上連続</b>させてはいけません。</p>
+      <p><b>同じ並びの行</b>や<b>同じ並びの列</b>を作ってはいけません。</p>
+      <p><b>＝</b>でつながれた隣り合うマスは<b>同じマーク</b>、<b>×</b>は<b>違うマーク</b>です。</p>
+      <p>薄い枠線のマスは最初から固定されたヒントです。</p>
+      <p>ステージは1面ずつ進みます。クリアした面は右下の<b>履歴</b>から解き直せます。</p>
+    </div>
+    <button class="btn btn-new" id="btnRulesClose" style="margin-top:14px">とじる</button>
+  </div>
+</div>
+
+<div class="overlay" id="histOverlay">
+  <div class="picker">
+    <h2>クリア履歴</h2>
+    <div class="histsum" id="histSum"></div>
+    <div class="histlist" id="histList"></div>
+    <button class="btn btn-new" id="btnHistClose">とじる</button>
+    <button class="btn" id="btnHistExit">本編にもどる</button>
+  </div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+'use strict';
+const E=FireIceEngine;
+const SYM={1:'🔥',0:'🧊'};
+const $=id=>document.getElementById(id);
+const QS=new URLSearchParams(location.search);
+const WANT=+(QS.get('lv')||0);
+
+const store={
+  get(k){ try{ return localStorage.getItem('fireice-story-'+k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem('fireice-story-'+k,v); }catch(e){} }
+};
+let progress={v:1, cleared:{}};
+(function(){ try{ const raw=store.get('progress'); if(raw){ const o=JSON.parse(raw); if(o&&o.cleared) progress=o; } }catch(e){} })();
+const saveProgress=()=>store.set('progress', JSON.stringify(progress));
+const isCleared=lv=>lv && progress.cleared[lv.id]!==undefined;
+const bestOf=lv=>lv&&progress.cleared[lv.id];
+
+const AC=window.AudioContext||window.webkitAudioContext;
+let actx=null;
+function ensureAudio(){
+  if(!AC) return;
+  if(!actx) actx=new AC();
+  if(actx.state==='suspended') actx.resume();
+}
+function beep(freq, dur, delay, type, vol){
+  if(!actx) return;
+  const t=actx.currentTime+(delay||0);
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type=type||'square'; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol||0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t); o.stop(t+dur);
+}
+const SFX={
+  tap(){ beep(880,0.05,0,'square',0.04); },
+  row(){ beep(659.25,0.09,0,'square',0.07); beep(987.77,0.14,0.08,'square',0.07); },
+  error(){ beep(196,0.12,0,'square',0.06); beep(185,0.2,0.1,'square',0.06); },
+  win(){ [523.25,659.25,739.99,783.99,987.77,1318.51].forEach((f,i)=>beep(f,i===5?0.34:0.14,i*0.11,'square',0.08)); }
+};
+
+function fmt(ms){
+  const s=Math.floor(ms/1000);
+  return (s/60|0)+':'+String(s%60).padStart(2,'0');
+}
+const enc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+async function shareLink(url, text){
+  if(navigator.share){ try{ await navigator.share({text, url}); return; }catch(e){ if(e.name==='AbortError') return; } }
+  try{ await navigator.clipboard.writeText(text+'\n'+url); alert('リンクをコピーしました！\nメッセージアプリにはりつけて友達に送ってね'); }
+  catch(e){ prompt('このリンクをコピーして友達に送ってね', url); }
+}
+
+let LEVELS=[], index=0, SHARED=false, replaying=false;
+let N=6, HALF=3, eng=null, puzzle=[], solution=[], user=[], given=[], constraints=[];
+let startTime=0, timerId=null, finished=false, hintCount=0, consEls=[];
+let shareData=null;
+const boardEl=$('board');
+
+function unlockedMax(){
+  for(let i=0;i<LEVELS.length;i++) if(!isCleared(LEVELS[i])) return i;
+  return Math.max(0, LEVELS.length-1);
+}
+const clearedCount=()=>Object.keys(progress.cleared).length;
+
+function lineCleared(g, idx, isRow){
+  let c0=0, c1=0, run=1, prev=null;
+  for(let k=0;k<N;k++){
+    const v=isRow?g[idx*N+k]:g[k*N+idx];
+    if(v===null) return false;
+    if(v===1) c1++; else c0++;
+    if(v===prev){ run++; if(run>=3) return false; } else run=1;
+    prev=v;
+  }
+  return c0===HALF && c1===HALF;
+}
+
+let errVisible=true, errTimer=null;
+let memoMode=false;
+const memoBackup=new Map();
+function updateMemoUI(){
+  $('btnMemo').classList.toggle('active', memoMode);
+  const on=memoBackup.size>0;
+  $('btnMemoCommit').style.display=on?'':'none';
+  $('btnMemoDiscard').style.display=on?'':'none';
+  $('btnMemo').classList.toggle('shrink', on);
+}
+function clearMemo(){ memoMode=false; memoBackup.clear(); updateMemoUI(); }
+
+function tap(i){
+  if(finished||given[i]) return;
+  ensureAudio();
+  const r=i/N|0, c=i%N;
+  const wasR=lineCleared(user,r,true), wasC=lineCleared(user,c,false);
+  if(memoMode && !memoBackup.has(i)) memoBackup.set(i,user[i]);
+  user[i]=user[i]===null?1:user[i]===1?0:null;
+  if(memoMode && memoBackup.has(i) && memoBackup.get(i)===user[i]) memoBackup.delete(i);
+  updateMemoUI();
+  errVisible=false;
+  clearTimeout(errTimer);
+  errTimer=setTimeout(()=>{
+    errVisible=true; paint();
+    if(violations().cells.size) SFX.error();
+  },800);
+  SFX.tap();
+  paint();
+  checkWin();
+  if(!finished && ((!wasR&&lineCleared(user,r,true))||(!wasC&&lineCleared(user,c,false)))) SFX.row();
+}
+
+function paint(){
+  const {cells:errCells, cons:errCons}=errVisible?violations():{cells:new Set(),cons:new Set()};
+  boardEl.querySelectorAll('.cell').forEach((b,i)=>{
+    const v=user[i];
+    b.textContent=v===null?'':SYM[v];
+    b.classList.toggle('memo', memoBackup.has(i));
+    b.classList.toggle('err', errCells.has(i));
+  });
+  consEls.forEach((m,k)=>m.classList.toggle('err', errCons.has(k)));
+}
+
+function violations(){
+  const cells=new Set(), cons=new Set();
+  for(let line=0;line<N;line++){
+    for(const isRow of [true,false]){
+      const idx=k=>isRow?line*N+k:k*N+line;
+      for(let k=0;k<N-2;k++){
+        const a=user[idx(k)],b=user[idx(k+1)],c=user[idx(k+2)];
+        if(a!==null&&a===b&&b===c){ cells.add(idx(k)); cells.add(idx(k+1)); cells.add(idx(k+2)); }
+      }
+      for(const v of [0,1]){
+        let n=0; for(let k=0;k<N;k++) if(user[idx(k)]===v) n++;
+        if(n>HALF) for(let k=0;k<N;k++) if(user[idx(k)]===v) cells.add(idx(k));
+      }
+    }
+  }
+  for(const isRow of [true,false]){
+    for(let a=0;a<N;a++) for(let b=a+1;b<N;b++){
+      if(eng.lineComplete(user,a,isRow)&&eng.lineComplete(user,b,isRow)&&eng.linesEqual(user,a,b,isRow)){
+        for(let k=0;k<N;k++){
+          cells.add(isRow?a*N+k:k*N+a);
+          cells.add(isRow?b*N+k:k*N+b);
+        }
+      }
+    }
+  }
+  constraints.forEach((cn,k)=>{
+    const va=user[cn.a], vb=user[cn.b];
+    if(va===null||vb===null) return;
+    if((cn.type==='eq'&&va!==vb)||(cn.type==='ne'&&va===vb)){
+      cells.add(cn.a); cells.add(cn.b); cons.add(k);
+    }
+  });
+  return {cells, cons};
+}
+
+function startLevel(i){
+  index=Math.max(0, Math.min(LEVELS.length-1, i));
+  const lv=LEVELS[index];
+  N=lv.n; HALF=N/2;
+  eng=E.makeEngine(N, Math.random);
+  puzzle=E.decodeGrid(lv.p);
+  solution=E.decodeGrid(lv.s);
+  constraints=E.decodeCons(lv.c);
+  eng.setConstraints(constraints);
+  user=puzzle.slice();
+  given=puzzle.map(v=>v!==null);
+  finished=false; hintCount=0;
+  clearMemo(); hideHintMsg();
+  $('overlay').classList.remove('show');
+  $('stageNo').textContent=index+1;
+  $('stageLabel').textContent=SHARED?'送られたステージ':(replaying?'解き直し':'ステージ');
+  buildBoard();
+  startTime=Date.now();
+  clearInterval(timerId);
+  timerId=setInterval(()=>{ if(!finished) $('timer').textContent=fmt(Date.now()-startTime); },250);
+  $('timer').textContent='0:00';
+  updateReplayBanner();
+}
+
+function buildBoard(){
+  boardEl.innerHTML='';
+  boardEl.style.gridTemplateColumns=`repeat(${N},1fr)`;
+  boardEl.classList.toggle('n8', N===8);
+  for(let i=0;i<N*N;i++){
+    const b=document.createElement('button');
+    b.className='cell';
+    if(given[i]) b.classList.add('given');
+    b.addEventListener('click',()=>tap(i));
+    boardEl.appendChild(b);
+  }
+  consEls=[];
+  for(const cn of constraints){
+    const m=document.createElement('div');
+    m.className='cons';
+    m.textContent=cn.type==='eq'?'=':'×';
+    const ar=cn.a/N|0, ac=cn.a%N;
+    if(cn.horiz){
+      m.style.left=((ac+1)/N*100)+'%';
+      m.style.top=((ar+0.5)/N*100)+'%';
+    }else{
+      m.style.left=((ac+0.5)/N*100)+'%';
+      m.style.top=((ar+1)/N*100)+'%';
+    }
+    boardEl.appendChild(m);
+    consEls.push(m);
+  }
+  paint();
+}
+
+function updateReplayBanner(){
+  if(SHARED||!replaying){ if(!SHARED) $('banner').style.display='none'; return; }
+  const lv=LEVELS[index];
+  const best=bestOf(lv);
+  $('banner').style.display='block';
+  $('banner').textContent='第'+(index+1)+'面の解き直し。自己ベスト '+(best!=null?fmt(best):'--');
+}
+
+function checkWin(){
+  if(user.some(v=>v===null)) return;
+  if(user.some((v,i)=>v!==solution[i])) return;
+  finished=true;
+  clearMemo();
+  SFX.win();
+  clearInterval(timerId);
+  const ms=Date.now()-startTime;
+  const lv=LEVELS[index];
+  const prev=bestOf(lv);
+  const first=prev===undefined;
+  if(!SHARED && (first||ms<prev)){ progress.cleared[lv.id]=ms; saveProgress(); }
+
+  $('winTitle').textContent=SHARED?'クリア！':('ステージ'+(index+1)+' クリア！');
+  $('winTime').textContent=fmt(ms);
+  if(replaying){
+    $('winSub').innerHTML='自己ベスト '+fmt(bestOf(lv))
+      +'<br>クリア '+clearedCount()+'面';
+    $('btnNextStage').textContent='履歴にもどる';
+  }else{
+    $('winSub').innerHTML=(first||SHARED?'':'自己ベスト '+fmt(Math.min(prev,ms))+'<br>')
+      +(SHARED?'':'クリア '+clearedCount()+'面');
+    const last=index>=LEVELS.length-1;
+    $('btnNextStage').textContent=SHARED?'本編へ':(last?'とじる':'次のステージへ');
+  }
+  shareData={
+    url:location.origin+location.pathname+'?lv='+(index+1),
+    text:'「炎と氷」ステージ'+(index+1)+'を'+fmt(ms)+'でクリア！🔥🧊'
+  };
+  boardEl.classList.add('celebrate');
+  boardEl.querySelectorAll('.cell').forEach((b,i)=>{ b.style.animationDelay=((i/N|0)+(i%N))*50+'ms'; });
+  setTimeout(()=>{
+    boardEl.classList.remove('celebrate');
+    boardEl.querySelectorAll('.cell').forEach(b=>{ b.style.animationDelay=''; });
+    $('overlay').classList.add('show');
+  },1700);
+}
+
+function nextStage(){
+  $('overlay').classList.remove('show');
+  if(SHARED){ location.href=location.pathname; return; }
+  if(replaying){ openHist(); return; }
+  if(index<LEVELS.length-1) startLevel(index+1);
+}
+
+let hintMsgTimer=null;
+function showHintMsg(text){
+  const el=$('hintMsg');
+  el.textContent=text; el.style.display='block';
+  clearTimeout(hintMsgTimer);
+  hintMsgTimer=setTimeout(()=>{ el.style.display='none'; },8000);
+}
+function hideHintMsg(){ clearTimeout(hintMsgTimer); $('hintMsg').style.display='none'; }
+const pos=i=>`${(i/N|0)+1}行${(i%N)+1}列`;
+
+function reasonFor(g, i, v){
+  const r=i/N|0, c=i%N;
+  g[i]=v;
+  const runBad=(idx,isRow)=>{
+    let run=1, prev=null, bad=false;
+    for(let k=0;k<N;k++){
+      const x=isRow?g[idx*N+k]:g[k*N+idx];
+      if(x!==null&&x===prev){ run++; if(run>=3) bad=true; }
+      else run=1;
+      prev=x===null?Symbol():x;
+    }
+    return bad;
+  };
+  const count=(idx,isRow)=>{ let m=0; for(let k=0;k<N;k++) if((isRow?g[idx*N+k]:g[k*N+idx])===v) m++; return m; };
+  let msg;
+  if(runBad(r,true)||runBad(c,false)) msg=`${SYM[v]}だと同じマークが3つ連続してしまう`;
+  else if(count(r,true)>HALF) msg=`この行の${SYM[v]}はもう${HALF}個そろっている`;
+  else if(count(c,false)>HALF) msg=`この列の${SYM[v]}はもう${HALF}個そろっている`;
+  else if(!eng.consValid(g,i)) msg=`${SYM[v]}だと ＝／× の印に合わない`;
+  else if(!eng.uniqueValid(g,r,c)) msg=`${SYM[v]}だと同じ並びの行・列ができてしまう`;
+  else msg=`${SYM[v]}は置けない`;
+  g[i]=null;
+  return msg;
+}
+
+function hint(){
+  if(finished) return;
+  hintCount++;
+  for(let i=0;i<N*N;i++){
+    if(!given[i]&&user[i]!==null&&user[i]!==solution[i]){
+      const wrong=SYM[user[i]];
+      user[i]=null; paint(); flash(i);
+      showHintMsg(`${pos(i)}の${wrong}は正解と違うよ。いったん消したよ。`);
+      return;
+    }
+  }
+  const g=user.slice();
+  for(let i=0;i<N*N;i++){
+    if(g[i]!==null) continue;
+    const r=i/N|0,c=i%N;
+    const can0=eng.placementValid(g,r,c,0), can1=eng.placementValid(g,r,c,1);
+    if(can0!==can1){
+      const val=can1?1:0;
+      user[i]=val; paint(); flash(i);
+      showHintMsg(`${pos(i)}は${SYM[val]}。${reasonFor(g,i,1-val)}から。`);
+      checkWin(); return;
+    }
+  }
+  for(let i=0;i<N*N;i++){
+    if(g[i]!==null) continue;
+    for(const v of [0,1]){
+      const t=g.slice(); t[i]=v;
+      if(!eng.propagate(t).ok){
+        user[i]=1-v; paint(); flash(i);
+        showHintMsg(`${pos(i)}は${SYM[1-v]}。仮に${SYM[v]}を置いて推理を進めると、必ずどこかで矛盾してしまうから(背理法)。`);
+        checkWin(); return;
+      }
+    }
+  }
+  for(let i=0;i<N*N;i++){
+    if(user[i]===null){
+      user[i]=solution[i]; paint(); flash(i);
+      showHintMsg(`${pos(i)}は${SYM[user[i]]}。ここは深い読みが必要な場面なので、正解をひとつ開示したよ。`);
+      checkWin(); return;
+    }
+  }
+}
+function flash(i){
+  const b=boardEl.querySelectorAll('.cell')[i];
+  b.classList.add('pulse');
+  setTimeout(()=>b.classList.remove('pulse'),1100);
+}
+
+function openHist(){
+  const list=$('histList');
+  list.innerHTML='';
+  const rows=[];
+  for(let i=0;i<LEVELS.length;i++) if(isCleared(LEVELS[i])) rows.push(i);
+  $('histSum').textContent=rows.length
+    ? ('クリア済み '+rows.length+'面'+(replaying?'':'\n面を選ぶと、その面を解き直せます'))
+    : 'まだクリアした面がありません。';
+  for(const i of rows){
+    const b=document.createElement('button');
+    if(i===index) b.classList.add('current');
+    const no=document.createElement('span'); no.className='no'; no.textContent='第'+(i+1)+'面';
+    const sc=document.createElement('span'); sc.className='sc'; sc.textContent='自己ベスト '+fmt(bestOf(LEVELS[i]));
+    b.appendChild(no); b.appendChild(sc);
+    b.addEventListener('click',()=>{
+      $('histOverlay').classList.remove('show');
+      replaying=i!==unlockedMax();
+      document.body.classList.toggle('replaying', replaying);
+      startLevel(i);
+    });
+    list.appendChild(b);
+  }
+  $('histOverlay').classList.add('show');
+}
+
+$('btnHint').addEventListener('click', hint);
+$('btnReset').addEventListener('click',()=>{ if(finished) return; user=puzzle.slice(); clearMemo(); paint(); });
+$('btnMemo').addEventListener('click',()=>{ memoMode=!memoMode; updateMemoUI(); });
+$('btnMemoCommit').addEventListener('click',()=>{ memoBackup.clear(); memoMode=false; updateMemoUI(); paint(); });
+$('btnMemoDiscard').addEventListener('click',()=>{
+  for(const [i,v] of memoBackup) user[i]=v;
+  memoBackup.clear(); memoMode=false; updateMemoUI(); paint();
+});
+$('btnNextStage').addEventListener('click', nextStage);
+$('btnShare').addEventListener('click',()=>{ if(shareData) shareLink(shareData.url, shareData.text); });
+$('btnRules').addEventListener('click',()=>$('rulesOverlay').classList.add('show'));
+$('btnRulesClose').addEventListener('click',()=>$('rulesOverlay').classList.remove('show'));
+$('btnHist').addEventListener('click', openHist);
+$('btnHistClose').addEventListener('click',()=>$('histOverlay').classList.remove('show'));
+$('btnHistExit').addEventListener('click',()=>{
+  $('histOverlay').classList.remove('show');
+  replaying=false; document.body.classList.remove('replaying');
+  startLevel(unlockedMax());
+});
+
+fetch('levels.json').then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data=>{
+    LEVELS=data.levels;
+    $('loading').classList.remove('show');
+    SHARED=!replaying && WANT>=1 && WANT<=LEVELS.length && (WANT-1)!==unlockedMax();
+    if(SHARED){
+      $('banner').style.display='block';
+      $('banner').textContent='📨 送られてきたステージです。本編の進みには影響しません';
+      $('btnBackHome').style.display='';
+      $('btnHist').style.display='none';
+    }
+    const start=(WANT>=1&&WANT<=LEVELS.length)?WANT-1:unlockedMax();
+    startLevel(start);
+  })
+  .catch(e=>{ $('loading').textContent='面の読み込みに失敗しました ('+e.message+')'; });
+</script>
+</body>
+</html>
