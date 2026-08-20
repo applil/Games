@@ -61,6 +61,10 @@ h1 .to{font-size:15px;color:var(--ink-soft);margin:0 1px}
   display:none;background:#fff;border:2px solid var(--fire);border-radius:var(--radius);
   padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:12px;text-align:center;line-height:1.7;
 }
+.lesson{
+  display:none;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ice);
+  border-radius:var(--radius);padding:10px 12px;font-size:13px;line-height:1.75;margin-bottom:12px;
+}
 
 .btn{
   border:0;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;
@@ -172,6 +176,7 @@ body:not(.replaying) #btnHistExit{display:none}
   </header>
 
   <div class="banner" id="banner"></div>
+  <div class="lesson" id="lesson"></div>
 
   <div class="stagebar">
     <div class="time" id="timer">0:00</div>
@@ -408,7 +413,10 @@ function startLevel(i){
   clearMemo(); hideHintMsg();
   $('overlay').classList.remove('show');
   $('stageNo').textContent=index+1;
-  $('stageLabel').textContent=SHARED?'送られたステージ':(replaying?'解き直し':'ステージ');
+  $('stageLabel').textContent=SHARED?'送られたステージ':(replaying?'解き直し':(lv.tut?'レッスン':'ステージ'));
+  const les=$('lesson');
+  if(lv.lesson){ les.style.display='block'; les.textContent=lv.lesson; }
+  else les.style.display='none';
   buildBoard();
   startTime=Date.now();
   clearInterval(timerId);
