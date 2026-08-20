@@ -266,6 +266,98 @@ function findComboLesson(seed0){
   throw new Error('組み合わせレッスンの種がない');
 }
 
+/* 🔥の隣の＝2マス。同数だけ・3連続だけ・＝だけでは足りず、3連続と＝を揃えて独解 */
+function findEqTripleLesson(seed0){
+  const n=6;
+  for(let s=seed0;s<seed0+8000;s++){
+    const eng=E.makeEngine(n, E.mulberry32(s));
+    const made=eng.makePuzzle(n*n, 0);
+    if(!made) continue;
+    const sol=made.solution;
+    for(let r=0;r<n-1;r++){
+      if(sol[r*n]!==1 || sol[r*n+1]!==0 || sol[r*n+2]!==0) continue;
+      const puz=sol.slice();
+      for(const c of [1,2,3,4]){
+        puz[r*n+c]=null;
+        puz[(r+1)*n+c]=null;
+      }
+      const cons=[{a:r*n+1, b:r*n+2, horiz:true, type:'eq'}];
+      if(countSol(n,puz,cons,COUNT,4)<2) continue;
+      if(countSol(n,puz,[],COUNT_TRIPLE,4)<2) continue;
+      if(countSol(n,puz,cons,{count:true,triple:false,unique:false,cons:true},4)<2) continue;
+      if(countSol(n,puz,cons,COUNT_TRIPLE_CONS,4)!==1) continue;
+      const shifted={
+        puz:shiftGrid(puz,n,r,0),
+        sol:shiftGrid(sol,n,r,0),
+        cons:shiftCons(cons,n,r,0)
+      };
+      const eng2=E.makeEngine(n, ()=>0);
+      eng2.setConstraints(shifted.cons);
+      const info=eng2.analyse(shifted.puz);
+      if(!info.ok || !info.simple) continue;
+      return shifted;
+    }
+  }
+  throw new Error('＝と3連続の種がない');
+}
+
+/* 両端🔥。同数だけでは中が決まらず、3連続で内側が🧊 */
+function findEndsFireLesson(seed0){
+  const n=6;
+  for(let s=seed0;s<seed0+8000;s++){
+    const eng=E.makeEngine(n, E.mulberry32(s));
+    const made=eng.makePuzzle(n*n, 0);
+    if(!made) continue;
+    const sol=made.solution;
+    for(let r=0;r<n-1;r++){
+      if(sol[r*n]!==1 || sol[r*n+5]!==1) continue;
+      const puz=sol.slice();
+      for(const c of [1,2,3,4]){
+        puz[r*n+c]=null;
+        puz[(r+1)*n+c]=null;
+      }
+      if(countSol(n,puz,[],COUNT,4)<2) continue;
+      if(countSol(n,puz,[],COUNT_TRIPLE,4)!==1) continue;
+      const shifted={puz:shiftGrid(puz,n,r,0), sol:shiftGrid(sol,n,r,0), cons:[]};
+      const eng2=E.makeEngine(n, ()=>0);
+      eng2.setConstraints([]);
+      const info=eng2.analyse(shifted.puz);
+      if(!info.ok || !info.simple) continue;
+      return shifted;
+    }
+  }
+  throw new Error('両端🔥の種がない');
+}
+
+/* 左が🧊🧊🔥。同数だけでは残りが決まらず、3連続で右端が🔥 */
+function find001Lesson(seed0){
+  const n=6;
+  for(let s=seed0;s<seed0+8000;s++){
+    const eng=E.makeEngine(n, E.mulberry32(s));
+    const made=eng.makePuzzle(n*n, 0);
+    if(!made) continue;
+    const sol=made.solution;
+    for(let r=0;r<n-1;r++){
+      const row=sol.slice(r*n, r*n+n);
+      if(!(row[0]===0 && row[1]===0 && row[2]===1 && row[3]===1 && row[4]===0 && row[5]===1)) continue;
+      const puz=sol.slice();
+      for(const c of [3,4,5]){
+        puz[r*n+c]=null;
+        puz[(r+1)*n+c]=null;
+      }
+      if(countSol(n,puz,[],COUNT,4)<2) continue;
+      if(countSol(n,puz,[],COUNT_TRIPLE,4)!==1) continue;
+      const shifted={puz:shiftGrid(puz,n,r,0), sol:shiftGrid(sol,n,r,0), cons:[]};
+      const eng2=E.makeEngine(n, ()=>0);
+      eng2.setConstraints([]);
+      const info=eng2.analyse(shifted.puz);
+      if(!info.ok || !info.simple) continue;
+      return shifted;
+    }
+  }
+  throw new Error('001101の種がない');
+}
+
 function contradictionLessons(){
   const out=[];
   const seen=new Set();
@@ -371,6 +463,24 @@ function tutorials(){
   list.push(packFound(findComboLesson(1),
     '今までの技を順番に。＝、3連続、×、同じ並び。1マスずつ埋めていけるよ。',
     {simple:true, before:COUNT, after:LOGIC}
+  ));
+
+  // 9 ＝と3連続を両方使う
+  list.push(packFound(findEqTripleLesson(1),
+    '🔥の隣に、＝でつながった2マス。＝だけでも3連続だけでもまだ2通り。両方使うと、🔥を置くと3つ続くからどちらも🧊だよ。',
+    {simple:true, before:COUNT_TRIPLE, after:COUNT_TRIPLE_CONS}
+  ));
+
+  // 10 6×6 両端が炎
+  list.push(packFound(findEndsFireLesson(1),
+    '行の両端が🔥。同数だけだと中はまだ決まらない。内側を🔥にすると残りが🧊だらけで3つ続くから、すぐ内側は🧊だよ。',
+    {simple:true, before:COUNT, after:COUNT_TRIPLE}
+  ));
+
+  // 11 左が氷氷炎
+  list.push(packFound(find001Lesson(1),
+    '左が🧊🧊🔥。同数だけだと残りはまだ2通り。3つ続かないようにすると、一番右は🔥になるよ。',
+    {simple:true, before:COUNT, after:COUNT_TRIPLE}
   ));
 
   list.push(...contradictionLessons());
