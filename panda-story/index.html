@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>パンダと竹 ステージ</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐼</text></svg>">
+<style>
+:root{
+  --ink:#f3efe2;
+  --ink-deep:#1d3d2b;
+  --soft:rgba(243,239,226,.7);
+  --card:#f3efe2;
+  --line:rgba(243,239,226,.25);
+  --ok:#a8cf5a;
+  --gold:#f0b429;
+  --error:#d33f2e;
+  --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{height:100%}
+body{
+  font-family:'Hiragino Maru Gothic ProN','Zen Maru Gothic','Hiragino Kaku Gothic ProN','Yu Gothic',system-ui,sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(1200px 500px at 50% -10%, #2e5b3f 0%, transparent 60%),
+    linear-gradient(180deg, #1d3d2b 0%, #17301f 100%);
+  min-height:100%;
+  display:flex;justify-content:center;
+}
+.app{width:100%;max-width:430px;padding:16px 16px 28px}
+
+header{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:34px;margin-bottom:6px}
+h1{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-size:20px;font-weight:800;letter-spacing:.04em;white-space:nowrap;pointer-events:none;
+}
+.iconbtn{
+  background:rgba(243,239,226,.12);border:2px solid var(--line);border-radius:999px;
+  padding:5px 11px;font:inherit;font-size:12px;font-weight:800;color:var(--ink);
+  text-decoration:none;cursor:pointer;line-height:1.4;
+}
+
+.stagebar{position:relative;text-align:center;padding:10px 0 8px}
+.stagebar .time{
+  position:absolute;left:0;top:50%;transform:translateY(-50%);
+  background:var(--card);color:var(--ink-deep);font-weight:800;
+  border-radius:999px;padding:5px 12px;font-size:13px;font-variant-numeric:tabular-nums;
+}
+.stagelabel{font-size:11px;font-weight:700;opacity:.65;letter-spacing:.16em}
+.stageno{font-size:28px;font-weight:800;line-height:1.15}
+.stagebar .reset{position:absolute;right:0;top:50%;transform:translateY(-50%)}
+
+.banner{
+  display:none;background:rgba(240,180,41,.16);border:2px solid rgba(240,180,41,.55);
+  border-radius:14px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:12px;text-align:center;line-height:1.7;
+}
+
+.btn{
+  font:inherit;font-weight:800;font-size:13px;cursor:pointer;
+  background:rgba(243,239,226,.12);color:var(--ink);
+  border:2px solid var(--line);border-radius:12px;padding:9px 14px;
+}
+.btn:active{transform:scale(.96)}
+.btn.active{background:var(--ok);color:var(--ink-deep);border-color:var(--ok)}
+.btn-new{background:#3e6b3a;color:#fff;border-color:#3e6b3a}
+.btn-row{display:flex;gap:8px;margin:12px 0 10px;flex-wrap:wrap;justify-content:center}
+.hint-msg{
+  display:none;background:rgba(243,239,226,.1);border:2px solid rgba(168,207,90,.5);
+  border-radius:14px;padding:10px 14px;font-size:.85rem;line-height:1.8;margin-bottom:12px;
+}
+.status{text-align:center;font-size:.85rem;opacity:.8;margin-top:10px}
+.status b{color:var(--gold)}
+
+.board-wrap{
+  background:var(--card);border-radius:20px;padding:14px;position:relative;
+  box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 0 0 4px #d9d2bb;
+}
+.grid{display:grid;gap:4px;justify-content:center}
+.cell,.clue,.corner{
+  width:var(--cell);height:var(--cell);
+  display:flex;align-items:center;justify-content:center;border-radius:10px;user-select:none;
+}
+.clue{color:#4c7a4a;font-weight:800;font-size:calc(var(--cell) * .42)}
+.clue.done{color:#b8b19a}
+.clue.over{color:var(--error)}
+.cell{
+  cursor:pointer;font-size:calc(var(--cell) * .6);
+  background:#e9f0e0;border-bottom:3px solid rgba(0,0,0,.12);
+}
+.cell:active{transform:scale(.93)}
+.cell.bamboo{background:#3e6b3a;cursor:default;border-bottom-color:rgba(0,0,0,.3)}
+.cell.panda{background:#53804a}
+.cell.mark{background:#68955a}
+.cell.error{background:#f0a294}
+.cell.memo{outline:2.5px dashed var(--gold);outline-offset:-3px}
+.cell.hintflash{animation:hintpulse .6s ease 3}
+@keyframes hintpulse{50%{box-shadow:inset 0 0 0 3px var(--gold);transform:scale(1.07)}}
+.grid.celebrate .cell{animation:sparkle .9s ease both}
+.grid.celebrate .cell.panda{animation:dance 1.5s ease both}
+@keyframes sparkle{35%{filter:brightness(1.45);transform:scale(1.1)}}
+@keyframes dance{
+  15%{transform:rotate(-14deg) translateY(-7px) scale(1.18)}
+  35%{transform:rotate(12deg) translateY(0) scale(1.08)}
+  55%{transform:rotate(-10deg) translateY(-5px) scale(1.14)}
+}
+.loading{
+  position:absolute;inset:0;background:rgba(243,239,226,.92);
+  display:none;align-items:center;justify-content:center;
+  border-radius:16px;font-size:13px;font-weight:800;color:var(--ink-deep);
+}
+.loading.show{display:flex}
+
+.foot{display:flex;justify-content:flex-end;margin-top:14px;gap:8px}
+.foot .btn i{font-style:normal;font-size:10px;margin-right:3px}
+
+.overlay{
+  position:fixed;inset:0;background:rgba(20,40,28,.75);
+  display:flex;align-items:center;justify-content:center;z-index:10;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.overlay.show{opacity:1;pointer-events:auto}
+.win-card{
+  background:var(--card);color:var(--ink-deep);border-radius:22px;
+  padding:28px 24px;text-align:center;width:min(320px,86vw);
+}
+.win-emoji{font-size:44px;margin-bottom:8px}
+.win-title{font-size:20px;font-weight:800;margin-bottom:4px}
+.win-time{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin:8px 0 2px;color:#3e6b3a}
+.win-sub{font-size:12px;color:#5a6b4a;margin-bottom:16px;line-height:1.8}
+.win-card .btn{width:100%;background:#3e6b3a;color:#fff;border-color:#2a4d28;border-radius:999px}
+#btnShare{margin-bottom:8px;background:var(--card);color:var(--ink-deep);border-color:#cfc7ad}
+.rules p{font-size:12.5px;line-height:1.85;color:#4a5c48;margin-bottom:9px;text-align:left}
+.rules b{color:var(--ink-deep)}
+
+.picker{background:var(--card);color:var(--ink-deep);border-radius:20px;padding:16px 14px 12px;width:min(400px,92vw);max-height:80vh;display:flex;flex-direction:column}
+.picker h2{font-size:14px;font-weight:800;margin-bottom:8px;text-align:center}
+.histsum{font-size:11.5px;font-weight:700;color:#5a6b4a;text-align:center;line-height:1.7;padding-bottom:8px;white-space:pre-line}
+.histlist{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:4px;padding:2px}
+.histlist button{
+  display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;
+  border:1px solid #d9d2bb;background:#e9f0e0;border-radius:10px;cursor:pointer;
+  font:inherit;font-size:12px;font-weight:700;color:var(--ink-deep);text-align:left;
+  font-variant-numeric:tabular-nums;
+}
+.histlist .no{flex:0 0 auto;width:64px;font-size:11px;color:#5a6b4a}
+.histlist .sc{flex:1}
+.histlist button.current{outline:2px solid var(--ink-deep);outline-offset:-2px}
+body:not(.replaying) #btnHistExit{display:none}
+.picker .btn{margin-top:10px;width:100%}
+.picker .btn-new{background:#3e6b3a;color:#fff;border-color:#3e6b3a}
+
+@media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <a class="iconbtn" href="../">◀ メニュー</a>
+    <h1>🐼 パンダと竹</h1>
+    <button class="iconbtn" id="btnRules">ルール</button>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="stagebar">
+    <div class="time" id="timer">0:00</div>
+    <div class="stagelabel" id="stageLabel">ステージ</div>
+    <div class="stageno" id="stageNo">--</div>
+    <button class="iconbtn reset" id="btnReset">やり直し</button>
+  </div>
+
+  <div class="board-wrap">
+    <div class="grid" id="board"></div>
+    <div class="loading show" id="loading">読み込み中…</div>
+  </div>
+  <div class="status">パンダ <b id="placed">0</b> / <span id="total">0</span> 頭　·　タップで 草マーク → 🐼 → 消去</div>
+
+  <div class="btn-row">
+    <button class="btn" id="btnMemo">✏️ メモ</button>
+    <button class="btn" id="btnMemoCommit" style="display:none">✔ 確定</button>
+    <button class="btn" id="btnMemoDiscard" style="display:none">✖ 取消</button>
+    <button class="btn" id="btnHint">💡 ヒント</button>
+  </div>
+  <div class="hint-msg" id="hintMsg"></div>
+
+  <div class="foot">
+    <a class="btn" id="btnBackHome" href="?" style="display:none">本編へ</a>
+    <button class="btn" id="btnHist"><i>📋</i>履歴</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="win-card">
+    <div class="win-emoji">🐼🎋</div>
+    <div class="win-title" id="winTitle">クリア！</div>
+    <div class="win-time" id="winTime">0:00</div>
+    <div class="win-sub" id="winSub"></div>
+    <button class="btn" id="btnShare">📨 結果を送る</button>
+    <button class="btn btn-new" id="btnNextStage">次のステージへ</button>
+  </div>
+</div>
+
+<div class="overlay" id="rulesOverlay">
+  <div class="win-card" style="text-align:left">
+    <div style="font-size:17px;font-weight:800;text-align:center;margin-bottom:12px">ルール</div>
+    <div class="rules">
+      <p>🎋 竹1本につきパンダ1頭を、竹の<b>上下左右</b>いずれかのマスに置きます(1対1のペア)。</p>
+      <p>🐼 パンダ同士は<b>縦・横・斜め</b>に隣り合ってはいけません。</p>
+      <p>🔢 行と列の数字は、その行・列にいるパンダの数です。</p>
+      <p>🌿 パンダがいないと分かったマスは草マーク(濃いめの緑)でメモできます。</p>
+      <p>ステージは1面ずつ進みます。クリアした面は右下の<b>履歴</b>から解き直せます。</p>
+    </div>
+    <button class="btn btn-new" id="btnRulesClose" style="margin-top:14px">とじる</button>
+  </div>
+</div>
+
+<div class="overlay" id="histOverlay">
+  <div class="picker">
+    <h2>クリア履歴</h2>
+    <div class="histsum" id="histSum"></div>
+    <div class="histlist" id="histList"></div>
+    <button class="btn btn-new" id="btnHistClose">とじる</button>
+    <button class="btn" id="btnHistExit">本編にもどる</button>
+  </div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+'use strict';
+const E=PandaEngine;
+const $=id=>document.getElementById(id);
+const QS=new URLSearchParams(location.search);
+const WANT=+(QS.get('lv')||0);
+
+const store={
+  get(k){ try{ return localStorage.getItem('panda-story-'+k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem('panda-story-'+k,v); }catch(e){} }
+};
+let progress={v:1, cleared:{}};
+(function(){ try{ const raw=store.get('progress'); if(raw){ const o=JSON.parse(raw); if(o&&o.cleared) progress=o; } }catch(e){} })();
+const saveProgress=()=>store.set('progress', JSON.stringify(progress));
+const isCleared=lv=>lv && progress.cleared[lv.id]!==undefined;
+const bestOf=lv=>lv&&progress.cleared[lv.id];
+
+const AC=window.AudioContext||window.webkitAudioContext;
+let actx=null;
+function ensureAudio(){
+  if(!AC) return;
+  if(!actx) actx=new AC();
+  if(actx.state==='suspended') actx.resume();
+}
+function beep(freq, dur, delay, type, vol){
+  if(!actx) return;
+  const t=actx.currentTime+(delay||0);
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type=type||'square'; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol||0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t); o.stop(t+dur);
+}
+const SFX={
+  tap(){ beep(880,0.05,0,'square',0.04); },
+  row(){ beep(659.25,0.09,0,'square',0.07); beep(987.77,0.14,0.08,'square',0.07); },
+  error(){ beep(196,0.12,0,'square',0.06); beep(185,0.2,0.1,'square',0.06); },
+  win(){ [523.25,659.25,739.99,783.99,987.77,1318.51].forEach((f,i)=>beep(f,i===5?0.34:0.14,i*0.11,'square',0.08)); }
+};
+
+function fmt(ms){
+  const s=Math.floor(ms/1000);
+  return (s/60|0)+':'+String(s%60).padStart(2,'0');
+}
+async function shareLink(url, text){
+  if(navigator.share){ try{ await navigator.share({text, url}); return; }catch(e){ if(e.name==='AbortError') return; } }
+  try{ await navigator.clipboard.writeText(text+'\n'+url); alert('リンクをコピーしました！\nメッセージアプリにはりつけて友達に送ってね'); }
+  catch(e){ prompt('このリンクをコピーして友達に送ってね', url); }
+}
+
+let LEVELS=[], index=0, SHARED=false, replaying=false;
+let puzzle=null, board=[], n=5;
+let startTime=0, timerId=null, finished=false, celebrate=false, hintCount=0;
+let shareData=null, showErrors=false, errTimer=null, hintCell=null;
+let memoMode=false, memoCells={};
+const boardEl=$('board');
+
+function unlockedMax(){
+  for(let i=0;i<LEVELS.length;i++) if(!isCleared(LEVELS[i])) return i;
+  return Math.max(0, LEVELS.length-1);
+}
+const clearedCount=()=>Object.keys(progress.cleared).length;
+
+function emptyBoard(sz){ return Array.from({length:sz},()=>Array(sz).fill(0)); }
+function countRow(bd,r){ return bd[r].filter(v=>v===1).length; }
+function countCol(bd,c){ return bd.reduce((a,row)=>a+(row[c]===1?1:0),0); }
+
+function updateMemoUI(){
+  $('btnMemo').classList.toggle('active', memoMode);
+  const on=Object.keys(memoCells).length>0;
+  $('btnMemoCommit').style.display=on?'':'none';
+  $('btnMemoDiscard').style.display=on?'':'none';
+}
+function clearMemo(){ memoMode=false; memoCells={}; updateMemoUI(); }
+
+function startLevel(i){
+  index=Math.max(0, Math.min(LEVELS.length-1, i));
+  const lv=LEVELS[index];
+  puzzle=E.unpackPuzzle(lv);
+  n=puzzle.n;
+  board=emptyBoard(n);
+  finished=false; celebrate=false; hintCount=0; hintCell=null;
+  clearMemo(); hideHintMsg();
+  $('overlay').classList.remove('show');
+  $('stageNo').textContent=index+1;
+  $('stageLabel').textContent=SHARED?'送られたステージ':(replaying?'解き直し':'ステージ');
+  $('total').textContent=puzzle.total;
+  buildBoard();
+  startTime=Date.now();
+  clearInterval(timerId);
+  timerId=setInterval(()=>{ if(!finished) $('timer').textContent=fmt(Date.now()-startTime); },250);
+  $('timer').textContent='0:00';
+  updateReplayBanner();
+}
+
+function updateReplayBanner(){
+  if(SHARED||!replaying){ if(!SHARED) $('banner').style.display='none'; return; }
+  const best=bestOf(LEVELS[index]);
+  $('banner').style.display='block';
+  $('banner').textContent='第'+(index+1)+'面の解き直し。自己ベスト '+(best!=null?fmt(best):'--');
+}
+
+function tap(r,c){
+  if(finished||celebrate||puzzle.bambooSet.has(`${r},${c}`)) return;
+  ensureAudio();
+  SFX.tap();
+  const {rowClues, colClues}=puzzle;
+  const wasR=countRow(board,r)===rowClues[r];
+  const wasC=countCol(board,c)===colClues[c];
+  const key=`${r},${c}`;
+  const next=board.map(row=>[...row]);
+  next[r][c]={0:2,2:1,1:0}[next[r][c]];
+  if(memoMode){
+    if(!(key in memoCells)) memoCells[key]=board[r][c];
+    else if(memoCells[key]===next[r][c]) delete memoCells[key];
+    updateMemoUI();
+  }
+  board=next;
+  showErrors=false;
+  clearTimeout(errTimer);
+  errTimer=setTimeout(()=>{
+    showErrors=true;
+    if(E.hasAdjacentPanda(board)) SFX.error();
+    paint();
+  },800);
+  if(E.checkWin(puzzle, board)){
+    SFX.win();
+    clearMemo();
+    celebrate=true;
+    paint();
+    setTimeout(()=>{ celebrate=false; onWin(); },1700);
+  }else if(
+    (!wasR && rowClues[r]>0 && countRow(board,r)===rowClues[r]) ||
+    (!wasC && colClues[c]>0 && countCol(board,c)===colClues[c])
+  ) SFX.row();
+  paint();
+}
+
+function buildBoard(){
+  boardEl.style.gridTemplateColumns=`repeat(${n+1}, auto)`;
+  boardEl.style.setProperty('--cell', `min(calc((min(100vw, 430px) - ${52+n*4}px) / ${n+1}), 52px)`);
+  paint();
+}
+
+function paint(){
+  const {bambooSet, rowClues, colClues, total}=puzzle;
+  const pandaSet=new Set();
+  board.forEach((row,r)=>row.forEach((v,c)=>{ if(v===1) pandaSet.add(`${r},${c}`); }));
+  const errorSet=new Set();
+  if(showErrors){
+    for(const key of pandaSet){
+      const [r,c]=key.split(',').map(Number);
+      for(const [dr,dc] of E.DIRS8)
+        if(pandaSet.has(`${r+dr},${c+dc}`)) errorSet.add(key);
+    }
+  }
+  const rowCount=Array(n).fill(0), colCount=Array(n).fill(0);
+  for(const key of pandaSet){
+    const [r,c]=key.split(',').map(Number);
+    rowCount[r]++; colCount[c]++;
+  }
+  $('placed').textContent=pandaSet.size;
+  const clueClass=(count, clue)=>count>clue?'clue over':count===clue?'clue done':'clue';
+
+  boardEl.classList.toggle('celebrate', celebrate);
+  let html=`<div class="corner"></div>`;
+  for(let c=0;c<n;c++) html+=`<div class="${clueClass(colCount[c], colClues[c])}">${colClues[c]}</div>`;
+  for(let r=0;r<n;r++){
+    html+=`<div class="${clueClass(rowCount[r], rowClues[r])}">${rowClues[r]}</div>`;
+    for(let c=0;c<n;c++){
+      const key=`${r},${c}`;
+      const isBamboo=bambooSet.has(key);
+      const v=board[r][c];
+      const cls=['cell',
+        isBamboo?'bamboo':'',
+        v===1?'panda':'',
+        v===2?'mark':'',
+        errorSet.has(key)?'error':'',
+        hintCell===key?'hintflash':'',
+        key in memoCells?'memo':''
+      ].join(' ');
+      const delay=celebrate?` style="animation-delay:${(r+c)*60}ms"`:'';
+      html+=`<div class="${cls}" data-r="${r}" data-c="${c}"${delay}>${isBamboo?'🎋':v===1?'🐼':''}</div>`;
+    }
+  }
+  boardEl.innerHTML=html;
+}
+
+boardEl.addEventListener('click', e=>{
+  const el=e.target.closest('.cell');
+  if(!el||el.classList.contains('bamboo')) return;
+  tap(+el.dataset.r, +el.dataset.c);
+});
+
+function onWin(){
+  finished=true;
+  clearInterval(timerId);
+  const ms=Date.now()-startTime;
+  const lv=LEVELS[index];
+  const prev=bestOf(lv);
+  const first=prev===undefined;
+  if(!SHARED && (first||ms<prev)){ progress.cleared[lv.id]=ms; saveProgress(); }
+
+  $('winTitle').textContent=SHARED?'クリア！':('ステージ'+(index+1)+' クリア！');
+  $('winTime').textContent=fmt(ms);
+  if(replaying){
+    $('winSub').innerHTML='自己ベスト '+fmt(bestOf(lv))+'<br>クリア '+clearedCount()+'面';
+    $('btnNextStage').textContent='履歴にもどる';
+  }else{
+    $('winSub').innerHTML=(first||SHARED?'':'自己ベスト '+fmt(Math.min(prev,ms))+'<br>')
+      +(SHARED?'':'クリア '+clearedCount()+'面');
+    const last=index>=LEVELS.length-1;
+    $('btnNextStage').textContent=SHARED?'本編へ':(last?'とじる':'次のステージへ');
+  }
+  shareData={
+    url:location.origin+location.pathname+'?lv='+(index+1),
+    text:'「パンダと竹」ステージ'+(index+1)+'を'+fmt(ms)+'でクリア！🐼🎋'
+  };
+  $('overlay').classList.add('show');
+}
+
+function nextStage(){
+  $('overlay').classList.remove('show');
+  if(SHARED){ location.href=location.pathname; return; }
+  if(replaying){ openHist(); return; }
+  if(index<LEVELS.length-1) startLevel(index+1);
+}
+
+let hintMsgTimer=null;
+function showHintMsg(text){
+  const el=$('hintMsg');
+  el.textContent=text; el.style.display='block';
+  clearTimeout(hintMsgTimer);
+  hintMsgTimer=setTimeout(()=>{ el.style.display='none'; hintCell=null; paint(); },8000);
+}
+function hideHintMsg(){ clearTimeout(hintMsgTimer); $('hintMsg').style.display='none'; }
+
+function hint(){
+  if(finished||celebrate) return;
+  ensureAudio();
+  const h=E.computeHint(puzzle, board);
+  if(!h){
+    showHintMsg('いまの盤面からは確定するマスが見つからないよ。置いたパンダや草マークを見直してみて。');
+    return;
+  }
+  hintCount++;
+  const next=board.map(row=>[...row]);
+  next[h.r][h.c]=h.val;
+  board=next;
+  hintCell=`${h.r},${h.c}`;
+  showHintMsg(h.msg);
+  if(E.checkWin(puzzle, board)){
+    SFX.win();
+    clearMemo();
+    celebrate=true;
+    paint();
+    setTimeout(()=>{ celebrate=false; onWin(); },1700);
+  }else paint();
+}
+
+function openHist(){
+  const list=$('histList');
+  list.innerHTML='';
+  const rows=[];
+  for(let i=0;i<LEVELS.length;i++) if(isCleared(LEVELS[i])) rows.push(i);
+  $('histSum').textContent=rows.length
+    ? ('クリア済み '+rows.length+'面'+(replaying?'':'\n面を選ぶと、その面を解き直せます'))
+    : 'まだクリアした面がありません。';
+  for(const i of rows){
+    const b=document.createElement('button');
+    if(i===index) b.classList.add('current');
+    const no=document.createElement('span'); no.className='no'; no.textContent='第'+(i+1)+'面';
+    const sc=document.createElement('span'); sc.className='sc'; sc.textContent='自己ベスト '+fmt(bestOf(LEVELS[i]));
+    b.appendChild(no); b.appendChild(sc);
+    b.addEventListener('click',()=>{
+      $('histOverlay').classList.remove('show');
+      replaying=i!==unlockedMax();
+      document.body.classList.toggle('replaying', replaying);
+      startLevel(i);
+    });
+    list.appendChild(b);
+  }
+  $('histOverlay').classList.add('show');
+}
+
+$('btnHint').addEventListener('click', hint);
+$('btnReset').addEventListener('click',()=>{
+  if(finished||celebrate) return;
+  board=emptyBoard(n); clearMemo(); hintCell=null; hideHintMsg(); paint();
+});
+$('btnMemo').addEventListener('click',()=>{ memoMode=!memoMode; updateMemoUI(); });
+$('btnMemoCommit').addEventListener('click',()=>{ memoCells={}; memoMode=false; updateMemoUI(); paint(); });
+$('btnMemoDiscard').addEventListener('click',()=>{
+  const next=board.map(row=>[...row]);
+  for(const key of Object.keys(memoCells)){
+    const [r,c]=key.split(',').map(Number);
+    next[r][c]=memoCells[key];
+  }
+  board=next; memoCells={}; memoMode=false; updateMemoUI(); paint();
+});
+$('btnNextStage').addEventListener('click', nextStage);
+$('btnShare').addEventListener('click',()=>{ if(shareData) shareLink(shareData.url, shareData.text); });
+$('btnRules').addEventListener('click',()=>$('rulesOverlay').classList.add('show'));
+$('btnRulesClose').addEventListener('click',()=>$('rulesOverlay').classList.remove('show'));
+$('btnHist').addEventListener('click', openHist);
+$('btnHistClose').addEventListener('click',()=>$('histOverlay').classList.remove('show'));
+$('btnHistExit').addEventListener('click',()=>{
+  $('histOverlay').classList.remove('show');
+  replaying=false; document.body.classList.remove('replaying');
+  startLevel(unlockedMax());
+});
+
+fetch('levels.json').then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data=>{
+    LEVELS=data.levels;
+    $('loading').classList.remove('show');
+    SHARED=WANT>=1 && WANT<=LEVELS.length && (WANT-1)!==unlockedMax();
+    if(SHARED){
+      $('banner').style.display='block';
+      $('banner').textContent='📨 送られてきたステージです。本編の進みには影響しません';
+      $('btnBackHome').style.display='';
+      $('btnHist').style.display='none';
+    }
+    const start=(WANT>=1&&WANT<=LEVELS.length)?WANT-1:unlockedMax();
+    startLevel(start);
+  })
+  .catch(e=>{ $('loading').textContent='面の読み込みに失敗しました ('+e.message+')'; });
+</script>
+</body>
+</html>
