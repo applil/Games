@@ -16,7 +16,11 @@
  * 章ごとの中央値も、境目も、山の位置も動かない。
  * 選んだ面は、残す全ての面と押し手の重なりが線未満であることを確かめる。
  *
- * 第 tools/frozen.js の線までは、順番も中身も動かさない。
+ * 動かさない範囲について。tools/frozen.js の線は「順番を動かさない」ための約束で、
+ * 中身の入れ替えは順番を変えないので、この線は関係ない。
+ * 代わりに、第1〜300面は中身も触らない。ここは実際に遊ばれていて、
+ * 差し替えるとクリア記録がその面を指さなくなるため。
+ * 301面以降は、まだほとんど誰も到達していないので入れ替えてよい。
  */
 const fs=require('fs');
 const path=require('path');
@@ -90,11 +94,13 @@ Object.keys(par).forEach(k=>{ const r=find(+k); (comp[r]=comp[r]||[]).push(+k); 
 const drop=[];
 Object.values(comp).forEach(g=>{ g.sort((a,b)=>a-b); g.slice(1).forEach(n=>drop.push(n)); });
 drop.sort((a,b)=>a-b);
-const frozenHit=drop.filter(n=>n<=FROZEN);
-const targets=drop.filter(n=>n>FROZEN);
+const PLAYED=+(process.env.PLAYED||300);        // ここまでは中身も触らない
+const playedHit=drop.filter(n=>n<=PLAYED);
+const targets=drop.filter(n=>n>PLAYED);
 console.log(`線${TH}: 落とす面 ${drop.length}面`);
-console.log(`  うち第${FROZEN}面までの固定範囲: ${frozenHit.length}面 (動かさない: ${frozenHit.join(' ')||'なし'})`);
+console.log(`  うち第${PLAYED}面まで(遊ばれている範囲): ${playedHit.length}面 — 触らない: ${playedHit.join(' ')||'なし'}`);
 console.log(`  差し替える面: ${targets.length}面`);
+console.log(`  (順番は動かさないので、第${FROZEN}面までの固定とは衝突しない)`);
 
 /* ---- 在庫を読む ---- */
 const used=new Set(L.map(l=>l.id));
@@ -114,25 +120,39 @@ const byP={};
 stock.forEach(x=>{ (byP[x.p]=byP[x.p]||[]).push(x); });
 console.log(`  在庫(未使用): ${stock.length}面`);
 
-/* ---- 差し替える ---- */
-const keep=L.filter((l,i)=>!drop.includes(i+1));          // 残す面
-const keepSets=keep.map(l=>pushSet(l.id, l.b));
+/* ---- 差し替える ----
+   突き合わせるのは「同じ部屋の面」だけでよい。部屋が違えば壁も置き場も違うので、
+   押し手が重なりようがない。残す面すべてと突き合わせると、深い面の最短手順を
+   何百枚も計算することになり、何時間経っても終わらない */
+const dropSet=new Set(drop);
+const roomKeep=new Map();                                  // 部屋の鍵 → 残す面
+L.forEach((l,i)=>{
+  if(dropSet.has(i+1)) return;
+  const k=canon(l.b).key;
+  if(!roomKeep.has(k)) roomKeep.set(k,[]);
+  roomKeep.get(k).push(l);
+});
 const swapped=[], failed=[];
 for(const at of targets){
   const want=L[at-1].p;
   const cands=(byP[want]||[]).slice();
   let picked=null;
   for(const c of cands){
+    const k=canon(c.b).key;
+    const mates=roomKeep.get(k);
+    if(!mates || !mates.length){ picked=c; break; }        // 同じ部屋が無いなら文句なし
     const s=pushSet(null, c.b);
     if(!s) continue;
     let ok=true;
-    for(const ks of keepSets){ if(overlap(s, ks)>=TH){ ok=false; break; } }
+    for(const m of mates){ if(overlap(s, pushSet(m.id, m.b))>=TH){ ok=false; break; } }
     if(!ok) continue;
     picked=c; break;
   }
   if(!picked){ failed.push(at+'('+want+'手)'); continue; }
   byP[want]=byP[want].filter(x=>x.id!==picked.id);
-  keepSets.push(pushSet(null, picked.b));
+  const k=canon(picked.b).key;
+  if(!roomKeep.has(k)) roomKeep.set(k,[]);
+  roomKeep.get(k).push(picked);                            // 次の候補はこれとも比べる
   L[at-1]={...picked, p:want};
   swapped.push(at);
 }
