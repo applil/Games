@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>詰めオセロ — 全部黒にする</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Shippori+Mincho:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1a2e24;
+  --ink-soft:#5d7a6c;
+  --paper:#eef5ef;
+  --card:#f7fbf7;
+  --line:#c9ddd0;
+  --board:#1f6b4a;
+  --board-deep:#145239;
+  --grid:#0f3d2c;
+  --black:#141414;
+  --white:#f3f1ea;
+  --accent:#e8a317;
+  --ok:#2a9d6a;
+  --error:#c44b4b;
+  --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{height:100%}
+body{
+  font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(90% 70% at 0% 0%, rgba(31,107,74,.16), transparent 55%),
+    radial-gradient(80% 60% at 100% 10%, rgba(232,163,23,.14), transparent 50%),
+    radial-gradient(70% 50% at 50% 100%, rgba(20,82,57,.10), transparent 55%),
+    linear-gradient(165deg, #e7f2ea 0%, #f4f7f2 45%, #e9efe6 100%);
+  min-height:100%;
+  display:flex;
+  justify-content:center;
+}
+.app{width:100%;max-width:430px;padding:18px 16px 40px}
+
+header{text-align:center;margin-bottom:12px;position:relative}
+.home{
+  position:absolute;left:0;top:2px;
+  background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:6px 12px;font-size:12px;font-weight:700;color:var(--ink-soft);
+  text-decoration:none;
+}
+h1{
+  font-family:"Shippori Mincho",serif;
+  font-size:26px;font-weight:700;letter-spacing:.08em;line-height:1.2;
+}
+.tagline{font-size:12px;color:var(--ink-soft);margin-top:6px;letter-spacing:.04em;line-height:1.6}
+
+.stats{display:flex;gap:8px;margin:12px 0}
+.stat{
+  flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:8px 6px;text-align:center;
+}
+.stat .label{font-size:10px;color:var(--ink-soft);letter-spacing:.08em}
+.stat .value{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+
+.controls{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{
+  flex:1;border:0;background:transparent;border-radius:999px;
+  font:inherit;font-size:12px;font-weight:700;color:var(--ink-soft);
+  padding:8px 0;cursor:pointer;transition:background .15s,color .15s;
+}
+.seg button.active{background:var(--ink);color:#fff}
+.mode-note{
+  font-size:11.5px;color:var(--ink-soft);line-height:1.65;
+  background:rgba(255,255,255,.55);border:1px solid var(--line);
+  border-radius:12px;padding:8px 12px;
+}
+.btn-row{display:flex;gap:8px;margin-bottom:12px}
+.btn{
+  border:0;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;
+  padding:9px 14px;font-size:13px;transition:transform .1s,filter .15s;
+}
+.btn:active{transform:scale(.96)}
+.btn-row .btn{flex:1}
+.btn-new{background:var(--ink);color:#fff}
+.btn-hint{background:var(--card);border:1px solid var(--line);color:var(--ink)}
+.btn-undo{background:var(--card);border:1px solid var(--line);color:var(--ink)}
+.hint-msg{
+  display:none;background:var(--card);border:1px solid var(--line);
+  border-left:4px solid var(--accent);border-radius:var(--radius);
+  padding:10px 12px;font-size:12.5px;line-height:1.7;color:var(--ink);
+  margin:-4px 0 12px;
+}
+.hint-msg.show{display:block}
+
+.board-wrap{
+  background:linear-gradient(160deg, #1a5c40 0%, var(--board) 40%, var(--board-deep) 100%);
+  border-radius:22px;padding:14px;
+  box-shadow:
+    0 12px 36px rgba(20,82,57,.28),
+    inset 0 1px 0 rgba(255,255,255,.12);
+}
+.board{
+  display:grid;grid-template-columns:repeat(8,1fr);gap:3px;
+  aspect-ratio:1;width:100%;
+}
+.cell{
+  border:0;border-radius:4px;cursor:pointer;
+  background:rgba(8,40,28,.35);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+  position:relative;
+  padding:0;
+  transition:background .12s, transform .08s;
+}
+.cell:active{transform:scale(.94)}
+.cell:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cell.legal{
+  background:rgba(232,163,23,.22);
+  box-shadow:inset 0 0 0 1.5px rgba(232,163,23,.55);
+}
+.cell.legal::after{
+  content:"";position:absolute;inset:38%;
+  border-radius:50%;background:rgba(232,163,23,.55);
+  pointer-events:none;
+}
+.cell.hint{
+  animation:hintPulse .9s ease infinite;
+}
+@keyframes hintPulse{
+  50%{box-shadow:inset 0 0 0 2.5px #ffd56a}
+}
+.disc{
+  position:absolute;inset:9%;border-radius:50%;
+  pointer-events:none;
+  transition:transform .18s ease, background .18s;
+}
+.disc.black{
+  background:radial-gradient(circle at 32% 28%, #3a3a3a, var(--black) 55%);
+  box-shadow:0 2px 4px rgba(0,0,0,.35);
+}
+.disc.white{
+  background:radial-gradient(circle at 32% 28%, #fff, var(--white) 60%);
+  box-shadow:0 2px 4px rgba(0,0,0,.22);
+}
+.disc.flip{animation:flipDisc .28s ease}
+@keyframes flipDisc{
+  0%{transform:scaleX(1)}
+  45%{transform:scaleX(.08)}
+  100%{transform:scaleX(1)}
+}
+.board.celebrate .disc.black{animation:winPop .7s ease both}
+@keyframes winPop{
+  35%{transform:scale(1.12)}
+  70%{transform:scale(.96)}
+}
+
+.status-line{
+  margin-top:12px;text-align:center;font-size:13px;font-weight:700;
+  color:var(--ink-soft);min-height:1.4em;
+}
+.status-line.warn{color:var(--error)}
+.status-line.ok{color:var(--ok)}
+
+details{
+  margin-top:16px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--ink-soft);
+}
+summary{cursor:pointer;font-weight:700;color:var(--ink);font-size:13px}
+details p{margin-top:8px;line-height:1.8}
+
+.overlay{
+  position:fixed;inset:0;background:rgba(20,50,36,.48);
+  display:flex;align-items:center;justify-content:center;z-index:10;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.overlay.show{opacity:1;pointer-events:auto}
+.win-card{
+  background:var(--card);border-radius:24px;padding:30px 26px;text-align:center;
+  width:min(320px,86vw);transform:translateY(12px);transition:transform .25s;
+  border:1px solid var(--line);
+}
+.overlay.show .win-card{transform:translateY(0)}
+.win-emoji{font-size:42px;margin-bottom:6px}
+.win-title{font-family:"Shippori Mincho",serif;font-size:22px;font-weight:700;margin-bottom:4px}
+.win-sub{font-size:12px;color:var(--ink-soft);margin-bottom:16px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <a class="home" href="../">← 戻る</a>
+    <h1>詰めオセロ</h1>
+    <div class="tagline">全部黒にする手順を見つける</div>
+  </header>
+
+  <div class="controls">
+    <div class="seg" role="tablist" aria-label="モード">
+      <button type="button" id="modeDuel" class="active" role="tab" aria-selected="true">終盤全滅</button>
+      <button type="button" id="modeSolo" role="tab" aria-selected="false">一人用</button>
+    </div>
+    <div class="mode-note" id="modeNote"></div>
+    <div class="seg" role="tablist" aria-label="難易度">
+      <button type="button" id="diff0" class="active">やさしい</button>
+      <button type="button" id="diff1">ふつう</button>
+      <button type="button" id="diff2">むずかしい</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">黒</div><div class="value" id="cntB">0</div></div>
+    <div class="stat"><div class="label">白</div><div class="value" id="cntW">0</div></div>
+    <div class="stat"><div class="label">空き</div><div class="value" id="cntE">0</div></div>
+    <div class="stat"><div class="label">手数</div><div class="value" id="cntMoves">0</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button type="button" class="btn btn-new" id="btnNew">新しい問題</button>
+    <button type="button" class="btn btn-undo" id="btnUndo">待った</button>
+    <button type="button" class="btn btn-hint" id="btnHint">ヒント</button>
+  </div>
+  <div class="hint-msg" id="hintMsg"></div>
+
+  <div class="board-wrap">
+    <div class="board" id="board" aria-label="オセロ盤"></div>
+  </div>
+  <div class="status-line" id="status"></div>
+
+  <details>
+    <summary>遊び方</summary>
+    <p><strong>終盤全滅</strong> … あなたは黒。打つたびに白が決まった応手を返します。白の応手は「返す枚数が最大 → 隅優先 → 左上から」で固定なので、毎回同じ詰め筋になります。</p>
+    <p><strong>一人用</strong> … 黒だけ置きます。白は打ちません。挟んで白を返し、盤面をすべて黒にしてください。</p>
+    <p>どちらもゴールは<strong>64マスすべて黒</strong>です。</p>
+  </details>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="win-card">
+    <div class="win-emoji">●</div>
+    <div class="win-title">全部黒！</div>
+    <div class="win-sub" id="winSub"></div>
+    <button type="button" class="btn btn-new" id="btnNext">次の問題</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const N = 8;
+  const E = 0, B = 1, W = 2;
+  const DIRS = [
+    [-1,-1],[-1,0],[-1,1],
+    [0,-1],[0,1],
+    [1,-1],[1,0],[1,1],
+  ];
+  const CORNERS = new Set(["0,0","0,7","7,0","7,7"]);
+  const COL = "abcdefgh";
+
+  const elBoard = document.getElementById("board");
+  const elStatus = document.getElementById("status");
+  const elHint = document.getElementById("hintMsg");
+  const elOverlay = document.getElementById("overlay");
+  const elModeNote = document.getElementById("modeNote");
+  const elWinSub = document.getElementById("winSub");
+
+  let mode = "duel"; // duel | solo
+  let difficulty = 0;
+  let startBoard = null;
+  let board = null;
+  let solution = [];
+  let history = [];
+  let moveCount = 0;
+  let hintCell = null;
+  let won = false;
+  let busy = false;
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(arr, rng) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function emptyBoard() {
+    return Array.from({ length: N }, () => Array(N).fill(E));
+  }
+  function clone(b) {
+    return b.map((r) => r.slice());
+  }
+  function key(b) {
+    return b.map((r) => r.join("")).join("/");
+  }
+  function count(b) {
+    let bl = 0, wh = 0, em = 0;
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const v = b[r][c];
+        if (v === B) bl++;
+        else if (v === W) wh++;
+        else em++;
+      }
+    }
+    return { b: bl, w: wh, e: em };
+  }
+  function flipsAt(b, color, r, c) {
+    if (b[r][c] !== E) return [];
+    const opp = color === B ? W : B;
+    const flips = [];
+    for (const [dr, dc] of DIRS) {
+      const line = [];
+      let rr = r + dr, cc = c + dc;
+      while (rr >= 0 && rr < N && cc >= 0 && cc < N && b[rr][cc] === opp) {
+        line.push([rr, cc]);
+        rr += dr; cc += dc;
+      }
+      if (line.length && rr >= 0 && rr < N && cc >= 0 && cc < N && b[rr][cc] === color) {
+        flips.push(...line);
+      }
+    }
+    return flips;
+  }
+  function legalMoves(b, color) {
+    const moves = [];
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const flips = flipsAt(b, color, r, c);
+        if (flips.length) moves.push({ r, c, flips });
+      }
+    }
+    return moves;
+  }
+  function applyMove(b, color, r, c, flips) {
+    const next = clone(b);
+    next[r][c] = color;
+    for (const [rr, cc] of flips) next[rr][cc] = color;
+    return next;
+  }
+  function isAllBlack(b) {
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (b[r][c] !== B) return false;
+      }
+    }
+    return true;
+  }
+  function whiteReply(b) {
+    const moves = legalMoves(b, W);
+    if (!moves.length) return null;
+    moves.sort((a, x) => {
+      if (x.flips.length !== a.flips.length) return x.flips.length - a.flips.length;
+      const ac = CORNERS.has(`${a.r},${a.c}`) ? 1 : 0;
+      const bc = CORNERS.has(`${x.r},${x.c}`) ? 1 : 0;
+      if (bc !== ac) return bc - ac;
+      if (a.r !== x.r) return a.r - x.r;
+      return a.c - x.c;
+    });
+    return moves[0];
+  }
+  function coord(r, c) {
+    return COL[c] + (r + 1);
+  }
+
+  function solveSolo(start, maxDepth) {
+    if (isAllBlack(start)) return [];
+    const q = [{ board: start, path: [] }];
+    const seen = new Set([key(start)]);
+    while (q.length) {
+      const { board: cur, path } = q.shift();
+      if (path.length >= maxDepth) continue;
+      for (const m of legalMoves(cur, B)) {
+        const next = applyMove(cur, B, m.r, m.c, m.flips);
+        const k = key(next);
+        if (seen.has(k)) continue;
+        const npath = path.concat([[m.r, m.c]]);
+        if (isAllBlack(next)) return npath;
+        seen.add(k);
+        q.push({ board: next, path: npath });
+      }
+    }
+    return null;
+  }
+
+  function solveDuel(start, maxPly) {
+    if (isAllBlack(start)) return [];
+    const q = [{ board: start, path: [], turn: B, ply: 0 }];
+    const seen = new Set([`${key(start)}|B`]);
+    while (q.length) {
+      const { board: cur, path, turn, ply } = q.shift();
+      if (ply >= maxPly) continue;
+      const moves = legalMoves(cur, turn);
+      if (!moves.length) {
+        const other = turn === B ? W : B;
+        if (!legalMoves(cur, other).length) continue;
+        const sk = `${key(cur)}|${other}`;
+        if (seen.has(sk)) continue;
+        seen.add(sk);
+        q.push({ board: cur, path, turn: other, ply: ply + 1 });
+        continue;
+      }
+      if (turn === W) {
+        const m = whiteReply(cur);
+        const next = applyMove(cur, W, m.r, m.c, m.flips);
+        const sk = `${key(next)}|B`;
+        if (seen.has(sk)) continue;
+        seen.add(sk);
+        q.push({ board: next, path, turn: B, ply: ply + 1 });
+        continue;
+      }
+      for (const m of moves) {
+        const next = applyMove(cur, B, m.r, m.c, m.flips);
+        const npath = path.concat([[m.r, m.c]]);
+        if (isAllBlack(next)) return npath;
+        const wm = whiteReply(next);
+        if (!wm) {
+          if (!legalMoves(next, B).length) continue;
+          const sk = `${key(next)}|B`;
+          if (seen.has(sk)) continue;
+          seen.add(sk);
+          q.push({ board: next, path: npath, turn: B, ply: ply + 1 });
+        } else {
+          const after = applyMove(next, W, wm.r, wm.c, wm.flips);
+          if (isAllBlack(after)) return npath;
+          const sk = `${key(after)}|B`;
+          if (seen.has(sk)) continue;
+          seen.add(sk);
+          q.push({ board: after, path: npath, turn: B, ply: ply + 1 });
+        }
+      }
+    }
+    return null;
+  }
+
+  function randomNearEndgame(rng, empties, whites) {
+    const b = emptyBoard();
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) b[r][c] = B;
+    const cells = shuffle(
+      Array.from({ length: N * N }, (_, i) => [Math.floor(i / N), i % N]),
+      rng
+    );
+    for (let i = 0; i < empties; i++) b[cells[i][0]][cells[i][1]] = E;
+    for (let i = 0; i < whites; i++) b[cells[empties + i][0]][cells[empties + i][1]] = W;
+    return b;
+  }
+
+  function simulateDuel(start, sol) {
+    let cur = clone(start);
+    for (const [r, c] of sol) {
+      const flips = flipsAt(cur, B, r, c);
+      if (!flips.length) return false;
+      cur = applyMove(cur, B, r, c, flips);
+      if (isAllBlack(cur)) return true;
+      const wm = whiteReply(cur);
+      if (wm) cur = applyMove(cur, W, wm.r, wm.c, wm.flips);
+    }
+    return isAllBlack(cur);
+  }
+
+  function genSolo(seed, diff) {
+    const rng = mulberry32(seed >>> 0);
+    const configs = [
+      { empties: 3, whites: 4, maxDepth: 5, minLen: 2 },
+      { empties: 4, whites: 6, maxDepth: 6, minLen: 3 },
+      { empties: 5, whites: 8, maxDepth: 8, minLen: 3 },
+    ];
+    const cfg = configs[diff];
+    for (let attempt = 0; attempt < 1200; attempt++) {
+      const empties = Math.max(2, cfg.empties + (rng() < 0.35 ? 1 : 0));
+      const whites = Math.max(2, cfg.whites + Math.floor(rng() * 3) - 1);
+      const b = randomNearEndgame(rng, empties, whites);
+      if (!legalMoves(b, B).length) continue;
+      const sol = solveSolo(b, cfg.maxDepth);
+      if (sol && sol.length >= cfg.minLen && sol.length <= cfg.maxDepth) {
+        return { board: b, solution: sol };
+      }
+    }
+    return null;
+  }
+
+  function genDuel(seed, diff) {
+    const rng = mulberry32(seed >>> 0);
+    const configs = [
+      { empties: 4, whites: 5, maxPly: 10, minLen: 2, maxLen: 4 },
+      { empties: 5, whites: 7, maxPly: 12, minLen: 3, maxLen: 5 },
+      { empties: 6, whites: 8, maxPly: 14, minLen: 3, maxLen: 6 },
+    ];
+    const cfg = configs[diff];
+    for (let attempt = 0; attempt < 1400; attempt++) {
+      const empties = Math.max(3, cfg.empties + (rng() < 0.35 ? 1 : 0));
+      const whites = Math.max(3, cfg.whites + Math.floor(rng() * 3) - 1);
+      const b = randomNearEndgame(rng, empties, whites);
+      if (!legalMoves(b, B).length) continue;
+      const sol = solveDuel(b, cfg.maxPly);
+      if (!sol || sol.length < cfg.minLen || sol.length > cfg.maxLen) continue;
+      // 白が一度は応手すること
+      let cur = clone(b);
+      let whitePlayed = false;
+      for (const [r, c] of sol) {
+        const flips = flipsAt(cur, B, r, c);
+        if (!flips.length) { whitePlayed = false; break; }
+        cur = applyMove(cur, B, r, c, flips);
+        const wm = whiteReply(cur);
+        if (wm) {
+          cur = applyMove(cur, W, wm.r, wm.c, wm.flips);
+          whitePlayed = true;
+        }
+      }
+      if (!whitePlayed) continue;
+      if (!simulateDuel(b, sol)) continue;
+      return { board: b, solution: sol };
+    }
+    return null;
+  }
+
+  function parseRows(rows) {
+    const b = emptyBoard();
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const ch = rows[r][c];
+        b[r][c] = ch === "B" ? B : ch === "W" ? W : E;
+      }
+    }
+    return b;
+  }
+
+  /* 生成が外れたとき用の検証済み問題 */
+  const FALLBACKS = {
+    solo: [
+      {
+        board: parseRows([
+          "BBBBBBBB","BBBB.BB.","BBBBBWWW","BBBB.BWB",
+          "BBBBWBWB","BBBBB.BB","BBBBBBBB","BBBBBBBB",
+        ]),
+        solution: [[1,4],[1,7],[3,4],[5,5]],
+      },
+      {
+        board: parseRows([
+          "BBBBBBBB","BBBBBBB.","BBBBBBWW","BBB.WBBB",
+          "BBWB.BBB","BBBWBWBB","BBB.BBBB","BBBBBBBB",
+        ]),
+        solution: [[1,7],[3,3],[6,3],[4,4]],
+      },
+    ],
+    duel: [
+      {
+        board: parseRows([
+          "BB.BW.BB","BBBBWBBB","BBB.WBBB",".BBBBB.B",
+          "WBBBBWBB","WBBBBBBB","BBBBBBBB","BBBBBBBB",
+        ]),
+        solution: [[3,6],[3,0],[0,5],[2,3]],
+      },
+      {
+        board: parseRows([
+          "BBBBBB..","BBWBBWBW","BBB.BBBW","BBBBWBBB",
+          "..BBWBBB","BBBBBBBB","BBBBBBBB","BBBBBBBB",
+        ]),
+        solution: [[0,7],[2,3],[0,6],[4,0]],
+      },
+    ],
+  };
+
+  function newPuzzle() {
+    won = false;
+    busy = false;
+    hintCell = null;
+    elOverlay.classList.remove("show");
+    elBoard.classList.remove("celebrate");
+    elHint.classList.remove("show");
+    elHint.textContent = "";
+    moveCount = 0;
+    history = [];
+
+    const base = (Date.now() ^ (Math.random() * 1e9)) >>> 0;
+    let puzzle = null;
+    for (let i = 0; i < 8 && !puzzle; i++) {
+      puzzle = mode === "solo"
+        ? genSolo(base + i * 9973, difficulty)
+        : genDuel(base + i * 7919, difficulty);
+    }
+    if (!puzzle) {
+      // シードを変えて再試行
+      for (let i = 0; i < 20 && !puzzle; i++) {
+        puzzle = mode === "solo"
+          ? genSolo((base * 13 + i * 104729) >>> 0, Math.min(difficulty, 1))
+          : genDuel((base * 17 + i * 224737) >>> 0, Math.min(difficulty, 1));
+      }
+    }
+    if (!puzzle) {
+      const pool = FALLBACKS[mode];
+      if (pool.length) {
+        const fb = pool[base % pool.length];
+        puzzle = { board: clone(fb.board), solution: fb.solution.slice() };
+      }
+    }
+    if (!puzzle) {
+      elStatus.textContent = "問題を作れませんでした。もう一度どうぞ";
+      elStatus.className = "status-line warn";
+      return;
+    }
+
+    startBoard = clone(puzzle.board);
+    board = clone(puzzle.board);
+    solution = puzzle.solution;
+    render();
+    elStatus.textContent = mode === "solo"
+      ? `黒だけの詰め — 最短あたり ${solution.length} 手`
+      : `白応手あり — 黒 ${solution.length} 手で全黒`;
+    elStatus.className = "status-line";
+  }
+
+  function updateModeNote() {
+    elModeNote.textContent = mode === "solo"
+      ? "一人用：黒だけ置いて、空きを埋め白を返し、盤をすべて黒にする。"
+      : "終盤全滅：黒を打つたび白が固定ルールで応手する。白の応手込みで全黒にする。";
+  }
+
+  function render() {
+    const moves = won ? [] : legalMoves(board, B);
+    const legalSet = new Set(moves.map((m) => `${m.r},${m.c}`));
+    const ct = count(board);
+    document.getElementById("cntB").textContent = ct.b;
+    document.getElementById("cntW").textContent = ct.w;
+    document.getElementById("cntE").textContent = ct.e;
+    document.getElementById("cntMoves").textContent = moveCount;
+
+    elBoard.innerHTML = "";
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "cell";
+        btn.setAttribute("aria-label", coord(r, c));
+        const v = board[r][c];
+        if (v === B || v === W) {
+          const d = document.createElement("span");
+          d.className = "disc " + (v === B ? "black" : "white");
+          btn.appendChild(d);
+        } else if (legalSet.has(`${r},${c}`)) {
+          btn.classList.add("legal");
+        }
+        if (hintCell && hintCell[0] === r && hintCell[1] === c) {
+          btn.classList.add("hint");
+        }
+        btn.addEventListener("click", () => onCell(r, c));
+        elBoard.appendChild(btn);
+      }
+    }
+  }
+
+  function onCell(r, c) {
+    if (won || busy) return;
+    const flips = flipsAt(board, B, r, c);
+    if (!flips.length) {
+      elStatus.textContent = "そこには打てません";
+      elStatus.className = "status-line warn";
+      return;
+    }
+    hintCell = null;
+    elHint.classList.remove("show");
+    history.push(clone(board));
+    board = applyMove(board, B, r, c, flips);
+    moveCount++;
+    animateFlips(r, c, flips, B);
+
+    if (isAllBlack(board)) {
+      finishWin();
+      return;
+    }
+
+    if (mode === "duel") {
+      busy = true;
+      setTimeout(() => {
+        const wm = whiteReply(board);
+        if (wm) {
+          history[history.length - 1] = history[history.length - 1]; // keep pre-black for undo of whole ply
+          // Store state before white for undo of black+white together: already saved pre-black
+          board = applyMove(board, W, wm.r, wm.c, wm.flips);
+          animateFlips(wm.r, wm.c, wm.flips, W);
+          elStatus.textContent = `白の応手 ${coord(wm.r, wm.c)}`;
+          elStatus.className = "status-line";
+        } else {
+          elStatus.textContent = "白パス";
+          elStatus.className = "status-line";
+        }
+        busy = false;
+        if (isAllBlack(board)) {
+          finishWin();
+          return;
+        }
+        const next = legalMoves(board, B);
+        if (!next.length) {
+          elStatus.textContent = "打てる手がありません。待ったか新しい問題を";
+          elStatus.className = "status-line warn";
+        }
+        render();
+      }, 280);
+    } else {
+      const next = legalMoves(board, B);
+      if (!next.length && !isAllBlack(board)) {
+        elStatus.textContent = "行き詰まり。待ったかヒントをどうぞ";
+        elStatus.className = "status-line warn";
+      } else {
+        elStatus.textContent = "";
+        elStatus.className = "status-line";
+      }
+    }
+    render();
+  }
+
+  function animateFlips(r, c, flips, color) {
+    // render already updates; add flip class on next frame
+    requestAnimationFrame(() => {
+      const cells = elBoard.children;
+      const idx = r * N + c;
+      const placed = cells[idx]?.querySelector(".disc");
+      if (placed) placed.classList.add("flip");
+      for (const [rr, cc] of flips) {
+        const d = cells[rr * N + cc]?.querySelector(".disc");
+        if (d) {
+          d.className = "disc flip " + (color === B ? "black" : "white");
+        }
+      }
+    });
+  }
+
+  function finishWin() {
+    won = true;
+    render();
+    elBoard.classList.add("celebrate");
+    elStatus.textContent = "全部黒！";
+    elStatus.className = "status-line ok";
+    elWinSub.textContent = mode === "solo"
+      ? `一人用クリア — ${moveCount} 手`
+      : `終盤全滅クリア — 黒 ${moveCount} 手`;
+    setTimeout(() => elOverlay.classList.add("show"), 350);
+  }
+
+  function undo() {
+    if (won || busy || !history.length) return;
+    board = history.pop();
+    moveCount = Math.max(0, moveCount - 1);
+    hintCell = null;
+    elHint.classList.remove("show");
+    elStatus.textContent = "";
+    elStatus.className = "status-line";
+    render();
+  }
+
+  function showHint() {
+    if (won) return;
+    // 現局面から再探索
+    const sol = mode === "solo"
+      ? solveSolo(board, 8)
+      : solveDuel(board, 14);
+    if (!sol || !sol.length) {
+      elHint.textContent = "この局面からは全黒にできません。待ったしてください";
+      elHint.classList.add("show");
+      return;
+    }
+    const [r, c] = sol[0];
+    hintCell = [r, c];
+    elHint.textContent = `次は ${coord(r, c)}（残りおよそ ${sol.length} 手）`;
+    elHint.classList.add("show");
+    render();
+  }
+
+  function setMode(next) {
+    if (mode === next) return;
+    mode = next;
+    document.getElementById("modeDuel").classList.toggle("active", mode === "duel");
+    document.getElementById("modeSolo").classList.toggle("active", mode === "solo");
+    document.getElementById("modeDuel").setAttribute("aria-selected", mode === "duel");
+    document.getElementById("modeSolo").setAttribute("aria-selected", mode === "solo");
+    updateModeNote();
+    newPuzzle();
+  }
+
+  function setDiff(d) {
+    difficulty = d;
+    for (let i = 0; i < 3; i++) {
+      document.getElementById("diff" + i).classList.toggle("active", i === d);
+    }
+    newPuzzle();
+  }
+
+  document.getElementById("modeDuel").addEventListener("click", () => setMode("duel"));
+  document.getElementById("modeSolo").addEventListener("click", () => setMode("solo"));
+  document.getElementById("diff0").addEventListener("click", () => setDiff(0));
+  document.getElementById("diff1").addEventListener("click", () => setDiff(1));
+  document.getElementById("diff2").addEventListener("click", () => setDiff(2));
+  document.getElementById("btnNew").addEventListener("click", newPuzzle);
+  document.getElementById("btnNext").addEventListener("click", newPuzzle);
+  document.getElementById("btnUndo").addEventListener("click", undo);
+  document.getElementById("btnHint").addEventListener("click", showHint);
+
+  updateModeNote();
+  newPuzzle();
+})();
+</script>
+</body>
+</html>
