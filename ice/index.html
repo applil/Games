@@ -5,16 +5,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>リスと穴</title>
+<title>すべる氷</title>
 <!-- ホーム画面に追加したときのアイコンと名前 -->
 <link rel="apple-touch-icon" href="../warehouse/icon-180.png">
 <link rel="icon" type="image/png" href="../warehouse/icon-512.png">
-<meta name="apple-mobile-web-app-title" content="リスと穴">
+<meta name="apple-mobile-web-app-title" content="すべる氷">
 <!-- リンクを送ったときの見出しと絵。相手のアプリは JavaScript を動かさずに
      この部分だけを読むので、着せ替えごとの絵は別の入口(beetle/ など)に置く -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="リスと穴">
-<meta property="og:description" content="置き場は穴。ドングリを埋めるまで通れません">
+<meta property="og:title" content="すべる氷">
+<meta property="og:description" content="氷は壁か氷にぶつかるまで滑ります">
 <meta property="og:image" content="https://applil.github.io/Games/warehouse/warehouse/icon-512.png">
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
@@ -505,7 +505,7 @@ body.co #btnReset, body.co #btnUndo{display:none}
 <div class="app">
   <header>
     <a class="iconbtn" href="../">◀ メニュー</a>
-    <h1>リスと穴</h1>
+    <h1>すべる氷</h1>
     <button class="iconbtn" id="btnRules" title="ルール">ルール</button>
   </header>
 
@@ -694,7 +694,7 @@ const PACKS={
   squirrel:{file:'../warehouse/packs/squirrel.json', skin:'squirrel', label:'リス・穴', rule:'holes'},
   ice:     {file:'../warehouse/packs/ice.json',      skin:'winter',   label:'冬・滑る氷', rule:'slide'},
 };
-const PACK='squirrel';   // この住所は リスと穴 専用(tools/build-pages.js が入れた)
+const PACK='ice';   // この住所は すべる氷 専用(tools/build-pages.js が入れた)
 const FILE = PACK ? PACKS[PACK].file : 'levels.json';
 const RULE = PACK ? (PACKS[PACK].rule||'plain') : 'plain';
 // 絵や部品の置き場。ルール違いの写しでは ../warehouse/ に差し替わる

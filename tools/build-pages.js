@@ -27,6 +27,8 @@ const PAGES=[
    desc:'ダンボールは水に入りません。カニは歩けます'},
   {dir:'hole',  pack:'squirrel', title:'リスと穴',   emoji:'🐿️🌰',
    desc:'置き場は穴。ドングリを埋めるまで通れません'},
+  {dir:'ice',   pack:'ice',      title:'すべる氷',   emoji:'⛄🧊',
+   desc:'氷は壁か氷にぶつかるまで滑ります'},
 ];
 
 const src=fs.readFileSync(SRC,'utf8');

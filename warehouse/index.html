@@ -115,7 +115,10 @@ body.skin-squirrel{
   --wall-top:#68804b;
   --floor:#f7f0d2;                 /* 落ち葉の薄い黄色 */
   --hole:#5a4632;                  /* 掘った土 */
-  --shut:#a89b82;                  /* 埋めたあと。土と床のあいだの色 */
+  --hole-deep:#2e2116;             /* 穴の底 */
+  --hole-rim:#7d6244;              /* 穴のふち */
+  --shut:#e3d9c2;                  /* 埋めたあと。床にぐっと近い薄さ */
+  --shut-rim:#d2c5a8;
   /* 落ち葉の床と紛れないよう、置き場はどんぐり色ではっきりと */
   --goal:#c2661a;
   --goal-soft:#f0b878;
@@ -194,16 +197,20 @@ h1{
   background:var(--water,#7fc7e8);
   box-shadow:inset 0 -2px 4px rgba(255,255,255,.45), inset 0 2px 4px rgba(0,0,0,.10);
 }
-/* リスの穴。空いていると落ちるので通れない */
+/* リスの穴。空いていると落ちるので通れない。
+   縁を明るく、底へ向かって暗くして、掘ってある感じを出す */
 .cell.hole::after{
   width:78%;height:62%;
-  background:var(--hole,#5a4632);
-  box-shadow:inset 0 3px 6px rgba(0,0,0,.45);
+  background:radial-gradient(ellipse at 50% 38%,
+    var(--hole-deep,#2e2116) 0%, var(--hole,#5a4632) 62%, var(--hole-rim,#7d6244) 100%);
+  box-shadow:inset 0 3px 7px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.35);
 }
-/* 埋めた穴。ひと回り小さく、色は土と床のあいだ。もう通れる、と見て分かるように */
+/* 埋めたあと。大きさはそのまま、色をぐっと薄くして「もう通れる」と分かるように */
 .cell.shut::after{
-  width:60%;height:48%;
-  background:var(--shut,#a89b82);
+  width:78%;height:62%;
+  background:radial-gradient(ellipse at 50% 38%,
+    var(--shut,#e3d9c2) 0%, var(--shut-rim,#d2c5a8) 100%);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.10);
 }
 .cell.box.on{background:var(--done-soft)}
 .cell .fig{position:relative;z-index:1;transition:transform .11s ease-out}
@@ -683,6 +690,7 @@ const PACKS={
             // 水に濡れて困るのはダンボール。すいかでは理屈が通らない
             box:'📦'},
   squirrel:{file:'packs/squirrel.json', skin:'squirrel', label:'リス・穴', rule:'holes'},
+  ice:     {file:'packs/ice.json',      skin:'winter',   label:'冬・滑る氷', rule:'slide'},
 };
 const PACK=(()=>{
   const q=QS.get('pack');
@@ -1899,24 +1907,35 @@ function move(name, fromReplay){
       }
     }
     undoStack.push({player, boxes:boxes.slice(), pushCount, moveCount, filled:new Set(filled)});
-    const drop = RULE==='holes' && goalSet.has(beyond) && !filled.has(beyond);
-    if(drop){ boxes.splice(bi,1); filled.add(beyond); }   // 穴に落ちて埋まる
-    else boxes[bi]=beyond;
+    // 冬(滑る)。氷は壁か別の氷にぶつかるまで進む。それ以外のルールでは1マス
+    let dest=beyond;
+    if(RULE==='slide'){
+      while(true){
+        const n=dest+d;
+        if(puzzle.grid[n]||boxes.includes(n)) break;
+        dest=n;
+      }
+    }
+    const drop = RULE==='holes' && goalSet.has(dest) && !filled.has(dest);
+    if(drop){ boxes.splice(bi,1); filled.add(dest); }   // 穴に落ちて埋まる
+    else boxes[bi]=dest;
     // 冬は、押しても押した先のマスに入らない。その場に留まる。
     // (空いたマスへはいつでも歩いて入れるので、自機の行ける範囲は変わらない。
     //  つまり最短の押し手数は他のモードと同じで、面の記録もそのまま使える)
-    if(skinName!=='winter') player=next;
+    // 冬の見た目版は「押しても入らない」。滑るルールでは氷のいた場所へ入る
+    if(!(skinName==='winter' && RULE==='plain')) player=next;
     pushCount++; moveCount++;
     paint();
     if(skinName==='winter'){
-      glide(beyond, d);                      // 氷だけがスーッと滑って止まる
-      sweat(player, 0);
+      glide(dest, d, RULE==='slide' ? (dest-beyond)/d + 1 : 1);   // ぶつかるまで滑る
+      if(RULE!=='plain') slide(player, d);   // 滑るルールでは自機も動く
+      sweat(player, RULE==='plain'?0:d);
     }else{
-      slide(beyond, d); slide(player, d);    // 荷物と自分が、いた場所から滑ってくる
+      slide(dest, d); slide(player, d);      // 荷物と自分が、いた場所から滑ってくる
       sweat(player, d);
     }
-    if(coop){ coBox=beyond; coMoved=true; }                  // 次はこの荷物だけ動かせる
-    if(goalSet.has(beyond)){ SFX.onGoal(); setTimeout(()=>bump(beyond),110); }
+    if(coop){ coBox=dest; coMoved=true; }                  // 次はこの荷物だけ動かせる
+    if(goalSet.has(dest)){ SFX.onGoal(); setTimeout(()=>bump(dest),110); }
     else SFX.push();
   }else{
     undoStack.push({player, boxes:boxes.slice(), pushCount, moveCount});
@@ -1939,10 +1958,11 @@ const SLIDE_MS=110;                       // .cell .fig の transition と合わ
 const GLIDE_MS=500;                       // 冬の氷。.cell .fig.glide と合わせる
 const stepMs=()=>skinName==='winter'?GLIDE_MS:SLIDE_MS;
 // 氷を1マスぶん手前に置いてから、ゆっくり定位置へ滑らせる
-function glide(i, d){
+// n マスぶん手前から滑らせる(滑るルールでは何マスも進むことがある)
+function glide(i, d, n){
   const fig=cellEls[i] && cellEls[i].firstChild;
   if(!fig) return;
-  const step=cellEls[i].getBoundingClientRect().width + 2;
+  const step=(cellEls[i].getBoundingClientRect().width + 2) * (n||1);
   const dx=(d===1?-1:d===-1?1:0)*step;
   const dy=(d===puzzle.w?-1:d===-puzzle.w?1:0)*step;
   fig.classList.add('sliding');
