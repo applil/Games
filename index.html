@@ -54,6 +54,7 @@ a.game:active{transform:scale(.98)}
 .game.panda-story .emoji{background:linear-gradient(135deg,#e7f0d8 0%,#cfe3c2 100%)}
 .game.maze .emoji{background:linear-gradient(135deg,#e5e9f5 0%,#d4d9ea 100%)}
 .game.warehouse .emoji{background:linear-gradient(135deg,#fff2dc 0%,#e2f5eb 100%)}
+.game.rule-only{display:none}
 .game.water .emoji{background:linear-gradient(135deg,#f7ecd2 0%,#cfeff3 100%)}
 .game.hole .emoji{background:linear-gradient(135deg,#eaf1d8 0%,#e6d2b4 100%)}
 .game.tsume-othello .emoji{background:linear-gradient(135deg,#d8efe4 0%,#c5e0d2 100%)}
@@ -113,7 +114,7 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
       </span>
       <span class="arrow">›</span>
     </a>
-    <a class="game water" href="water/">
+    <a class="game water rule-only" href="water/">
       <span class="emoji">🦀📦</span>
       <span class="info">
         <span class="name">カニと水</span>
@@ -121,7 +122,7 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
       </span>
       <span class="arrow">›</span>
     </a>
-    <a class="game hole" href="hole/">
+    <a class="game hole rule-only" href="hole/">
       <span class="emoji">🐿️🌰</span>
       <span class="info">
         <span class="name">リスと穴</span>
@@ -149,5 +150,15 @@ footer{margin-top:30px;text-align:center;font-size:11px;color:var(--ink-soft);li
 
   <footer>炎と氷・パンダと竹・3D迷路・詰めオセロは、開くたびに新しい問題が出ます。<br>ステージ版と倉庫パズルは、1面から順に進みます</footer>
 </div>
+<script>
+  /* ルール違いは試作なので、ふだんは出さない。
+     倉庫パズルでデバッグ表示を入れている端末にだけ見せる
+     (倉庫パズルの「ステージ」の文字を5回たたくと切り替わる) */
+  try{
+    if(localStorage.getItem('warehouse-debug')==='1'){
+      document.querySelectorAll('.rule-only').forEach(function(e){ e.classList.remove('rule-only'); });
+    }
+  }catch(e){}
+</script>
 </body>
 </html>
