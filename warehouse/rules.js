@@ -190,7 +190,47 @@ const holes = {
   key: st=>st.boxes.join(',')+'|'+st.filled.join(',')+'|'+st.rep,
 };
 
-const RULES={plain, water, holes};
+/* 冬。氷は、壁か別の氷にぶつかるまで滑っていく。
+   途中では止まらないので、置き場は「何かの手前」にしか作れない。
+   1マスも進めない向きへは押せない(押した気にならないよう、手にも数えない)。
+
+   状態の数はふつうより減る(氷が止まれる場所が限られるため)。
+   押したあと自機は、氷がいた場所に入る */
+const slide = {
+  name:'slide',
+  parse: b=>parseBoard(b),
+  start: plain.start,
+  moves(p, st){
+    const {grid,w}=p;
+    const boxSet=new Set(st.boxes);
+    const out=[];
+    for(const b of st.boxes){
+      for(const dir of [1,-1,w,-w]){
+        const from=b-dir;
+        if(grid[from]||boxSet.has(from)) continue;
+        if(!st.cells.has(from)) continue;
+        // ぶつかるまで滑らせる
+        let to=b;
+        while(true){
+          const n=to+dir;
+          if(grid[n]||boxSet.has(n)) break;
+          to=n;
+        }
+        if(to===b) continue;                       // 1マスも動けない向き
+        const nb=st.boxes.slice();
+        nb[nb.indexOf(b)]=to;
+        nb.sort((x,y)=>x-y);
+        const r=regionRep(grid,w,new Set(nb),b);   // 自機は氷がいた場所へ
+        out.push({box:b, dir, to, st:{boxes:nb, rep:r.rep, cells:r.cells}});
+      }
+    }
+    return out;
+  },
+  solved: plain.solved,
+  key: plain.key,
+};
+
+const RULES={plain, water, holes, slide};
 
 if(typeof module!=='undefined' && module.exports) module.exports={RULES, parseBoard};
 root.WarehouseRules={RULES, parseBoard};
