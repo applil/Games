@@ -204,16 +204,21 @@ h1{
    色が消えると置き場だと分からなくなるので、赤で「ここじゃない」と出す */
 .cell.box.miss{background:var(--miss-soft,#f7bcb6)}
 /* 番号あわせ。印は A B C…。
-   荷物の印も置き場の印も、同じ .fig の中の同じ場所に出す。
-   大きさも位置もぴったり揃い、荷物の印は押したとき絵と一緒に動く */
-.cell .fig .tag{
+   荷物の印は絵(.fig)の中、置き場の印は動かない台(.tagbase)の上。
+   台は絵とまったく同じ大きさ・同じ場所に敷くので、印の見た目はぴったり揃う。
+   台は絵より後ろなので、ヒヨコや荷物が来ると印はその後ろに隠れる */
+.cell .tagbase{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:1em;height:1em;z-index:0;pointer-events:none;
+}
+.cell .tag{
   position:absolute;top:-8%;right:-16%;
   font-size:calc(var(--cell)*0.30);font-weight:800;line-height:1;
   color:var(--ink);text-shadow:0 0 2px var(--card),0 0 3px var(--card);
   pointer-events:none;
 }
 /* 置き場の印。場所も大きさも荷物と同じで、色だけ違う */
-.cell .fig .tag.goaltag{color:var(--goal)}
+.cell .tag.goaltag{color:var(--goal)}
 /* 印の位置が絵の形で動かないよう、.fig の大きさを字の大きさで決めておく。
    中身(絵文字)は真ん中に置く。荷物が乗っていない置き場でも同じ大きさになるので、
    印は同じ場所に出る */
@@ -221,7 +226,7 @@ h1{
   position:relative;z-index:1;
   /* 位置は left/top、向きは rotate と、別々に動かす。
      フンコロガシで両方が混ざらないようにするため(lib/game.js の roll を見よ) */
-  transition:transform .11s ease-out, left .11s ease-out, top .11s ease-out, rotate .18s ease-out;
+  transition:transform .11s ease-out, left .11s ease-out, top .11s ease-out, rotate .11s ease-out;
   width:1em;height:1em;display:flex;align-items:center;justify-content:center;
 }
 .cell .fig.sliding{transition:none}
