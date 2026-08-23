@@ -118,7 +118,79 @@ const water = {
   key: plain.key,
 };
 
-const RULES={plain, water};
+/* リス。置き場は穴。
+   ドングリを落として埋めるまで通れない。埋めたら床として通れるようになり、
+   そのドングリは二度と動かせない。
+
+   ふつうとの違いは3つ:
+     ・空いている穴には自機が入れない(壁として扱う)
+     ・穴に落としたドングリは、以後の押し手の対象から外れる
+     ・全部の穴が埋まったらクリア(=残りのドングリが0)
+
+   埋めた穴は床になるので、通れる範囲が手を進めるほど広がっていく。
+   このため自機の区画は、そのつど埋まり具合を見て計算し直す */
+const holes = {
+  name:'holes',
+  parse: b=>parseBoard(b),
+  start(p){
+    const goalSet=new Set(p.goals);
+    // 最初から穴の上にある荷物(*)は、埋まっているものとして扱う
+    const filled=p.boxes.filter(b=>goalSet.has(b));
+    const boxes=p.boxes.filter(b=>!goalSet.has(b));
+    const r=this.region(p, boxes, filled, p.player);
+    return {boxes, filled:filled.slice().sort((a,b)=>a-b), rep:r.rep, cells:r.cells};
+  },
+  // 自機が行ける範囲。空いている穴は通れない、埋めた穴は通れる
+  region(p, boxes, filled, from){
+    const {grid,w}=p;
+    const blocked=new Set(boxes);
+    const filledSet=new Set(filled);
+    for(const g of p.goals) if(!filledSet.has(g)) blocked.add(g);   // 空いた穴は通れない
+    const cells=new Set([from]);
+    const q=[from];
+    let rep=from;
+    while(q.length){
+      const c=q.pop();
+      if(c<rep) rep=c;
+      for(const d of [1,-1,w,-w]){
+        const n=c+d;
+        if(n<0||n>=grid.length) continue;
+        if(grid[n]||blocked.has(n)||cells.has(n)) continue;
+        cells.add(n); q.push(n);
+      }
+    }
+    return {rep, cells};
+  },
+  moves(p, st){
+    const {grid,w}=p;
+    const boxSet=new Set(st.boxes);
+    const filledSet=new Set(st.filled);
+    const goalSet=new Set(p.goals);
+    const out=[];
+    for(const b of st.boxes){
+      for(const dir of [1,-1,w,-w]){
+        const from=b-dir, to=b+dir;
+        if(grid[from]||boxSet.has(from)) continue;
+        if(!st.cells.has(from)) continue;                 // そこに立てない
+        if(grid[to]||boxSet.has(to)) continue;
+        // 押した先が「空いている穴」なら、そこへ落として埋める。
+        // 埋まった穴はもう地面と同じなので、その上は普通に転がっていける
+        const drop = goalSet.has(to) && !filledSet.has(to);
+        const nb=st.boxes.filter(x=>x!==b);
+        const nf=st.filled.slice();
+        if(drop) nf.push(to); else nb.push(to);
+        nb.sort((x,y)=>x-y); nf.sort((x,y)=>x-y);
+        const r=holes.region(p, nb, nf, b);               // 押したあと自機は元の位置
+        out.push({box:b, dir, to, drop, st:{boxes:nb, filled:nf, rep:r.rep, cells:r.cells}});
+      }
+    }
+    return out;
+  },
+  solved(p, st){ return st.boxes.length===0; },
+  key: st=>st.boxes.join(',')+'|'+st.filled.join(',')+'|'+st.rep,
+};
+
+const RULES={plain, water, holes};
 
 if(typeof module!=='undefined' && module.exports) module.exports={RULES, parseBoard};
 root.WarehouseRules={RULES, parseBoard};
