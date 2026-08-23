@@ -23,6 +23,8 @@ const GAMES=[
    desc:'氷は壁か氷にぶつかるまで滑ります'},
   {dir:'number',pack:'number',   title:'番号あわせ', icon:'',
    desc:'番号の合う置き場へ運びます'},
+  {dir:'roll',  pack:'roll',     title:'ころがし',   icon:'-beetle',
+   desc:'押すたびに90度まわります。向きを戻して置きましょう'},
 ];
 
 /* ---- 各ゲームの頁 ---- */

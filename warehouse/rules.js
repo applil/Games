@@ -283,7 +283,48 @@ const numbered = {
   key: st=>st.num.join(',')+'|'+st.rep,
 };
 
-const RULES={plain, water, holes, slide, numbered};
+/* フンコロガシ。押すたびにウンコが時計回りに90度まわる。
+   全部が置き場に乗り、かつ向きが元(0)に戻っていないとクリアにならない。
+   つまり、それぞれを押した回数が4の倍数でなければならない。
+
+   荷物ごとに向き(0〜3)を持つので、状態はふつうより最大4^n 倍になる。
+   位置が同じで向きだけ違う局面は別物として数える */
+const roll = {
+  name:'roll',
+  parse: b=>parseBoard(b),
+  start(p){
+    const r=regionRep(p.grid,p.w,new Set(p.boxes),p.player);
+    return {boxes:p.boxes.slice(), rot:p.boxes.map(()=>0), rep:r.rep, cells:r.cells};
+  },
+  moves(p, st){
+    const {grid,w}=p;
+    const boxSet=new Set(st.boxes);
+    const out=[];
+    st.boxes.forEach((b,k)=>{
+      for(const dir of [1,-1,w,-w]){
+        const from=b-dir, to=b+dir;
+        if(grid[from]||boxSet.has(from)) continue;
+        if(grid[to]||boxSet.has(to)) continue;
+        if(!st.cells.has(from)) continue;
+        const nb=st.boxes.slice(), nr=st.rot.slice();
+        nb[k]=to; nr[k]=(nr[k]+1)%4;                 // 押すたび時計回りに90度
+        // 位置の小さい順に並べ替える。向きも一緒に連れていく
+        const pair=nb.map((x,i)=>[x,nr[i]]).sort((a,b2)=>a[0]-b2[0]);
+        const r=regionRep(grid,w,new Set(nb),b);
+        out.push({box:b, dir, to, rot:nr[k],
+                  st:{boxes:pair.map(x=>x[0]), rot:pair.map(x=>x[1]), rep:r.rep, cells:r.cells}});
+      }
+    });
+    return out;
+  },
+  solved(p, st){
+    const g=new Set(p.goals);
+    return st.boxes.every((b,k)=>g.has(b) && st.rot[k]===0);
+  },
+  key: st=>st.boxes.join(',')+'|'+st.rot.join('')+'|'+st.rep,
+};
+
+const RULES={plain, water, holes, slide, numbered, roll};
 
 if(typeof module!=='undefined' && module.exports) module.exports={RULES, parseBoard};
 root.WarehouseRules={RULES, parseBoard};

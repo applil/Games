@@ -209,7 +209,7 @@ h1{
   pointer-events:none;
 }
 .cell.numgoal::before{color:var(--goal)}
-.cell .fig{position:relative;z-index:1;transition:transform .11s ease-out}
+.cell .fig{position:relative;z-index:1;transition:transform .11s ease-out, rotate .18s ease-out}
 .cell .fig.sliding{transition:none}
 /* 冬だけ、氷がスーッと滑って止まる。押した本人は動かない */
 .cell .fig.glide{transition:transform .5s cubic-bezier(.05,.62,.14,1)}
