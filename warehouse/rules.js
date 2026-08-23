@@ -413,7 +413,119 @@ const duo = {
   key: st=>st.boxes.join(',')+'|'+st.off+'|'+st.rep,
 };
 
-const RULES={plain, water, holes, slide, numbered, roll, duo};
+/* 蟻。盤の上に同僚の蟻(&)がいて、こちらが1つ押すと、同僚も1つずつ押してしまう。
+
+   本人が決めたこと(2026-08-21 / 08-23):
+     ・動くのは 全部の蟻
+     ・押すのは 自分から一番近いダンボール
+     ・向きは  蟻が歩いてきた向きのまま(回り込まない)
+     ・押せないときは 動かない
+
+   こちらで決めた細かいところ(違っていたら直す):
+     ・「一番近い」は歩いた距離。壁・ダンボール・ほかの蟻・自機は通れない
+     ・同じ距離で行ける面が複数あるときは 上・下・左・右 の順で選ぶ
+     ・押したあと、蟻はダンボールがいた場所に入る
+     ・蟻は盤の左上に近いものから順に動かす。前の蟻が動いた結果を見て次が動く
+
+   局面は「ダンボールの位置・蟻の位置・自機の行ける範囲」の3つ。
+   蟻どうしに区別はないので、蟻は並べ替えて持つ */
+const ants = {
+  name:'ants',
+  parse: b=>parseBoard(b, (p, rows)=>{
+    const w=p.w;
+    p.ants=[];
+    for(let y=0;y<rows.length;y++){
+      const row=rows[y].padEnd(w,'#');
+      for(let x=0;x<w;x++) if(row[x]==='&'){ p.grid[y*w+x]=0; p.ants.push(y*w+x); }
+    }
+    p.ants.sort((a,b)=>a-b);
+  }),
+  // from から各マスまでの歩数。壁と blocked は通れない
+  walk(p, blocked, from){
+    const {grid,w}=p;
+    const dist=new Map([[from,0]]);
+    const q=[from];
+    for(let i=0;i<q.length;i++){
+      const c=q[i], d=dist.get(c)+1;
+      for(const s of [-w,w,-1,1]){
+        const n=c+s;
+        if(n<0||n>=grid.length) continue;
+        if(grid[n]||blocked.has(n)||dist.has(n)) continue;
+        dist.set(n,d); q.push(n);
+      }
+    }
+    return dist;
+  },
+  /* 蟻を1匹動かす。動いたら {ant, box, dir, to} を、動けなければ null を返す。
+     盤の中身(boxes / ants)はその場で書き換える */
+  step(p, boxes, ants, player, who){
+    const {grid,w}=p;
+    const me=ants[who];
+    // 通れないもの。ダンボール・ほかの蟻・自機
+    const blocked=new Set(boxes);
+    ants.forEach((a,i)=>{ if(i!==who) blocked.add(a); });
+    blocked.add(player);
+    const dist=this.walk(p, blocked, me);
+    // 押せる手を全部だし、「歩く距離が短い順、そのあと 上下左右の順」で選ぶ
+    let best=null;
+    for(const b of boxes){
+      for(let k=0;k<4;k++){
+        const dir=[-w,w,-1,1][k];
+        const stand=b-dir, to=b+dir;
+        if(!dist.has(stand)) continue;                     // そこまで歩けない
+        if(grid[to]||blocked.has(to)||to===b) continue;     // 押した先がふさがっている
+        const d=dist.get(stand);
+        // 短い順 → 上下左右の順 → 盤の左上に近い荷物の順。
+        // 最後まで決めておかないと、荷物を持っている順番で答えが変わってしまう
+        if(!best || d<best.d || (d===best.d && (k<best.k || (k===best.k && b<best.box))))
+          best={d, k, box:b, dir, stand, to};
+      }
+    }
+    if(!best) return null;
+    boxes[boxes.indexOf(best.box)]=best.to;
+    ants[who]=best.box;                                     // ダンボールがいた場所へ入る
+    return {ant:me, box:best.box, dir:best.dir, to:best.to};
+  },
+  start(p){
+    const blocked=new Set(p.boxes.concat(p.ants));
+    const r=regionRep(p.grid,p.w,blocked,p.player);
+    return {boxes:p.boxes.slice(), ants:p.ants.slice(), rep:r.rep, cells:r.cells};
+  },
+  moves(p, st){
+    const {grid,w}=p;
+    const boxSet=new Set(st.boxes), antSet=new Set(st.ants);
+    const out=[];
+    for(const b of st.boxes){
+      for(const dir of [1,-1,w,-w]){
+        const from=b-dir, to=b+dir;
+        if(grid[from]||boxSet.has(from)||antSet.has(from)) continue;
+        if(grid[to]||boxSet.has(to)||antSet.has(to)) continue;
+        if(!st.cells.has(from)) continue;
+        const nb=st.boxes.slice(), na=st.ants.slice();
+        nb[nb.indexOf(b)]=to;
+        const me=b;                                        // 自機はダンボールがいた場所へ
+        // 同僚が、左上に近いものから1つずつ押す
+        const acts=[];
+        for(let i=0;i<na.length;i++){
+          const a=ants.step(p, nb, na, me, i);
+          if(a) acts.push(a);
+        }
+        nb.sort((x,y)=>x-y); na.sort((x,y)=>x-y);
+        const blocked=new Set(nb.concat(na));
+        const r=regionRep(grid,w,blocked,me);
+        out.push({box:b, dir, to, acts, st:{boxes:nb, ants:na, rep:r.rep, cells:r.cells}});
+      }
+    }
+    return out;
+  },
+  solved(p, st){
+    const g=new Set(p.goals);
+    return st.boxes.every(b=>g.has(b));
+  },
+  key: st=>st.boxes.join(',')+'|'+st.ants.join(',')+'|'+st.rep,
+};
+
+const RULES={plain, water, holes, slide, numbered, roll, duo, ants};
 
 if(typeof module!=='undefined' && module.exports) module.exports={RULES, parseBoard};
 root.WarehouseRules={RULES, parseBoard};

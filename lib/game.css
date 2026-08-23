@@ -87,6 +87,22 @@ body.skin-summer{
   --water:#63c3d8;
   --line:#e7dbc0;
 }
+/* 蟻の色。壁は土の壁、床は乾いた地面 */
+body.skin-ant{
+  --ink:#3b2f21;
+  --ink-soft:#7a6a52;
+  --paper:#f6f1e6;
+  --card:#fffdf7;
+  --wall:#7a5c3a;
+  --wall-top:#96754c;
+  --floor:#efe6d4;
+  /* 地面と紛れないよう、置き場は青緑。収まったら緑 */
+  --goal:#1f7a8c;
+  --goal-soft:#b5dde4;
+  --done:#3f8f4f;
+  --done-soft:#bfe3b8;
+  --line:#e2d8c4;
+}
 /* リスの色。壁は苔むした木、床は落ち葉 */
 body.skin-squirrel{
   --ink:#2f3d24;
@@ -232,6 +248,8 @@ h1{
 .cell .fig.sliding{transition:none}
 /* 冬だけ、氷がスーッと滑って止まる。押した本人は動かない */
 .cell .fig.glide{transition:transform .5s cubic-bezier(.05,.62,.14,1)}
+/* 蟻。同僚のアリは、自分と同じ絵なので少し色を落として見分ける */
+.cell.mate .fig{opacity:.55;filter:grayscale(.45)}
 /* 春。ミツバチは2匹。いま動かせるほうに輪をつけ、
    待っているほうは薄くする(待っている間は壁と同じ) */
 .cell.turn{box-shadow:inset 0 0 0 3px var(--goal)}

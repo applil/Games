@@ -27,6 +27,8 @@ const GAMES=[
    desc:'押すたびに90度まわります。向きを戻して置きましょう'},
   {dir:'bee',   pack:'spring',   title:'2匹のミツバチ', icon:'-spring',
    desc:'ミツバチは2匹。1回押すごとに交代します'},
+  {dir:'ant',   pack:'ant',      title:'はたらきアリ', icon:'',
+   desc:'同僚のアリも、あなたが押すたびに1つ押します'},
 ];
 
 /* ---- 各ゲームの頁 ---- */
