@@ -115,7 +115,9 @@ body.skin-squirrel{
   --card:#fbfdf5;
   --wall:#4e6437;
   --wall-top:#68804b;
-  --floor:#eaf1d8;
+  --floor:#f7f0d2;                 /* 落ち葉の薄い黄色 */
+  --hole:#5a4632;                  /* 掘った土 */
+  --shut:#a89b82;                  /* 埋めたあと。土と床のあいだの色 */
   /* 落ち葉の床と紛れないよう、置き場はどんぐり色ではっきりと */
   --goal:#c2661a;
   --goal-soft:#f0b878;
@@ -181,16 +183,29 @@ h1{
 .cell.void{background:transparent}
 /* 置き場は色だけで示す。荷物がなければオレンジ、乗ればグリーン */
 .cell.goal{background:var(--goal-soft)}
-/* 夏の水。ダンボールは入れないが、カニは歩ける。
-   置き場と紛れないよう、置き場のほうを暖色にしてある */
-.cell.water{background:var(--water,#7fc7e8)}
-/* リスの穴。空いていると落ちるので通れない。埋めると地面と同じになる */
-.cell.hole{background:var(--hole,#5a4632);box-shadow:inset 0 3px 6px rgba(0,0,0,.45)}
-.cell.shut{background:var(--shut,#b98d55)}
+/* 水たまりと穴は、マス全体ではなく楕円で描く。
+   床の色が残るので、盤の地続き感が消えない。絵文字より下に置く(.fig は z-index:1) */
+.cell.water::after, .cell.hole::after, .cell.shut::after{
+  content:'';position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  border-radius:50%;pointer-events:none;z-index:0;
+}
+/* 夏の水たまり。ほんの少し横長 */
 .cell.water::after{
-  content:'';position:absolute;inset:0;
-  background:repeating-linear-gradient(-45deg,transparent 0 4px,rgba(255,255,255,.35) 4px 8px);
-  pointer-events:none;
+  width:84%;height:68%;
+  background:var(--water,#7fc7e8);
+  box-shadow:inset 0 -2px 4px rgba(255,255,255,.45), inset 0 2px 4px rgba(0,0,0,.10);
+}
+/* リスの穴。空いていると落ちるので通れない */
+.cell.hole::after{
+  width:78%;height:62%;
+  background:var(--hole,#5a4632);
+  box-shadow:inset 0 3px 6px rgba(0,0,0,.45);
+}
+/* 埋めた穴。ひと回り小さく、色は土と床のあいだ。もう通れる、と見て分かるように */
+.cell.shut::after{
+  width:60%;height:48%;
+  background:var(--shut,#a89b82);
 }
 .cell.box.on{background:var(--done-soft)}
 .cell .fig{position:relative;z-index:1;transition:transform .11s ease-out}
@@ -348,6 +363,8 @@ body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
 body:not(.debug) #btnFresh, body:not(.debug) #btnSkin, body:not(.debug) #btnSoundTest{display:none}
 body:not(.debug) #btnEffort, body.mod #btnEffort, body.edit #btnEffort{display:none}
 body:not(.debug) #btnPack, body.mod #btnPack, body.edit #btnPack{display:none}
+/* 全局面の表が要る機能は、ふつうのルールでしか正しく動かない */
+body.no-table #btnHint{display:none}
 
 .movehead{
   font-size:13px;font-weight:700;color:var(--ink);text-align:center;
@@ -1661,7 +1678,9 @@ function startLevel(i){
   // 全状態の表は詰み判定とヒントにしか使わない。通常プレイでは作らない。
   // デバッグ時も裏で作る(大きい盤だと数秒かかるため、画面は止めない)
   dist=null;
-  if(DEBUG||coop) requestTable();
+  // 全局面の表は「ふつうのルール」で作ったもの。水や穴のルールでは中身が違うので、
+  // 使うと詰み表示もヒントも狂う。ルール違いでは最初から作らない
+  if((DEBUG||coop) && RULE==='plain') requestTable();
   goalSet=new Set(puzzle.goals);
   boxes=puzzle.boxes.slice();
   player=puzzle.player;
@@ -1753,8 +1772,11 @@ function updateStats(){
     if(lv.g>=3) tags.push('素直に押すと詰む');
     if(lv.og) tags.push('置き場からどける');
     if(lv.f>=2) tags.push('一本道あり');
-    $('boardNote').textContent='最短'+lv.p+'手 / 罠率'+lv.tr+'% / 自己ベスト'+(b==null?'--':b+'手')
-      +' / 表'+(dist?dist.size+'状態':'計算中…')
+    // 罠率と全局面の表は、ふつうのルールでしか意味がない
+    $('boardNote').textContent='最短'+lv.p+'手'
+      +(RULE==='plain' ? ' / 罠率'+lv.tr+'%' : ' / '+RULE)
+      +' / 自己ベスト'+(b==null?'--':b+'手')
+      +(RULE==='plain' ? ' / 表'+(dist?dist.size+'状態':'計算中…') : '')
       +' / 音'+(!AC?'非対応':!actx?'未作成':actx.state)
       +'(触'+audioLog.touch+' 作'+audioLog.make+' 起'+audioLog.resume+' 波'+audioLog.wav
       +' 道'+(audioLog.ses||'-')
@@ -1996,6 +2018,7 @@ function resetLevel(){
 
 /* ================= 詰み検知(デバッグのみ) ================= */
 function checkDead(){
+  if(RULE!=='plain') return;      // ふつうのルール用の表しか無い
   if(!dist) return;      // 表がまだ届いていない間は詰み表示なし
   if(dist.has(stateKeyNow())){ if(deadShown){ deadShown=false; hideMsg(); } return; }
   if(deadShown) return;
@@ -2864,6 +2887,9 @@ $('btnHistClose').addEventListener('click',()=>$('histOverlay').classList.remove
 $('btnHistExit').addEventListener('click',exitReplay);
 $('btnPrev').addEventListener('click',()=>startLevel(index-1));
 $('btnNext').addEventListener('click',()=>startLevel(index+1));
+
+// 全局面の表が要る機能(ヒント・詰み表示)は、ふつうのルールでしか正しく動かない
+if(RULE!=='plain') document.body.classList.add('no-table');
 
 // 見た目だけの入れ替え。絵文字を直に書いてあるところを、まとめて置き換える
 if(skinName!=='normal'){
