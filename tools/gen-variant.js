@@ -32,6 +32,7 @@ const [NB_LO,NB_HI]=(process.env.NBOX||'2,4').split(',').map(Number);
 const [SZ_LO,SZ_HI]=(process.env.SIZE||'6,9').split(',').map(Number);
 const WATER=+(process.env.WATER||0.12);
 const DUP=+(process.env.DUP||0.7);
+const MATTERS=process.env.MATTERS!=='0';   // 0 にすると「ふつうと同じ答え」も残す
 
 const rule=RULES[RULE];
 if(!rule){ console.error('知らないルール: '+RULE+' (あるのは '+Object.keys(RULES).join(', ')+')'); process.exit(1); }
@@ -177,7 +178,9 @@ while(out.length<WANT && (Date.now()-t0)/1000 < SEC){
   if(!b) continue;
   const r=solve(b, 200000);
   if(!r || r.d<MIN_PUSH || r.d>MAX_PUSH) continue;
-  if(RULE!=='plain' && !mattersVsPlain(b, r.d)) continue;      // 飾りの水は捨てる
+  // ふつうと同じ答えになる面は捨てる。ただしチュートリアルは
+  // 「ふつうと同じ手数でも、交代の仕方だけを見せたい」ことがあるので外せる
+  if(MATTERS && RULE!=='plain' && !mattersVsPlain(b, r.d)) continue;
   const id=X.hashId(X.canonical(b.split('/')));
   if(ids.has(id)) continue;
   const ps=pushSet(b);
