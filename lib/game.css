@@ -219,6 +219,13 @@ h1{
   color:var(--goal);text-shadow:0 0 2px var(--card),0 0 2px var(--card);
   pointer-events:none;
 }
+/* 印ちがいの荷物がふさいでいる置き場。荷物の札が右上にあるので、
+   こちらは左上に寄せて、赤地でも読めるよう濃い赤にする */
+.cell.numgoal.box::before{
+  right:auto;left:3px;
+  color:var(--miss-ink,#a5372b);
+  text-shadow:0 0 2px var(--miss-soft,#f7bcb6),0 0 2px var(--miss-soft,#f7bcb6);
+}
 .cell .fig{position:relative;z-index:1;transition:transform .11s ease-out, rotate .18s ease-out}
 .cell .fig.sliding{transition:none}
 /* 冬だけ、氷がスーッと滑って止まる。押した本人は動かない */
