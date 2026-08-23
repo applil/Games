@@ -25,6 +25,8 @@ const GAMES=[
    desc:'番号の合う置き場へ運びます'},
   {dir:'roll',  pack:'roll',     title:'ころがし',   icon:'-beetle',
    desc:'押すたびに90度まわります。向きを戻して置きましょう'},
+  {dir:'bee',   pack:'spring',   title:'2匹のミツバチ', icon:'-spring',
+   desc:'ミツバチは2匹。1回押すごとに交代します'},
 ];
 
 /* ---- 各ゲームの頁 ---- */

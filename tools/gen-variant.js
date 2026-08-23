@@ -49,6 +49,7 @@ const pick=a=>a[Math.floor(rng()*a.length)];
 function solve(board, cap){
   const p=rule.parse(board);
   if(!p.boxes.length || p.boxes.length!==p.goals.length || p.player<0) return null;
+  if(RULE==='duo' && (!p.players || p.players.length!==2)) return null;
   let layer=[rule.start(p)];
   const seen=new Set([rule.key(layer[0])]);
   for(let d=0; d<=MAX_PUSH+2; d++){
@@ -143,11 +144,16 @@ function makeBoard(){
   const cells=room.slice();
   for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [cells[i],cells[j]]=[cells[j],cells[i]]; }
   const n=NB_LO+Math.floor(rng()*(NB_HI-NB_LO+1));
-  if(cells.length < n*2+1+2) return null;
+  if(cells.length < n*2+1+2+(RULE==='duo'?1:0)) return null;
   let k=0;
   for(let i=0;i<n;i++){ const [y,x]=cells[k++]; g[y][x]='$'; }
   for(let i=0;i<n;i++){ const [y,x]=cells[k++]; g[y][x]='.'; }
   const [py,px]=cells[k++]; g[py][px]='@';
+  // 春はミツバチが2匹。2匹目も床に置く
+  if(RULE==='duo'){
+    if(k>=cells.length) return null;
+    const [qy,qx]=cells[k++]; g[qy][qx]='@';
+  }
   // 水を置く(残りの床から)
   if(RULE==='water'){
     const rest=cells.slice(k);

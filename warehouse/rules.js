@@ -31,7 +31,7 @@ function parseBoard(board, extra){
   const h=rows.length, w=Math.max(...rows.map(r=>r.length));
   const grid=new Uint8Array(w*h).fill(1);      // 1=壁 0=床
   const water=new Uint8Array(w*h);             // 1=水(自機は通れる、荷物は通れない)
-  const boxes=[], goals=[];
+  const boxes=[], goals=[], players=[];
   let player=-1;
   for(let y=0;y<h;y++){
     const row=rows[y].padEnd(w,'#');
@@ -42,13 +42,13 @@ function parseBoard(board, extra){
       if(c==='~'){ water[i]=1; continue; }
       if(c==='$'||c==='*') boxes.push(i);
       if(c==='.'||c==='*'||c==='+') goals.push(i);
-      if(c==='@'||c==='+') player=i;
+      if(c==='@'||c==='+'){ player=i; players.push(i); }   // 春は2匹いるので全部拾う
     }
   }
   const p={board,grid,water,w,h,
            boxes:boxes.sort((a,b)=>a-b),
            goals:goals.sort((a,b)=>a-b),
-           player};
+           players, player};
   if(extra) extra(p, rows);
   return p;
 }
@@ -324,7 +324,72 @@ const roll = {
   key: st=>st.boxes.join(',')+'|'+st.rot.join('')+'|'+st.rep,
 };
 
-const RULES={plain, water, holes, slide, numbered, roll};
+/* 春。ミツバチが2匹いて、1回押すごとに交代する。
+   番でないミツバチは壁になる(通り抜けられない、押し込めない)。
+   押さないただの移動では交代しない。
+
+   局面に要るのは
+     ・荷物の位置
+     ・番でないミツバチの居場所(壁なので、どこに居るかが効く)
+     ・番のミツバチが行ける範囲(その代表値)
+   の3つ。2匹に区別はないので、どちらが番かは局面の見分けに入れない。
+
+   押した直後、そのミツバチは荷物のいた場所に入り、そこで壁に変わる。
+   相手はその瞬間から動きだすので、次の範囲は相手の居場所から数える。
+
+   壁が1マス動きまわるので、行ける範囲は毎手ごとに変わる。
+   ふつうのルールより状態はずっと多い */
+const duo = {
+  name:'duo',
+  parse: b=>parseBoard(b),
+  // from から行ける範囲。荷物と、番でないミツバチが壁
+  region(p, boxes, off, from){
+    const {grid,w}=p;
+    const blocked=new Set(boxes); blocked.add(off);
+    const cells=new Set([from]);
+    const q=[from];
+    let rep=from;
+    while(q.length){
+      const c=q.pop();
+      if(c<rep) rep=c;
+      for(const d of [1,-1,w,-w]){
+        const n=c+d;
+        if(n<0||n>=grid.length) continue;
+        if(grid[n]||blocked.has(n)||cells.has(n)) continue;
+        cells.add(n); q.push(n);
+      }
+    }
+    return {rep, cells};
+  },
+  start(p){
+    const [a,b]=p.players;
+    const r=duo.region(p, p.boxes, b, a);
+    return {boxes:p.boxes.slice(), off:b, rep:r.rep, cells:r.cells};
+  },
+  moves(p, st){
+    const {grid,w}=p;
+    const boxSet=new Set(st.boxes);
+    const out=[];
+    for(const b of st.boxes){
+      for(const dir of [1,-1,w,-w]){
+        const from=b-dir, to=b+dir;
+        if(!st.cells.has(from)) continue;                    // そこに立てない
+        if(grid[to]||boxSet.has(to)||to===st.off) continue;  // 相方には押し込めない
+        const nb=st.boxes.slice();
+        nb[nb.indexOf(b)]=to;
+        nb.sort((x,y)=>x-y);
+        // 押したミツバチは荷物のいた場所へ移り、そこで壁になる。次は相方の番
+        const r=duo.region(p, nb, b, st.off);
+        out.push({box:b, dir, to, st:{boxes:nb, off:b, rep:r.rep, cells:r.cells}});
+      }
+    }
+    return out;
+  },
+  solved: plain.solved,
+  key: st=>st.boxes.join(',')+'|'+st.off+'|'+st.rep,
+};
+
+const RULES={plain, water, holes, slide, numbered, roll, duo};
 
 if(typeof module!=='undefined' && module.exports) module.exports={RULES, parseBoard};
 root.WarehouseRules={RULES, parseBoard};

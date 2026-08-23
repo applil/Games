@@ -230,6 +230,11 @@ h1{
 .cell .fig.sliding{transition:none}
 /* 冬だけ、氷がスーッと滑って止まる。押した本人は動かない */
 .cell .fig.glide{transition:transform .5s cubic-bezier(.05,.62,.14,1)}
+/* 春。ミツバチは2匹。いま動かせるほうに輪をつけ、
+   待っているほうは薄くする(待っている間は壁と同じ) */
+.cell.turn{box-shadow:inset 0 0 0 3px var(--goal)}
+.cell.wait{box-shadow:inset 0 0 0 2px var(--line)}
+.cell.wait .fig{opacity:.40;filter:grayscale(.6)}
 .cell.hintbox{box-shadow:inset 0 0 0 3px var(--done)}
 .cell.bump .fig{animation:bump .18s ease}
 /* 荷物を押したとき、ヒヨコの右上に汗をひと飛び。動きと重なるので控えめに */
@@ -446,6 +451,11 @@ body.no-table #btnHint{display:none}
 .rules .sw.goal{background:var(--goal-soft)}
 .rules .sw.done{background:var(--done-soft)}
 .rules b{color:var(--ink)}
+/* ルール違いのゲームで、ふつうとの違いを先頭に置く一段 */
+.rules p.rulenote{
+  background:var(--goal-soft);border-radius:8px;padding:9px 11px;
+  color:var(--ink);margin-bottom:12px;
+}
 .picker{background:var(--card);border-radius:20px;padding:16px 14px 12px;width:min(400px,92vw);max-height:80vh;display:flex;flex-direction:column}
 .picker h2{font-size:14px;font-weight:800;margin-bottom:8px;text-align:center}
 .chapters{display:flex;gap:6px;justify-content:center;padding-bottom:8px;margin-bottom:8px}
