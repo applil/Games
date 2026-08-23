@@ -230,12 +230,17 @@ const slide = {
   key: plain.key,
 };
 
-/* ふつう2。ダンボールと置き場に番号が付いていて、番号が合わないとクリアにならない。
-   盤の書き方は、荷物を 1〜9、置き場を a〜i(1がa、2がb…)で表す。
-   数字が付くことで、同じ盤でも易しくなったり難しくなったりする。
+/* 印あわせ。ダンボールと置き場に印が付いていて、印が合わないとクリアにならない。
+   盤の書き方は、印つきの荷物を 1〜9、印つきの置き場を a〜i(1がa、2がb…)で表す。
+   印が付くことで、同じ盤でも易しくなったり難しくなったりする。
 
-   荷物は「番号順に並べた位置の列」で持つ。入れ替わりが区別されるので、
-   ふつうのルールより状態は増える(荷物n個で最大n!倍)。 */
+   印のない荷物($)と印のない置き場(.)も混ぜられる。
+   印のない荷物は、印のない置き場ならどこでもよい(印つきの置き場はだめ)。
+   全部に印が付いた面もあれば、一部だけの面もある、という作りにできる。
+
+   印つきの荷物は「印の順に並べた位置の列」で持つ。入れ替わりが区別されるので、
+   ふつうのルールより状態は増える(印つきn個で最大n!倍)。
+   印のない荷物どうしは見分けないので、こちらは並べ替えて持つ。 */
 const NUMS='123456789';
 const GOALS='abcdefghi';
 const numbered = {
@@ -253,34 +258,53 @@ const numbered = {
           if(g>=0){ p.grid[i]=0; p.slot[g]=i; }
         }
       }
-      if(p.num.length){ p.boxes=p.num.slice().sort((a,b)=>a-b);
-                        p.goals=p.slot.slice().sort((a,b)=>a-b); }
+      // 印は 1,2,3… と続いている前提(抜けがあると、その番号のところが空いた列になり、
+      // 探索が壊れる)。書き間違いはここで止める
+      for(let k=0;k<p.num.length;k++){
+        if(p.num[k]===undefined) throw new Error('荷物の印 '+(k+1)+' がない');
+        if(p.slot[k]===undefined) throw new Error('置き場の印 '+GOALS[k]+' がない');
+      }
+      // parseBoard が拾った $ と . は、印のない荷物と置き場。
+      // 印つきをそれに足して、盤ぜんたいの荷物と置き場にする
+      p.free=p.boxes.slice();                     // 印のない荷物
+      p.open=p.goals.slice();                     // 印のない置き場
+      p.boxes=p.num.concat(p.free).sort((a,b)=>a-b);
+      p.goals=p.slot.concat(p.open).sort((a,b)=>a-b);
     });
     return p;
   },
   start(p){
-    const r=regionRep(p.grid,p.w,new Set(p.num),p.player);
-    return {num:p.num.slice(), rep:r.rep, cells:r.cells};
+    const r=regionRep(p.grid,p.w,new Set(p.num.concat(p.free)),p.player);
+    return {num:p.num.slice(), free:p.free.slice().sort((a,b)=>a-b), rep:r.rep, cells:r.cells};
   },
   moves(p, st){
     const {grid,w}=p;
-    const boxSet=new Set(st.num);
+    const boxSet=new Set(st.num.concat(st.free));
     const out=[];
-    st.num.forEach((b,k)=>{
+    // mk は印の番号(0から)。印のない荷物は -1
+    const tryPush=(b, mk)=>{
       for(const dir of [1,-1,w,-w]){
         const from=b-dir, to=b+dir;
         if(grid[from]||boxSet.has(from)) continue;
         if(grid[to]||boxSet.has(to)) continue;
         if(!st.cells.has(from)) continue;
-        const nn=st.num.slice(); nn[k]=to;
-        const r=regionRep(grid,w,new Set(nn),b);
-        out.push({box:b, dir, to, n:k+1, st:{num:nn, rep:r.rep, cells:r.cells}});
+        const nn=st.num.slice(), nf=st.free.slice();
+        if(mk>=0) nn[mk]=to;
+        else { nf[nf.indexOf(b)]=to; nf.sort((x,y)=>x-y); }
+        const r=regionRep(grid,w,new Set(nn.concat(nf)),b);
+        out.push({box:b, dir, to, n:mk+1, st:{num:nn, free:nf, rep:r.rep, cells:r.cells}});
       }
-    });
+    };
+    st.num.forEach(tryPush);
+    st.free.forEach(b=>tryPush(b,-1));
     return out;
   },
-  solved(p, st){ return st.num.every((b,k)=>b===p.slot[k]); },
-  key: st=>st.num.join(',')+'|'+st.rep,
+  solved(p, st){
+    if(!st.num.every((b,k)=>b===p.slot[k])) return false;
+    const open=new Set(p.open);
+    return st.free.every(b=>open.has(b));       // 印なしは、印のない置き場ならどこでもよい
+  },
+  key: st=>st.num.join(',')+'|'+st.free.join(',')+'|'+st.rep,
 };
 
 /* フンコロガシ。押すたびにウンコが時計回りに90度まわる。
