@@ -33,6 +33,8 @@ const GAMES=[
    desc:'置き場は穴。ドングリを埋めるまで通れません'},
   {dir:'ice',   pack:'ice',      title:'すべる氷',   icon:'-winter',
    desc:'氷は壁か氷にぶつかるまで滑ります'},
+  {dir:'number',pack:'number',   title:'番号あわせ', icon:'',
+   desc:'番号の合う置き場へ運びます'},
 ];
 
 const src=fs.readFileSync(SRC,'utf8');

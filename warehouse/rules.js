@@ -230,7 +230,60 @@ const slide = {
   key: plain.key,
 };
 
-const RULES={plain, water, holes, slide};
+/* ふつう2。ダンボールと置き場に番号が付いていて、番号が合わないとクリアにならない。
+   盤の書き方は、荷物を 1〜9、置き場を a〜i(1がa、2がb…)で表す。
+   数字が付くことで、同じ盤でも易しくなったり難しくなったりする。
+
+   荷物は「番号順に並べた位置の列」で持つ。入れ替わりが区別されるので、
+   ふつうのルールより状態は増える(荷物n個で最大n!倍)。 */
+const NUMS='123456789';
+const GOALS='abcdefghi';
+const numbered = {
+  name:'numbered',
+  parse(b){
+    const p=parseBoard(b, (p, rows)=>{
+      const w=p.w;
+      p.num=[]; p.slot=[];                    // 番号ごとの、荷物の位置と置き場の位置
+      for(let y=0;y<rows.length;y++){
+        const row=rows[y].padEnd(w,'#');
+        for(let x=0;x<w;x++){
+          const c=row[x], i=y*w+x;
+          const n=NUMS.indexOf(c), g=GOALS.indexOf(c);
+          if(n>=0){ p.grid[i]=0; p.num[n]=i; }
+          if(g>=0){ p.grid[i]=0; p.slot[g]=i; }
+        }
+      }
+      if(p.num.length){ p.boxes=p.num.slice().sort((a,b)=>a-b);
+                        p.goals=p.slot.slice().sort((a,b)=>a-b); }
+    });
+    return p;
+  },
+  start(p){
+    const r=regionRep(p.grid,p.w,new Set(p.num),p.player);
+    return {num:p.num.slice(), rep:r.rep, cells:r.cells};
+  },
+  moves(p, st){
+    const {grid,w}=p;
+    const boxSet=new Set(st.num);
+    const out=[];
+    st.num.forEach((b,k)=>{
+      for(const dir of [1,-1,w,-w]){
+        const from=b-dir, to=b+dir;
+        if(grid[from]||boxSet.has(from)) continue;
+        if(grid[to]||boxSet.has(to)) continue;
+        if(!st.cells.has(from)) continue;
+        const nn=st.num.slice(); nn[k]=to;
+        const r=regionRep(grid,w,new Set(nn),b);
+        out.push({box:b, dir, to, n:k+1, st:{num:nn, rep:r.rep, cells:r.cells}});
+      }
+    });
+    return out;
+  },
+  solved(p, st){ return st.num.every((b,k)=>b===p.slot[k]); },
+  key: st=>st.num.join(',')+'|'+st.rep,
+};
+
+const RULES={plain, water, holes, slide, numbered};
 
 if(typeof module!=='undefined' && module.exports) module.exports={RULES, parseBoard};
 root.WarehouseRules={RULES, parseBoard};

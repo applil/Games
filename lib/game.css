@@ -96,11 +96,7 @@ body.skin-squirrel{
   --wall:#4e6437;
   --wall-top:#68804b;
   --floor:#f7f0d2;                 /* 落ち葉の薄い黄色 */
-  --hole:#5a4632;                  /* 掘った土 */
-  --hole-deep:#2e2116;             /* 穴の底 */
-  --hole-rim:#7d6244;              /* 穴のふち */
-  --shut:#e3d9c2;                  /* 埋めたあと。床にぐっと近い薄さ */
-  --shut-rim:#d2c5a8;
+  --hole:#dcc9a4;                  /* 掘った土。床より少し暗いだけ。段差で見せる */
   /* 落ち葉の床と紛れないよう、置き場はどんぐり色ではっきりと */
   --goal:#c2661a;
   --goal-soft:#f0b878;
@@ -179,22 +175,40 @@ h1{
   background:var(--water,#7fc7e8);
   box-shadow:inset 0 -2px 4px rgba(255,255,255,.45), inset 0 2px 4px rgba(0,0,0,.10);
 }
-/* リスの穴。空いていると落ちるので通れない。
-   縁を明るく、底へ向かって暗くして、掘ってある感じを出す */
+/* リスの穴。掘った土は床より少し暗いだけにして、
+   ふち(上が明るく、下に落ちる影)で段差を出す。色の濃さより、段差で見せる */
 .cell.hole::after{
   width:78%;height:62%;
-  background:radial-gradient(ellipse at 50% 38%,
-    var(--hole-deep,#2e2116) 0%, var(--hole,#5a4632) 62%, var(--hole-rim,#7d6244) 100%);
-  box-shadow:inset 0 3px 7px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.35);
+  background:var(--hole,#c9b48c);
+  box-shadow:
+    inset 0 5px 7px -3px rgba(0,0,0,.55),   /* 上のふちから内へ落ちる影 */
+    inset 0 -3px 4px -2px rgba(255,255,255,.5),
+    0 1px 0 rgba(255,255,255,.6);           /* 外側の下に、ふちの照り返し */
 }
-/* 埋めたあと。大きさはそのまま、色をぐっと薄くして「もう通れる」と分かるように */
+/* ドングリが入ったあと。色は床と同じにして、へこんでいるだけに見せる */
 .cell.shut::after{
   width:78%;height:62%;
-  background:radial-gradient(ellipse at 50% 38%,
-    var(--shut,#e3d9c2) 0%, var(--shut-rim,#d2c5a8) 100%);
-  box-shadow:inset 0 1px 2px rgba(0,0,0,.10);
+  background:var(--floor);
+  box-shadow:
+    inset 0 3px 4px -2px rgba(0,0,0,.28),
+    0 1px 0 rgba(255,255,255,.6);
+}
+/* 夏の水たまり。ほんの少し横長 */
+.cell.water::after{
+  width:84%;height:68%;
+  background:var(--water,#7fc7e8);
+  box-shadow:inset 0 -2px 4px rgba(255,255,255,.45), inset 0 2px 4px rgba(0,0,0,.10);
 }
 .cell.box.on{background:var(--done-soft)}
+/* 番号つき。荷物と置き場の右上に番号を出す */
+.cell.numbered::before{
+  content:attr(data-num);
+  position:absolute;top:1px;right:3px;z-index:2;
+  font-size:calc(var(--cell)*0.30);font-weight:800;line-height:1;
+  color:var(--ink);text-shadow:0 0 2px var(--card),0 0 2px var(--card);
+  pointer-events:none;
+}
+.cell.numgoal::before{color:var(--goal)}
 .cell .fig{position:relative;z-index:1;transition:transform .11s ease-out}
 .cell .fig.sliding{transition:none}
 /* 冬だけ、氷がスーッと滑って止まる。押した本人は動かない */
