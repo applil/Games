@@ -133,9 +133,15 @@ L.forEach((l,i)=>{
   roomKeep.get(k).push(l);
 });
 const swapped=[], failed=[];
+/* 手数はぴったり合わせたいが、深いところは在庫が細く、待っていると終わらない。
+   TOL を指定すると前後 TOL 手までを許す。許した場合は、あとで帯の中を
+   手数順に並べ直すこと(第430面以降は並べ替えてよい) */
+const TOL=+(process.env.TOL||0);
 for(const at of targets){
   const want=L[at-1].p;
-  const cands=(byP[want]||[]).slice();
+  let cands=(byP[want]||[]).slice();
+  for(let d=1; d<=TOL && !cands.length; d++)
+    cands=(byP[want-d]||[]).concat(byP[want+d]||[]);
   let picked=null;
   for(const c of cands){
     const k=canon(c.b).key;
@@ -149,11 +155,11 @@ for(const at of targets){
     picked=c; break;
   }
   if(!picked){ failed.push(at+'('+want+'手)'); continue; }
-  byP[want]=byP[want].filter(x=>x.id!==picked.id);
+  byP[picked.p]=(byP[picked.p]||[]).filter(x=>x.id!==picked.id);
   const k=canon(picked.b).key;
   if(!roomKeep.has(k)) roomKeep.set(k,[]);
   roomKeep.get(k).push(picked);                            // 次の候補はこれとも比べる
-  L[at-1]={...picked, p:want};
+  L[at-1]={...picked};                                     // 手数は在庫の実測値のまま
   swapped.push(at);
 }
 console.log(`\n差し替えた: ${swapped.length}面`);
