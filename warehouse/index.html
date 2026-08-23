@@ -658,7 +658,9 @@ const QS=new URLSearchParams(location.search);
 /* ルールを変えた着せ替え版。?pack=summer のように指定する。
    まだ試作なので、切り替えはデバッグ表示のときだけ出す。
    本編(levels.json)とは面も記録も完全に別扱いにする */
-const PACKS={summer:{file:'packs/summer.json', skin:'summer', label:'夏・水'}};
+const PACKS={summer:{file:'packs/summer.json', skin:'summer', label:'夏・水',
+                     // 水に濡れて困るのはダンボール。すいかでは理屈が通らない
+                     box:'📦'}};
 const PACK=(()=>{
   const q=QS.get('pack');
   return (q && PACKS[q]) ? q : null;
@@ -700,7 +702,8 @@ const skinName=(()=>{
   try{ if(localStorage.getItem('warehouse-beetle')==='1') return 'beetle'; }catch(e){}
   return 'normal';
 })();
-const SKIN=SKINS[skinName];
+const SKIN=Object.assign({}, SKINS[skinName],
+  PACK ? {box:PACKS[PACK].box||SKINS[skinName].box, man:PACKS[PACK].man||SKINS[skinName].man} : {});
 const MOD=QS.get('mod')==='1';
 // モデレーションは素の状態で遊んで判断するもの。端末の記録も URL の指定も無視して、
 // 戻す・ヒント・詰み表示は出さない
