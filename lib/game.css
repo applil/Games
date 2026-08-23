@@ -96,7 +96,7 @@ body.skin-squirrel{
   --wall:#4e6437;
   --wall-top:#68804b;
   --floor:#f7f0d2;                 /* 落ち葉の薄い黄色 */
-  --hole:#dcc9a4;                  /* 掘った土。床より少し暗いだけ。段差で見せる */
+  --hole:#c4a875;                  /* 掘った土。床(落ち葉)とはっきり分かる茶色 */
   /* 落ち葉の床と紛れないよう、置き場はどんぐり色ではっきりと */
   --goal:#c2661a;
   --goal-soft:#f0b878;
@@ -258,6 +258,22 @@ h1{
   0%  {transform:translate(-2px,-2px) scale(.35);opacity:0}
   22% {transform:translate(0,0) scale(1);opacity:.95}
   100%{transform:translate(4px,5px) scale(.8);opacity:0}
+}
+/* 夏。カニが水に入ったときの、はねるしずく。
+   3粒がそれぞれ違う向きへ跳ね上がり、落ちながら消える */
+.cell .splash{position:absolute;inset:0;z-index:3;pointer-events:none}
+.cell .splash .dp{
+  position:absolute;left:50%;bottom:34%;
+  font-style:normal;line-height:1;font-size:calc(var(--cell)*0.26);
+  animation:splash .42s ease-out both;
+}
+.cell .splash .dp0{--jx:-80%;--jy:-105%}
+.cell .splash .dp1{--jx:6%;--jy:-140%;font-size:calc(var(--cell)*0.31);animation-delay:45ms}
+.cell .splash .dp2{--jx:88%;--jy:-88%;animation-delay:90ms}
+@keyframes splash{
+  0%  {transform:translate(-50%,10%) scale(.25);opacity:0}
+  30% {transform:translate(calc(-50% + var(--jx)*0.55),calc(var(--jy)*0.85)) scale(1);opacity:.95}
+  100%{transform:translate(calc(-50% + var(--jx)),35%) scale(.5);opacity:0}
 }
 @keyframes bump{50%{transform:scale(1.18)}}
 .board.celebrate .cell .fig{animation:winwave .9s ease both}
