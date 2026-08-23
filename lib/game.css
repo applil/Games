@@ -112,7 +112,10 @@ body.skin-squirrel{
   --wall:#4e6437;
   --wall-top:#68804b;
   --floor:#f7f0d2;                 /* 落ち葉の薄い黄色 */
-  --hole:#b57d4d;                  /* 掘った土。赤みのある濃い茶色。落ち葉の床と離す */
+  /* 穴。ドングリの茶色と紛れないよう、ほぼ黒の灰色にする。
+     ただの黒い楕円だと平らに見えるので、手前(下)を明るくして深さを出す */
+  --hole:#2b2d31;                  /* 底 */
+  --hole-lit:#70747b;              /* 手前のふち。光の当たるところ */
   /* 落ち葉の床と紛れないよう、置き場はどんぐり色ではっきりと */
   --goal:#c2661a;
   --goal-soft:#f0b878;
@@ -191,15 +194,17 @@ h1{
   background:var(--water,#7fc7e8);
   box-shadow:inset 0 -2px 4px rgba(255,255,255,.45), inset 0 2px 4px rgba(0,0,0,.10);
 }
-/* リスの穴。掘った土は床より少し暗いだけにして、
-   ふち(上が明るく、下に落ちる影)で段差を出す。色の濃さより、段差で見せる */
+/* リスの穴。ほぼ黒の灰色。
+   手前(下)から奥(上)へ暗くなるようにして、落ち込んで見せる。
+   上のふちからは内へ影が落ち、下のふちの内側だけがうっすら光る */
 .cell.hole::after{
   width:78%;height:62%;
-  background:var(--hole,#c9b48c);
+  background:radial-gradient(120% 135% at 50% 122%,
+    var(--hole-lit,#70747b) 0%, var(--hole,#2b2d31) 55%, #141518 100%);
   box-shadow:
-    inset 0 5px 7px -3px rgba(0,0,0,.55),   /* 上のふちから内へ落ちる影 */
-    inset 0 -3px 4px -2px rgba(255,255,255,.5),
-    0 1px 0 rgba(255,255,255,.6);           /* 外側の下に、ふちの照り返し */
+    inset 0 5px 7px -4px rgba(0,0,0,.9),      /* 上のふちから内へ落ちる影 */
+    inset 0 -2px 3px -1px rgba(255,255,255,.30),
+    0 1px 0 rgba(255,255,255,.7);             /* 外側の下に、ふちの照り返し */
 }
 /* ドングリが入ったあと。色は床と同じにして、へこんでいるだけに見せる */
 .cell.shut::after{
@@ -247,7 +252,11 @@ h1{
 }
 .cell .fig.sliding{transition:none}
 /* 冬だけ、氷がスーッと滑って止まる。押した本人は動かない */
-.cell .fig.glide{transition:transform .5s cubic-bezier(.05,.62,.14,1)}
+/* 氷が止まるのは、壁か別の氷にぶつかるからで、摩擦で減速するからではない。
+   だから最後まで同じ速さで進んで、ぶつかった瞬間に止まる(linear)。
+   終わりを緩めると「勝手に止まった」ように見えてしまう。
+   かかる時間は距離に合わせて lib/game.js の glide が入れる */
+.cell .fig.glide{transition:transform .5s linear}
 /* 蟻。同僚のアリは、自分と同じ絵なので少し色を落として見分ける */
 .cell.mate .fig{opacity:.55;filter:grayscale(.45)}
 /* 春。ミツバチは2匹。いま動かせるほうに輪をつけ、
