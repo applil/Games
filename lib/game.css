@@ -218,7 +218,10 @@ h1{
    中身(絵文字)は真ん中に置く。荷物が乗っていない置き場でも同じ大きさになるので、
    印は同じ場所に出る */
 .cell .fig{
-  position:relative;z-index:1;transition:transform .11s ease-out, rotate .18s ease-out;
+  position:relative;z-index:1;
+  /* 位置は left/top、向きは rotate と、別々に動かす。
+     フンコロガシで両方が混ざらないようにするため(lib/game.js の roll を見よ) */
+  transition:transform .11s ease-out, left .11s ease-out, top .11s ease-out, rotate .18s ease-out;
   width:1em;height:1em;display:flex;align-items:center;justify-content:center;
 }
 .cell .fig.sliding{transition:none}
