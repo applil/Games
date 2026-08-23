@@ -105,7 +105,8 @@ const perms=a=>a.length<=1?[a]:a.flatMap((x,i)=>perms(a.filter((_,j)=>j!==i)).ma
 
 /* 印を付ける荷物の組み合わせ。
    MARK=all  … 全部に付ける(今までどおり)
-   MARK=part … 一部だけに付ける(1個以上、全部より少なく)。印なしが混ざる面になる
+   MARK=part … 一部だけに付ける(1個以上、全部より少なく)。印の多いものから試す
+   MARK=few  … 同じく一部だけだが、印の少ないものから試す
    数が少ないので、組み合わせは全部そのまま数え上げる */
 const MARK=process.env.MARK||'all';
 function markSets(n){
@@ -116,7 +117,7 @@ function markSets(n){
     for(let k=0;k<n;k++) if(bits&(1<<k)) s.add(k);
     out.push(s);
   }
-  out.sort((a,b)=>b.size-a.size);                  // 印の多いものから試す
+  out.sort((a,b)=> MARK==='few' ? a.size-b.size : b.size-a.size);
   return out;
 }
 
@@ -125,10 +126,15 @@ let out=[];
 try{ out=JSON.parse(fs.readFileSync(OUT,'utf8')).levels||[]; }catch(e){}
 const ids=new Set(out.map(l=>l.id));
 const sets=out.map(l=>pushSet(l.b)).filter(Boolean);
+/* すでに使った元の盤は、もう使わない。
+   同じ盤から印の付け方だけ変えて作ると、手順がほとんど同じ面になり、
+   あとで重複として落ちる(印の付き方だけ違う面が全部消えた) */
+const froms=new Set(out.map(l=>l.from).filter(Boolean));
 
 let tried=0;
 for(const lv of L){
   if(out.length>=WANT) break;
+  if(froms.has(lv.id)) continue;                              // その盤はもう使った
   const nb=(lv.b.match(/[$*]/g)||[]).length;
   if(nb<2 || nb>MAX_BOX) continue;
   if(lv.p<MIN_PUSH || lv.p>MAX_PUSH) continue;

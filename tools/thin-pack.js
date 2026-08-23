@@ -56,17 +56,46 @@ const overlap=(A,B)=>{
   return u? n/u : 0;
 };
 
-const levels=data.levels.slice().sort((a,b)=>a.p-b.p);
+/* 同じ手数の中では、種類の違うものを先に取る。
+   そうしないと、上限で切ったときに片方の種類ばかりが残る
+   (印あわせで、印の付き方が違う面が全部落ちた)。
+   種類の見かたは「荷物の数と、そのうち印が付いている数」 */
+function kindOf(lv){
+  const nb=(lv.b.match(/[1-9$*]/g)||[]).length;
+  const nm=(lv.b.match(/[1-9]/g)||[]).length;
+  return nm+'/'+nb;
+}
+function order(list){
+  const byP={};
+  for(const lv of list) (byP[lv.p]=byP[lv.p]||[]).push(lv);
+  const out=[];
+  for(const p of Object.keys(byP).map(Number).sort((a,b)=>a-b)){
+    const byKind={};
+    for(const lv of byP[p]) (byKind[kindOf(lv)]=byKind[kindOf(lv)]||[]).push(lv);
+    // 珍しい種類から順に、1つずつ取っていく
+    const kinds=Object.keys(byKind).sort((a,b)=>byKind[a].length-byKind[b].length);
+    let left=byP[p].length;
+    while(left>0) for(const k of kinds){
+      const lv=byKind[k].shift();
+      if(lv){ out.push(lv); left--; }
+    }
+  }
+  return out;
+}
+const levels=order(data.levels.slice());
 const kept=[], sets=[], count={};
 const dropped=[];
 for(const lv of levels){
-  if((count[lv.p]||0)>=PER){ dropped.push([lv,'同じ'+lv.p+'手が多い']); continue; }
+  // 上限は「同じ手数で、同じ種類のもの」に対して数える。
+  // 手数だけで数えると、数の多い種類が枠を食いつぶす
+  const key=lv.p+'|'+kindOf(lv);
+  if((count[key]||0)>=PER){ dropped.push([lv,'同じ'+lv.p+'手・同じ種類が多い']); continue; }
   const ps=pushSet(lv.b, lv.p+1);
   let twin=null;
   for(let i=0;i<sets.length;i++) if(overlap(ps,sets[i])>=DUP){ twin=kept[i]; break; }
   if(twin){ dropped.push([lv,'手順が '+twin.id+' と重なる']); continue; }
   kept.push(lv); sets.push(ps);
-  count[lv.p]=(count[lv.p]||0)+1;
+  count[key]=(count[key]||0)+1;
 }
 
 fs.copyFileSync(RAW, path.join(DIR,NAME+'-raw.bak.json'));
