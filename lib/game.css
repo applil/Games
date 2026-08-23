@@ -204,29 +204,23 @@ h1{
    色が消えると置き場だと分からなくなるので、赤で「ここじゃない」と出す */
 .cell.box.miss{background:var(--miss-soft,#f7bcb6)}
 /* 番号あわせ。印は A B C…。
-   荷物の札は絵の中(.fig)に入れてあるので、押したとき一緒に動く */
+   荷物の印も置き場の印も、同じ .fig の中の同じ場所に出す。
+   大きさも位置もぴったり揃い、荷物の印は押したとき絵と一緒に動く */
 .cell .fig .tag{
   position:absolute;top:-8%;right:-16%;
   font-size:calc(var(--cell)*0.30);font-weight:800;line-height:1;
   color:var(--ink);text-shadow:0 0 2px var(--card),0 0 3px var(--card);
   pointer-events:none;
 }
-/* 置き場の札は動かないので、マスに出す */
-.cell.numgoal::before{
-  content:attr(data-num);
-  position:absolute;top:1px;right:3px;z-index:2;
-  font-size:calc(var(--cell)*0.30);font-weight:800;line-height:1;
-  color:var(--goal);text-shadow:0 0 2px var(--card),0 0 2px var(--card);
-  pointer-events:none;
+/* 置き場の印。場所も大きさも荷物と同じで、色だけ違う */
+.cell .fig .tag.goaltag{color:var(--goal)}
+/* 印の位置が絵の形で動かないよう、.fig の大きさを字の大きさで決めておく。
+   中身(絵文字)は真ん中に置く。荷物が乗っていない置き場でも同じ大きさになるので、
+   印は同じ場所に出る */
+.cell .fig{
+  position:relative;z-index:1;transition:transform .11s ease-out, rotate .18s ease-out;
+  width:1em;height:1em;display:flex;align-items:center;justify-content:center;
 }
-/* 印ちがいの荷物がふさいでいる置き場。荷物の札が右上にあるので、
-   こちらは左上に寄せて、赤地でも読めるよう濃い赤にする */
-.cell.numgoal.box::before{
-  right:auto;left:3px;
-  color:var(--miss-ink,#a5372b);
-  text-shadow:0 0 2px var(--miss-soft,#f7bcb6),0 0 2px var(--miss-soft,#f7bcb6);
-}
-.cell .fig{position:relative;z-index:1;transition:transform .11s ease-out, rotate .18s ease-out}
 .cell .fig.sliding{transition:none}
 /* 冬だけ、氷がスーッと滑って止まる。押した本人は動かない */
 .cell .fig.glide{transition:transform .5s cubic-bezier(.05,.62,.14,1)}
