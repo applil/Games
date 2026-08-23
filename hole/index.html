@@ -1,19 +1,21 @@
 <!DOCTYPE html>
+<!-- この写しは tools/build-pages.js が作っています。手で直さないこと。
+     原本は warehouse/index.html。直すときはそちらを直して、この道具を回す -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>倉庫パズル</title>
+<title>リスと穴</title>
 <!-- ホーム画面に追加したときのアイコンと名前 -->
-<link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" type="image/png" href="icon-512.png">
-<meta name="apple-mobile-web-app-title" content="倉庫パズル">
+<link rel="apple-touch-icon" href="../warehouse/icon-180.png">
+<link rel="icon" type="image/png" href="../warehouse/icon-512.png">
+<meta name="apple-mobile-web-app-title" content="リスと穴">
 <!-- リンクを送ったときの見出しと絵。相手のアプリは JavaScript を動かさずに
      この部分だけを読むので、着せ替えごとの絵は別の入口(beetle/ など)に置く -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="倉庫パズル">
-<meta property="og:description" content="🐥 が 📦 を置き場まで運ぶパズル。">
-<meta property="og:image" content="https://applil.github.io/Games/warehouse/icon-512.png">
+<meta property="og:title" content="リスと穴">
+<meta property="og:description" content="置き場は穴。ドングリを埋めるまで通れません">
+<meta property="og:image" content="https://applil.github.io/Games/warehouse/warehouse/icon-512.png">
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
 <meta name="twitter:card" content="summary">
@@ -479,7 +481,7 @@ body.co #btnReset, body.co #btnUndo{display:none}
 <div class="app">
   <header>
     <a class="iconbtn" href="../">◀ メニュー</a>
-    <h1>倉庫パズル</h1>
+    <h1>リスと穴</h1>
     <button class="iconbtn" id="btnRules" title="ルール">ルール</button>
   </header>
 
@@ -639,7 +641,7 @@ body.co #btnReset, body.co #btnUndo{display:none}
   </div>
 </div>
 
-<script src="engine.js"></script>
+<script src="../warehouse/engine.js"></script>
 <script>
 'use strict';
 
@@ -662,19 +664,16 @@ const QS=new URLSearchParams(location.search);
    まだ試作なので、切り替えはデバッグ表示のときだけ出す。
    本編(levels.json)とは面も記録も完全に別扱いにする */
 const PACKS={
-  summer:  {file:'packs/summer.json',   skin:'summer',   label:'夏・水',  rule:'water',
+  summer:  {file:'../warehouse/packs/summer.json',   skin:'summer',   label:'夏・水',  rule:'water',
             // 水に濡れて困るのはダンボール。すいかでは理屈が通らない
             box:'📦'},
-  squirrel:{file:'packs/squirrel.json', skin:'squirrel', label:'リス・穴', rule:'holes'},
+  squirrel:{file:'../warehouse/packs/squirrel.json', skin:'squirrel', label:'リス・穴', rule:'holes'},
 };
-const PACK=(()=>{
-  const q=QS.get('pack');
-  return (q && PACKS[q]) ? q : null;
-})();
+const PACK='squirrel';   // この住所は リスと穴 専用(tools/build-pages.js が入れた)
 const FILE = PACK ? PACKS[PACK].file : 'levels.json';
 const RULE = PACK ? (PACKS[PACK].rule||'plain') : 'plain';
 // 絵や部品の置き場。ルール違いの写しでは ../warehouse/ に差し替わる
-const ASSET='';
+const ASSET='../warehouse/';
 // クエリを付けられない場所(埋め込みプレビューなど)からも入れるよう、
 // 「ステージ」の文字を5回つづけて叩いても切り替わるようにしてある
 // ?debug=1 / ?debug=0 は、その場かぎりではなく端末に覚えさせる。
@@ -1625,7 +1624,7 @@ function tableReady(){
 function ensureWorker(){
   if(tableWorker!==null || tableWorker===false) return;
   try{
-    tableWorker=new Worker('table-worker.js');
+    tableWorker=new Worker('../warehouse/table-worker.js');
     tableWorker.onmessage=e=>{
       if(e.data.id!==tableReq) return;              // 古い面の結果は捨てる
       dist = e.data.entries ? new Map(e.data.entries) : null;
@@ -2763,14 +2762,7 @@ $('btnEffort').addEventListener('click',exportEfforts);
 
 /* ルール版の出入り。いまは夏(水)だけ。デバッグ表示のときにしか押せない。
    住所を付け替えて開き直すだけにして、状態を持ち回らない */
-$('btnPack').textContent = PACK ? ('本編へもどる (いま'+PACKS[PACK].label+')') : 'ルール版：夏・水';
-$('btnPack').addEventListener('click',()=>{
-  const u=new URL(location.href);
-  u.searchParams.delete('lv');               // 面の指定は持ち越さない
-  if(PACK) u.searchParams.delete('pack');
-  else u.searchParams.set('pack','summer');
-  location.href=u.pathname+(u.search||'');
-});
+$('btnPack').style.display='none';   // ルール違いは独立した住所なので、切り替えは出さない
 
 /* ================= 引っ越しの画面 ================= */
 function spellUrl(){
