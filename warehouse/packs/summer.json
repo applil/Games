@@ -1,6 +1,6 @@
 {
  "rule": "water",
- "tutorial": 8,
+ "tutorial": 7,
  "levels": [
   {
    "id": "0ca8e5238e",
@@ -44,15 +44,6 @@
    "tutorial": true,
    "nbox": 1,
    "floors": 35
-  },
-  {
-   "id": "e54b3b8e33",
-   "b": "#######/#~~~~@#/#  $ .#/#######",
-   "p": 2,
-   "note": "カニは水の上を歩けます。通れないのはダンボールだけ",
-   "tutorial": true,
-   "nbox": 1,
-   "floors": 10
   },
   {
    "id": "486fafa826",
