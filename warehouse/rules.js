@@ -230,21 +230,21 @@ const slide = {
   key: plain.key,
 };
 
-/* 印あわせ。ダンボールと置き場に印が付いていて、印が合わないとクリアにならない。
+/* 印あわせ。ダンボールと置き場に印が付いていて、印が食い違うとクリアにならない。
    盤の書き方は、印つきの荷物を 1〜9、印つきの置き場を a〜i(1がa、2がb…)で表す。
-   印が付くことで、同じ盤でも易しくなったり難しくなったりする。
 
-   印のない荷物($)と印のない置き場(.)も混ぜられる。
-   印のない荷物は、印のない置き場ならどこでもよい(印つきの置き場はだめ)。
-   全部に印が付いた面もあれば、一部だけの面もある、という作りにできる。
+   だめなのは「印つきの荷物が、ちがう印の置き場に乗る」ことだけ。
+   印の無いほうは、どちらもどれでも受ける:
+     ・印の無い置き場は、印つきの荷物も受ける
+     ・印の無い荷物は、印つきの置き場にも入れる
+   つまり印の無いものは万能札。
 
-   印つきの荷物は「印の順に並べた位置の列」で持つ。入れ替わりが区別されるので、
-   ふつうのルールより状態は増える(印つきn個で最大n!倍)。
-   印のない荷物どうしは見分けないので、こちらは並べ替えて持つ。 */
+   (ここを「印なしは印なしの置き場だけ」にすると、3つのうち2つに印を付けた時点で
+    残り1つの行き先も決まってしまい、全部に印を付けたのと同じ面になってしまう) */
 const NUMS='123456789';
 const GOALS='abcdefghi';
-const numbered = {
-  name:'numbered',
+const marks = {
+  name:'marks',
   parse(b){
     const p=parseBoard(b, (p, rows)=>{
       const w=p.w;
@@ -300,9 +300,17 @@ const numbered = {
     return out;
   },
   solved(p, st){
-    if(!st.num.every((b,k)=>b===p.slot[k])) return false;
-    const open=new Set(p.open);
-    return st.free.every(b=>open.has(b));       // 印なしは、印のない置き場ならどこでもよい
+    const goalSet=new Set(p.goals);
+    const slotAt=new Map();                     // 印つきの置き場 → その印
+    p.slot.forEach((g,k)=>slotAt.set(g,k));
+    for(const b of st.free) if(!goalSet.has(b)) return false;   // 印なしはどの置き場でもよい
+    for(let k=0;k<st.num.length;k++){
+      const b=st.num[k];
+      if(!goalSet.has(b)) return false;
+      const n=slotAt.get(b);
+      if(n!==undefined && n!==k) return false;  // 印つきどうしで食い違っている
+    }
+    return true;
   },
   key: st=>st.num.join(',')+'|'+st.free.join(',')+'|'+st.rep,
 };
@@ -525,7 +533,8 @@ const ants = {
   key: st=>st.boxes.join(',')+'|'+st.ants.join(',')+'|'+st.rep,
 };
 
-const RULES={plain, water, holes, slide, numbered, roll, duo, ants};
+const RULES={plain, water, holes, slide, marks, roll, duo, ants};
+RULES.numbered=marks;      // 前の名前。古いパックの rule 名でも引けるように
 
 if(typeof module!=='undefined' && module.exports) module.exports={RULES, parseBoard};
 root.WarehouseRules={RULES, parseBoard};

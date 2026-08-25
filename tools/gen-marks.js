@@ -1,7 +1,7 @@
 'use strict';
 /* 印あわせ の面を、既存の面から作る。
  *
- *   node tools/gen-numbered.js [作る数] [出力先]
+ *   node tools/gen-marks.js [作る数] [出力先]
  *
  * 印あわせは、盤そのものは同じでよい。荷物と置き場に印を振るだけで、
  * 「どれをどこへ運ぶか」が固定され、同じ盤でも別の問題になる。
@@ -16,14 +16,14 @@ const {RULES}=require(path.join(__dirname,'..','warehouse','rules.js'));
 const X=require(path.join(__dirname,'xsb.js'));
 
 const WANT=+(process.argv[2]||24);
-const OUT=process.argv[3]||path.join(__dirname,'..','warehouse','packs','number-raw.json');
+const OUT=process.argv[3]||path.join(__dirname,'..','warehouse','packs','mark-raw.json');
 const MIN_PUSH=+(process.env.MIN_PUSH||3);
 const MAX_PUSH=+(process.env.MAX_PUSH||24);
 const MAX_BOX=+(process.env.MAX_BOX||4);
 const DUP=+(process.env.DUP||0.7);
 
 const NUMS='123456789', GOALS='abcdefghi';
-const rule=RULES.numbered;
+const rule=RULES.marks;
 
 function solve(b, cap){
   const p=rule.parse(b);
@@ -164,7 +164,7 @@ for(const lv of L){
                 from:lv.id, base:lv.p});
       out.sort((a,b2)=>a.p-b2.p);
       fs.mkdirSync(path.dirname(OUT),{recursive:true});
-      fs.writeFileSync(OUT, JSON.stringify({rule:'numbered', levels:out}, null, 1));
+      fs.writeFileSync(OUT, JSON.stringify({rule:'marks', levels:out}, null, 1));
       console.log(`${out.length}面目 ${d}手(印なしなら${lv.p}手) 荷物${nb}(うち印つき${marks})`);
       got=true;                                               // 同じ盤からは1つだけ
       break;
