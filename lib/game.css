@@ -112,11 +112,10 @@ body.skin-squirrel{
   --wall:#4e6437;
   --wall-top:#68804b;
   --floor:#f7f0d2;                 /* 落ち葉の薄い黄色 */
-  /* 穴。ドングリの茶色と紛れないよう灰色にする。
-     真っ黒だと重すぎるので中くらいの濃さにして、
+  /* 穴。わずかに茶色。ドングリのオレンジとは濃さで分ける。
      手前(下)を明るく、奥(上)を暗くしたグラデーションで深さを出す */
-  --hole:#5c6068;                  /* 底 */
-  --hole-lit:#9ba1a9;              /* 手前のふち。光の当たるところ */
+  --hole:#7d6858;                  /* 底。わずかに茶色 */
+  --hole-lit:#c9b49a;              /* 手前のふち。光の当たるところ */
   /* 落ち葉の床と紛れないよう、置き場はどんぐり色ではっきりと */
   --goal:#c2661a;
   --goal-soft:#f0b878;
@@ -195,15 +194,15 @@ h1{
   background:var(--water,#7fc7e8);
   box-shadow:inset 0 -2px 4px rgba(255,255,255,.45), inset 0 2px 4px rgba(0,0,0,.10);
 }
-/* リスの穴。ほぼ黒の灰色。
+/* リスの穴。わずかに茶色。
    手前(下)から奥(上)へ暗くなるようにして、落ち込んで見せる。
    上のふちからは内へ影が落ち、下のふちの内側だけがうっすら光る */
 .cell.hole::after{
   width:78%;height:62%;
   background:radial-gradient(120% 135% at 50% 122%,
-    var(--hole-lit,#9ba1a9) 0%, var(--hole,#5c6068) 55%, #3c3f45 100%);
+    var(--hole-lit,#c9b49a) 0%, var(--hole,#7d6858) 55%, #5a4538 100%);
   box-shadow:
-    inset 0 5px 7px -4px rgba(0,0,0,.6),      /* 上のふちから内へ落ちる影 */
+    inset 0 5px 7px -4px rgba(60,40,25,.45),  /* 上のふちから内へ落ちる影 */
     inset 0 -2px 3px -1px rgba(255,255,255,.40),
     0 1px 0 rgba(255,255,255,.7);             /* 外側の下に、ふちの照り返し */
 }
@@ -257,7 +256,7 @@ h1{
    だから最後まで同じ速さで進んで、ぶつかった瞬間に止まる(linear)。
    終わりを緩めると「勝手に止まった」ように見えてしまう。
    かかる時間は距離に合わせて lib/game.js の glide が入れる */
-.cell .fig.glide{transition:transform .5s linear}
+.cell .fig.glide{transition:transform .72s linear}
 /* 蟻。同僚は少し色を落とす。輪や矢印は出さない。動くときに道を見せる */
 .cell.mate .fig{opacity:.72;filter:grayscale(.25)}
 /* 同僚が今押そうとしている荷物。動いているあいだだけ付ける */
