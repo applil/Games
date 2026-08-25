@@ -112,10 +112,8 @@ body.skin-squirrel{
   --wall:#4e6437;
   --wall-top:#68804b;
   --floor:#f7f0d2;                 /* 落ち葉の薄い黄色 */
-  /* 穴。わずかに茶色。ドングリのオレンジとは濃さで分ける。
-     手前(下)を明るく、奥(上)を暗くしたグラデーションで深さを出す */
-  --hole:#7d6858;                  /* 底。わずかに茶色 */
-  --hole-lit:#c9b49a;              /* 手前のふち。光の当たるところ */
+  /* 穴。水たまりと同じく塗りつぶし。上の縁だけ黒に近い */
+  --hole:#8a684c;
   /* 落ち葉の床と紛れないよう、置き場はどんぐり色ではっきりと */
   --goal:#c2661a;
   --goal-soft:#f0b878;
@@ -194,17 +192,15 @@ h1{
   background:var(--water,#7fc7e8);
   box-shadow:inset 0 -2px 4px rgba(255,255,255,.45), inset 0 2px 4px rgba(0,0,0,.10);
 }
-/* リスの穴。わずかに茶色。
-   手前(下)から奥(上)へ暗くなるようにして、落ち込んで見せる。
-   上のふちからは内へ影が落ち、下のふちの内側だけがうっすら光る */
+/* リスの穴。水たまりと同じく楕円の塗りつぶし。
+   色は茶色。上の縁だけ黒に近づけて、落ち込んで見せる */
 .cell.hole::after{
   width:78%;height:62%;
-  background:radial-gradient(120% 135% at 50% 122%,
-    var(--hole-lit,#c9b49a) 0%, var(--hole,#7d6858) 55%, #5a4538 100%);
+  background:linear-gradient(to bottom,
+    #2a1c14 0%, #5c4030 12%, var(--hole,#8a684c) 28%, var(--hole,#8a684c) 100%);
   box-shadow:
-    inset 0 5px 7px -4px rgba(60,40,25,.45),  /* 上のふちから内へ落ちる影 */
-    inset 0 -2px 3px -1px rgba(255,255,255,.40),
-    0 1px 0 rgba(255,255,255,.7);             /* 外側の下に、ふちの照り返し */
+    inset 0 3px 4px rgba(0,0,0,.28),
+    inset 0 -2px 4px rgba(255,230,200,.40);
 }
 /* ドングリが入ったあと。色は床と同じにして、へこんでいるだけに見せる */
 .cell.shut::after{
