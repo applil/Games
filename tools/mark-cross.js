@@ -69,7 +69,7 @@ function describe(p, st){
 /* 最短の最終配置を全部集め、入れ替えの有無で分ける。
    あわせて「印どおりに置いたとき何手か」も出す(必須の面が、合わせても
    解けるが長いのか、合わせでは解けないのかを区別するため) */
-function classify(board, cap){
+function classify(board, cap, opts){
   const p=rule.parse(board);
   const nbox=p.num.length+p.free.length;
   const nmark=p.num.length;
@@ -79,6 +79,7 @@ function classify(board, cap){
   let D=null, Dmatch=null;
   const shortest=[];          // 最短の最終配置(置き方の重複なし)
   const seenPlace=new Set();
+  const wantMatch=opts && opts.match===false ? false : true;
   for(let d=0; d<=MAX_PUSH+4; d++){
     for(const st of layer){
       if(!rule.solved(p, st)) continue;
@@ -88,6 +89,13 @@ function classify(board, cap){
         if(!seenPlace.has(pk)){ seenPlace.add(pk); shortest.push(st); }
       }
       if(Dmatch===null && isMatch(p, st)) Dmatch=d;
+    }
+    // 最短の層が揃ったら、入れ替え以外の置き方が1つでもあれば必須ではない。
+    // その場合、印どおりの手数は出さなくてよい(探す担当ではここで切る)
+    if(D!==null && d===D){
+      const allCross=p.free.length>0 && nmark>0 && shortest.every(st=>usesCross(p, st));
+      if(!allCross && !wantMatch) break;
+      if(!allCross && Dmatch!==null) break;
     }
     if(D!==null && (Dmatch!==null || nmark===0)) break;
     if(seen.size>(cap||CAP)) break;
@@ -233,10 +241,13 @@ function number(board, perm, mark){
 const perms=a=>a.length<=1?[a]:a.flatMap((x,i)=>perms(a.filter((_,j)=>j!==i)).map(r=>[x,...r]));
 function markSets(n){
   // 印なしが0個(全部に印)と、印が0個は入れ替えようが無いので外す
+  const lo=+(process.env.MIN_MARK||1);
+  const hi=+(process.env.MAX_MARK||n-1);
   const out=[];
   for(let bits=1; bits<(1<<n)-1; bits++){
     const s=new Set();
     for(let k=0;k<n;k++) if(bits&(1<<k)) s.add(k);
+    if(s.size<lo || s.size>hi) continue;
     out.push(s);
   }
   out.sort((a,b)=>a.size-b.size);   // 印の少ないほうから。入れ替えが読みやすい
@@ -269,9 +280,13 @@ function hunt(want, outFile, existing){
         if(out.length>=want) break;
         tried++;
         let b; try{ b=number(lv.b, perm, mark); }catch(e){ got=true; break; }
-        const r=classify(b);
+        const r=classify(b, CAP, {match:false});
         if(!r.ok || r.kind!=='必須') continue;
+        // 残すと決めてから、印どおりだと何手かを測る
+        const full=classify(b);
         if(r.p<MIN_PUSH || r.p>MAX_PUSH) continue;
+        const floors=(b.match(/[ .$*@+~1-9a-i]/g)||[]).length;
+        if(floors>(+(process.env.MAX_FLOOR||40))) continue;
         const id=X.hashId(X.canonical(b.split('/')));
         if(ids.has(id)) continue;
         const ps=pushSet(b);
@@ -282,12 +297,12 @@ function hunt(want, outFile, existing){
         ids.add(id); sets.push(ps); froms.add(lv.id);
         const nmark=(b.match(/[1-9]/g)||[]).length;
         out.push({id, b, p:r.p, nbox:nb, nmark,
-                  floors:(b.match(/[ .$*@+~1-9a-i]/g)||[]).length,
-                  from:lv.id, base:lv.p, match:r.match, cross:'必須'});
+                  floors,
+                  from:lv.id, base:lv.p, match:full.match, cross:'必須'});
         out.sort((a,b2)=>a.p-b2.p);
         fs.mkdirSync(path.dirname(outFile), {recursive:true});
         fs.writeFileSync(outFile, JSON.stringify({rule:'marks', levels:out}, null, 1));
-        const match=r.match===null ? '合わせ不能' : `合わせ${r.match}手`;
+        const match=full.match===null ? '合わせ不能' : `合わせ${full.match}手`;
         console.log(`${out.length}面目 ${r.p}手(印なしなら${lv.p}手, ${match}) 荷物${nb}(印${nmark})`);
         got=true;
         break;
@@ -302,8 +317,12 @@ const args=process.argv.slice(2);
 if(args[0]==='--hunt'){
   const want=+(args[1]||8);
   const outFile=args[2]||path.join(__dirname,'stock','mark-cross-hunt.json');
-  const pack=JSON.parse(fs.readFileSync(path.join(__dirname,'..','warehouse','packs','mark.json'),'utf8'));
-  hunt(want, outFile, pack.levels);
+  const packFile=path.join(__dirname,'..','warehouse','packs','mark.json');
+  const rawFile=path.join(__dirname,'..','warehouse','packs','mark-raw.json');
+  const pack=JSON.parse(fs.readFileSync(packFile,'utf8'));
+  let raw={levels:[]};
+  try{ raw=JSON.parse(fs.readFileSync(rawFile,'utf8')); }catch(e){}
+  hunt(want, outFile, pack.levels.concat(raw.levels||[]));
 }else{
   const file=args[0]||path.join(__dirname,'..','warehouse','packs','mark.json');
   const result=analyze(file);
