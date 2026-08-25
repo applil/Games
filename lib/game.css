@@ -299,20 +299,37 @@ h1{
   100%{transform:translate(4px,5px) scale(.8);opacity:0}
 }
 /* 夏。カニが水に入ったときの、はねるしずく。
-   3粒がそれぞれ違う向きへ跳ね上がり、落ちながら消える */
-.cell .splash{position:absolute;inset:0;z-index:3;pointer-events:none}
+   絵文字だと丸くて回転が分からないので、とがった粒を左右へ飛ばして回す。
+   隣のマスの床に隠れないよう、しずくが出ているマスだけ手前に出す */
+.cell:has(.splash){z-index:2;overflow:visible}
+.cell .splash{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:visible}
 .cell .splash .dp{
-  position:absolute;left:50%;bottom:34%;
-  font-style:normal;line-height:1;font-size:calc(var(--cell)*0.26);
-  animation:splash .42s ease-out both;
+  position:absolute;left:50%;top:42%;
+  width:calc(var(--cell)*0.28);height:calc(var(--cell)*0.28);
+  margin:0;display:block;
+  background:#eef9fd;
+  box-shadow:inset 0 -2px 0 #6ec8e4, 0 0 0 1px rgba(70,160,190,.35);
+  /* 左上だけ尖らせ、45度回すと上向きのしずくになる。ここからさらに回す */
+  border-radius:0 50% 50% 50%;
+  transform-origin:50% 60%;
+  animation:splashLR .58s cubic-bezier(.12,.78,.28,1) both;
 }
-.cell .splash .dp0{--jx:-80%;--jy:-105%}
-.cell .splash .dp1{--jx:6%;--jy:-140%;font-size:calc(var(--cell)*0.31);animation-delay:45ms}
-.cell .splash .dp2{--jx:88%;--jy:-88%;animation-delay:90ms}
-@keyframes splash{
-  0%  {transform:translate(-50%,10%) scale(.25);opacity:0}
-  30% {transform:translate(calc(-50% + var(--jx)*0.55),calc(var(--jy)*0.85)) scale(1);opacity:.95}
-  100%{transform:translate(calc(-50% + var(--jx)),35%) scale(.5);opacity:0}
+.cell .splash .dp0{--jx:calc(var(--cell)*-0.52);--jy:calc(var(--cell)*-0.46);--jr:-155deg;
+  --jx2:calc(var(--cell)*-0.70);--jy2:calc(var(--cell)*0.18);--jr2:-270deg}
+.cell .splash .dp1{--jx:calc(var(--cell)*0.54);--jy:calc(var(--cell)*-0.48);--jr:160deg;
+  --jx2:calc(var(--cell)*0.74);--jy2:calc(var(--cell)*0.16);--jr2:280deg;
+  width:calc(var(--cell)*0.34);height:calc(var(--cell)*0.34);animation-delay:20ms}
+.cell .splash .dp2{--jx:calc(var(--cell)*-0.40);--jy:calc(var(--cell)*-0.20);--jr:-95deg;
+  --jx2:calc(var(--cell)*-0.58);--jy2:calc(var(--cell)*0.26);--jr2:-190deg;
+  width:calc(var(--cell)*0.20);height:calc(var(--cell)*0.20);animation-delay:50ms}
+.cell .splash .dp3{--jx:calc(var(--cell)*0.42);--jy:calc(var(--cell)*-0.18);--jr:100deg;
+  --jx2:calc(var(--cell)*0.62);--jy2:calc(var(--cell)*0.28);--jr2:200deg;
+  width:calc(var(--cell)*0.22);height:calc(var(--cell)*0.22);animation-delay:70ms}
+@keyframes splashLR{
+  0%  {transform:translate(-50%,18%) rotate(45deg) scale(.2);opacity:0}
+  14% {opacity:1}
+  40% {transform:translate(calc(-50% + var(--jx)),var(--jy)) rotate(calc(45deg + var(--jr))) scale(1);opacity:1}
+  100%{transform:translate(calc(-50% + var(--jx2)),var(--jy2)) rotate(calc(45deg + var(--jr2))) scale(.4);opacity:0}
 }
 @keyframes bump{50%{transform:scale(1.18)}}
 .board.celebrate .cell .fig{animation:winwave .9s ease both}
