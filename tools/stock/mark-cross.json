@@ -1,11 +1,53 @@
 {
  "file": "warehouse/packs/mark.json",
  "counts": {
-  "必須": 1,
+  "必須": 11,
   "選べる": 3,
   "使わない": 23
  },
  "levels": [
+  {
+   "id": "1a9340c537",
+   "p": 8,
+   "from": "043635df0d",
+   "nbox": 3,
+   "nmark": 1,
+   "ok": true,
+   "match": null,
+   "nfree": 2,
+   "nPlace": 1,
+   "nCross": 1,
+   "kind": "必須",
+   "places": [
+    {
+     "cross": true,
+     "match": false,
+     "how": "A→. $→a $→."
+    }
+   ],
+   "states": 29
+  },
+  {
+   "id": "0277488dce",
+   "p": 9,
+   "from": "560192df79",
+   "nbox": 3,
+   "nmark": 1,
+   "ok": true,
+   "match": null,
+   "nfree": 2,
+   "nPlace": 1,
+   "nCross": 1,
+   "kind": "必須",
+   "places": [
+    {
+     "cross": true,
+     "match": false,
+     "how": "A→. $→a $→."
+    }
+   ],
+   "states": 741
+  },
   {
    "id": "589ce5f474",
    "p": 9,
@@ -28,25 +70,25 @@
    "states": 1587
   },
   {
-   "id": "a7696cca3e",
+   "id": "7a594da4f5",
    "p": 10,
-   "from": "aea854e092",
-   "nbox": 3,
-   "nmark": 3,
+   "from": "120b7f68a6",
+   "nbox": 2,
+   "nmark": 1,
    "ok": true,
-   "match": 10,
-   "nfree": 0,
+   "match": null,
+   "nfree": 1,
    "nPlace": 1,
-   "nCross": 0,
-   "kind": "使わない",
+   "nCross": 1,
+   "kind": "必須",
    "places": [
     {
-     "cross": false,
-     "match": true,
-     "how": "A→a B→b C→c"
+     "cross": true,
+     "match": false,
+     "how": "A→. $→a"
     }
    ],
-   "states": 259
+   "states": 280
   },
   {
    "id": "7c7a52b400",
@@ -70,6 +112,27 @@
    "states": 17192
   },
   {
+   "id": "a7696cca3e",
+   "p": 10,
+   "from": "aea854e092",
+   "nbox": 3,
+   "nmark": 3,
+   "ok": true,
+   "match": 10,
+   "nfree": 0,
+   "nPlace": 1,
+   "nCross": 0,
+   "kind": "使わない",
+   "places": [
+    {
+     "cross": false,
+     "match": true,
+     "how": "A→a B→b C→c"
+    }
+   ],
+   "states": 259
+  },
+  {
    "id": "4871034f0d",
    "p": 11,
    "from": "c830de39f8",
@@ -91,6 +154,48 @@
    "states": 4723
   },
   {
+   "id": "737e60b764",
+   "p": 11,
+   "from": "a1ce7813cc",
+   "nbox": 3,
+   "nmark": 2,
+   "ok": true,
+   "match": 15,
+   "nfree": 1,
+   "nPlace": 1,
+   "nCross": 1,
+   "kind": "必須",
+   "places": [
+    {
+     "cross": true,
+     "match": false,
+     "how": "A→. B→b $→a"
+    }
+   ],
+   "states": 1347
+  },
+  {
+   "id": "c89d380192",
+   "p": 11,
+   "from": "cd6ac805b4",
+   "nbox": 3,
+   "nmark": 2,
+   "ok": true,
+   "match": null,
+   "nfree": 1,
+   "nPlace": 1,
+   "nCross": 1,
+   "kind": "必須",
+   "places": [
+    {
+     "cross": true,
+     "match": false,
+     "how": "A→. B→b $→a"
+    }
+   ],
+   "states": 1703
+  },
+  {
    "id": "f8b4353f39",
    "p": 11,
    "from": "03085b6b7b",
@@ -110,6 +215,27 @@
     }
    ],
    "states": 3222
+  },
+  {
+   "id": "fe87707cfe",
+   "p": 11,
+   "from": "7e270a542f",
+   "nbox": 3,
+   "nmark": 1,
+   "ok": true,
+   "match": null,
+   "nfree": 2,
+   "nPlace": 1,
+   "nCross": 1,
+   "kind": "必須",
+   "places": [
+    {
+     "cross": true,
+     "match": false,
+     "how": "A→. $→a $→."
+    }
+   ],
+   "states": 785
   },
   {
    "id": "06576af2ae",
@@ -154,46 +280,25 @@
    "states": 177
   },
   {
-   "id": "cb89db1440",
+   "id": "280ec00984",
    "p": 13,
-   "from": "9c2d4c1e76",
-   "nbox": 4,
-   "nmark": 4,
-   "ok": true,
-   "match": 13,
-   "nfree": 0,
-   "nPlace": 1,
-   "nCross": 0,
-   "kind": "使わない",
-   "places": [
-    {
-     "cross": false,
-     "match": true,
-     "how": "A→a B→b C→c D→d"
-    }
-   ],
-   "states": 40928
-  },
-  {
-   "id": "77c83dcd03",
-   "p": 13,
-   "from": "46304ba33a",
+   "from": "d03c4829f8",
    "nbox": 3,
-   "nmark": 3,
+   "nmark": 2,
    "ok": true,
-   "match": 13,
-   "nfree": 0,
+   "match": null,
+   "nfree": 1,
    "nPlace": 1,
-   "nCross": 0,
-   "kind": "使わない",
+   "nCross": 1,
+   "kind": "必須",
    "places": [
     {
-     "cross": false,
-     "match": true,
-     "how": "A→a B→b C→c"
+     "cross": true,
+     "match": false,
+     "how": "A→. B→b $→a"
     }
    ],
-   "states": 2856
+   "states": 1319
   },
   {
    "id": "42561e7886",
@@ -217,13 +322,13 @@
    "states": 2818
   },
   {
-   "id": "fa80f17be0",
-   "p": 14,
-   "from": "d3cc44a7c3",
+   "id": "77c83dcd03",
+   "p": 13,
+   "from": "46304ba33a",
    "nbox": 3,
    "nmark": 3,
    "ok": true,
-   "match": 14,
+   "match": 13,
    "nfree": 0,
    "nPlace": 1,
    "nCross": 0,
@@ -235,16 +340,16 @@
      "how": "A→a B→b C→c"
     }
    ],
-   "states": 15763
+   "states": 2856
   },
   {
-   "id": "6adf45b607",
-   "p": 14,
-   "from": "244ccc846c",
+   "id": "cb89db1440",
+   "p": 13,
+   "from": "9c2d4c1e76",
    "nbox": 4,
    "nmark": 4,
    "ok": true,
-   "match": 14,
+   "match": 13,
    "nfree": 0,
    "nPlace": 1,
    "nCross": 0,
@@ -256,7 +361,7 @@
      "how": "A→a B→b C→c D→d"
     }
    ],
-   "states": 924
+   "states": 40928
   },
   {
    "id": "108f4ac7d8",
@@ -280,6 +385,27 @@
    "states": 4298
   },
   {
+   "id": "6adf45b607",
+   "p": 14,
+   "from": "244ccc846c",
+   "nbox": 4,
+   "nmark": 4,
+   "ok": true,
+   "match": 14,
+   "nfree": 0,
+   "nPlace": 1,
+   "nCross": 0,
+   "kind": "使わない",
+   "places": [
+    {
+     "cross": false,
+     "match": true,
+     "how": "A→a B→b C→c D→d"
+    }
+   ],
+   "states": 924
+  },
+  {
    "id": "f796423948",
    "p": 14,
    "from": "9bcbed215b",
@@ -301,13 +427,13 @@
    "states": 6179
   },
   {
-   "id": "4dc5ffacd6",
-   "p": 15,
-   "from": "93c2ba5cd1",
+   "id": "fa80f17be0",
+   "p": 14,
+   "from": "d3cc44a7c3",
    "nbox": 3,
    "nmark": 3,
    "ok": true,
-   "match": 15,
+   "match": 14,
    "nfree": 0,
    "nPlace": 1,
    "nCross": 0,
@@ -319,7 +445,7 @@
      "how": "A→a B→b C→c"
     }
    ],
-   "states": 2613
+   "states": 15763
   },
   {
    "id": "0ceee08401",
@@ -341,6 +467,27 @@
     }
    ],
    "states": 6532
+  },
+  {
+   "id": "4dc5ffacd6",
+   "p": 15,
+   "from": "93c2ba5cd1",
+   "nbox": 3,
+   "nmark": 3,
+   "ok": true,
+   "match": 15,
+   "nfree": 0,
+   "nPlace": 1,
+   "nCross": 0,
+   "kind": "使わない",
+   "places": [
+    {
+     "cross": false,
+     "match": true,
+     "how": "A→a B→b C→c"
+    }
+   ],
+   "states": 2613
   },
   {
    "id": "fc33f33b07",
@@ -374,6 +521,27 @@
    "states": 6023
   },
   {
+   "id": "3ec881bd90",
+   "p": 16,
+   "from": "2962ba2374",
+   "nbox": 3,
+   "nmark": 2,
+   "ok": true,
+   "match": 16,
+   "nfree": 1,
+   "nPlace": 1,
+   "nCross": 0,
+   "kind": "使わない",
+   "places": [
+    {
+     "cross": false,
+     "match": true,
+     "how": "A→a B→b $→."
+    }
+   ],
+   "states": 3384
+  },
+  {
    "id": "4d24ea9c00",
    "p": 16,
    "from": "f1386ccc3a",
@@ -395,25 +563,25 @@
    "states": 742
   },
   {
-   "id": "3ec881bd90",
+   "id": "ee2f150530",
    "p": 16,
-   "from": "2962ba2374",
+   "from": "3bf95d0b90",
    "nbox": 3,
    "nmark": 2,
    "ok": true,
-   "match": 16,
+   "match": null,
    "nfree": 1,
    "nPlace": 1,
-   "nCross": 0,
-   "kind": "使わない",
+   "nCross": 1,
+   "kind": "必須",
    "places": [
     {
-     "cross": false,
-     "match": true,
-     "how": "A→a B→b $→."
+     "cross": true,
+     "match": false,
+     "how": "A→. B→b $→a"
     }
    ],
-   "states": 3384
+   "states": 741
   },
   {
    "id": "0618105217",
@@ -479,6 +647,27 @@
    "states": 3540
   },
   {
+   "id": "26c2dfd0c9",
+   "p": 19,
+   "from": "a954ada67b",
+   "nbox": 3,
+   "nmark": 2,
+   "ok": true,
+   "match": null,
+   "nfree": 1,
+   "nPlace": 1,
+   "nCross": 1,
+   "kind": "必須",
+   "places": [
+    {
+     "cross": true,
+     "match": false,
+     "how": "A→. B→b $→a"
+    }
+   ],
+   "states": 4004
+  },
+  {
    "id": "b0608a92c4",
    "p": 19,
    "from": "516b477cf6",
@@ -531,27 +720,6 @@
    "states": 682
   },
   {
-   "id": "eb0167256b",
-   "p": 20,
-   "from": "53e83d7772",
-   "nbox": 2,
-   "nmark": 2,
-   "ok": true,
-   "match": 20,
-   "nfree": 0,
-   "nPlace": 1,
-   "nCross": 0,
-   "kind": "使わない",
-   "places": [
-    {
-     "cross": false,
-     "match": true,
-     "how": "A→a B→b"
-    }
-   ],
-   "states": 427
-  },
-  {
    "id": "c2cd896a1b",
    "p": 20,
    "from": "d352567e2b",
@@ -581,6 +749,48 @@
     }
    ],
    "states": 18577
+  },
+  {
+   "id": "ca527a3d9e",
+   "p": 20,
+   "from": "77445b35a9",
+   "nbox": 3,
+   "nmark": 2,
+   "ok": true,
+   "match": 22,
+   "nfree": 1,
+   "nPlace": 1,
+   "nCross": 1,
+   "kind": "必須",
+   "places": [
+    {
+     "cross": true,
+     "match": false,
+     "how": "A→. B→b $→a"
+    }
+   ],
+   "states": 10215
+  },
+  {
+   "id": "eb0167256b",
+   "p": 20,
+   "from": "53e83d7772",
+   "nbox": 2,
+   "nmark": 2,
+   "ok": true,
+   "match": 20,
+   "nfree": 0,
+   "nPlace": 1,
+   "nCross": 0,
+   "kind": "使わない",
+   "places": [
+    {
+     "cross": false,
+     "match": true,
+     "how": "A→a B→b"
+    }
+   ],
+   "states": 427
   },
   {
    "id": "14fc260a12",

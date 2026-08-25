@@ -282,8 +282,6 @@ function hunt(want, outFile, existing){
         let b; try{ b=number(lv.b, perm, mark); }catch(e){ got=true; break; }
         const r=classify(b, CAP, {match:false});
         if(!r.ok || r.kind!=='必須') continue;
-        // 残すと決めてから、印どおりだと何手かを測る
-        const full=classify(b);
         if(r.p<MIN_PUSH || r.p>MAX_PUSH) continue;
         const floors=(b.match(/[ .$*@+~1-9a-i]/g)||[]).length;
         if(floors>(+(process.env.MAX_FLOOR||40))) continue;
@@ -294,6 +292,8 @@ function hunt(want, outFile, existing){
         let dup=false;
         for(const s of sets) if(overlap(ps,s)>=DUP){ dup=true; break; }
         if(dup) continue;
+        // 残すと決めてから、印どおりだと何手かを測る
+        const full=classify(b);
         ids.add(id); sets.push(ps); froms.add(lv.id);
         const nmark=(b.match(/[1-9]/g)||[]).length;
         out.push({id, b, p:r.p, nbox:nb, nmark,
@@ -313,23 +313,25 @@ function hunt(want, outFile, existing){
   return out;
 }
 
-const args=process.argv.slice(2);
-if(args[0]==='--hunt'){
-  const want=+(args[1]||8);
-  const outFile=args[2]||path.join(__dirname,'stock','mark-cross-hunt.json');
-  const packFile=path.join(__dirname,'..','warehouse','packs','mark.json');
-  const rawFile=path.join(__dirname,'..','warehouse','packs','mark-raw.json');
-  const pack=JSON.parse(fs.readFileSync(packFile,'utf8'));
-  let raw={levels:[]};
-  try{ raw=JSON.parse(fs.readFileSync(rawFile,'utf8')); }catch(e){}
-  hunt(want, outFile, pack.levels.concat(raw.levels||[]));
-}else{
-  const file=args[0]||path.join(__dirname,'..','warehouse','packs','mark.json');
-  const result=analyze(file);
-  const stock=path.join(__dirname,'stock','mark-cross.json');
-  fs.mkdirSync(path.dirname(stock), {recursive:true});
-  fs.writeFileSync(stock, JSON.stringify(result, null, 1));
-  console.log('控え: '+stock);
+if(require.main===module){
+  const args=process.argv.slice(2);
+  if(args[0]==='--hunt'){
+    const want=+(args[1]||8);
+    const outFile=args[2]||path.join(__dirname,'stock','mark-cross-hunt.json');
+    const packFile=path.join(__dirname,'..','warehouse','packs','mark.json');
+    const rawFile=path.join(__dirname,'..','warehouse','packs','mark-raw.json');
+    const pack=JSON.parse(fs.readFileSync(packFile,'utf8'));
+    let raw={levels:[]};
+    try{ raw=JSON.parse(fs.readFileSync(rawFile,'utf8')); }catch(e){}
+    hunt(want, outFile, pack.levels.concat(raw.levels||[]));
+  }else{
+    const file=args[0]||path.join(__dirname,'..','warehouse','packs','mark.json');
+    const result=analyze(file);
+    const stock=path.join(__dirname,'stock','mark-cross.json');
+    fs.mkdirSync(path.dirname(stock), {recursive:true});
+    fs.writeFileSync(stock, JSON.stringify(result, null, 1));
+    console.log('控え: '+stock);
+  }
 }
 
 module.exports={classify, onePath, usesCross, isMatch};
