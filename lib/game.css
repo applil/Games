@@ -538,6 +538,18 @@ body.no-table #btnHint{display:none}
 .histlist .sc{flex:1 1 auto}
 .histlist .gap{flex:0 0 auto;font-size:11px;color:var(--error)}
 /* 最短で解けた面は、もう用がないので沈める */
+.modelist{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px;
+  max-height:58vh;overflow:auto}
+.modelist .mode{
+  display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:9px 11px;text-align:left;
+}
+.modelist .mode.now{border-color:var(--goal);background:var(--goal-soft)}
+.modelist .mode .em{font-size:21px;line-height:1;flex:0 0 auto}
+.modelist .mode .info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.modelist .mode .nm{font-size:13.5px;font-weight:800}
+.modelist .mode .ds{font-size:11px;color:var(--ink-soft);line-height:1.55}
 .histlist button.done{background:var(--done-soft);border-color:var(--done);color:var(--done)}
 .histlist button.done .no{color:var(--done)}
 .histlist button.current{outline:2px solid var(--ink);outline-offset:-2px}
