@@ -1,6 +1,6 @@
 {
  "rule": "water",
- "tutorial": 3,
+ "tutorial": 4,
  "levels": [
   {
    "id": "0ca8e5238e",
@@ -18,6 +18,14 @@
    "tutorial": true,
    "nbox": 1,
    "floors": 7
+  },
+  {
+   "id": "332f77f410",
+   "b": "#######/##~~~@#/## $ .#/#######",
+   "p": 2,
+   "tutorial": true,
+   "nbox": 1,
+   "floors": 8
   },
   {
    "id": "6a9133bcb6",
