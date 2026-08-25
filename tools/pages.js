@@ -22,7 +22,7 @@ const GAMES=[
   {dir:'ice',   pack:'ice',      title:'すべる氷',   icon:'-winter',
    desc:'氷は壁か氷にぶつかるまで滑ります'},
   {dir:'mark',  pack:'mark',     title:'印あわせ', icon:'',
-   desc:'印のちがう置き場にだけ置けません。印の無いものは万能'},
+   desc:'AはAの置き場へ。印の無い荷物は印の無い置き場へ'},
   {dir:'roll',  pack:'roll',     title:'ころがし',   icon:'-beetle',
    desc:'押すたびに90度まわります。向きを戻して置きましょう'},
   {dir:'bee',   pack:'spring',   title:'2匹のミツバチ', icon:'-spring',

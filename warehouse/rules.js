@@ -40,6 +40,7 @@ function parseBoard(board, extra){
       if(c==='#') continue;
       grid[i]=0;
       if(c==='~'){ water[i]=1; continue; }
+      if(c==='!'){ water[i]=1; player=i; players.push(i); continue; }  // カニが水の上
       if(c==='$'||c==='*') boxes.push(i);
       if(c==='.'||c==='*'||c==='+') goals.push(i);
       if(c==='@'||c==='+'){ player=i; players.push(i); }   // 春は2匹いるので全部拾う
@@ -230,17 +231,12 @@ const slide = {
   key: plain.key,
 };
 
-/* 印あわせ。ダンボールと置き場に印が付いていて、印が食い違うとクリアにならない。
+/* 印あわせ。ダンボールと置き場に印が付いていて、印が合わないとクリアにならない。
    盤の書き方は、印つきの荷物を 1〜9、印つきの置き場を a〜i(1がa、2がb…)で表す。
 
-   だめなのは「印つきの荷物が、ちがう印の置き場に乗る」ことだけ。
-   印の無いほうは、どちらもどれでも受ける:
-     ・印の無い置き場は、印つきの荷物も受ける
-     ・印の無い荷物は、印つきの置き場にも入れる
-   つまり印の無いものは万能札。
-
-   (ここを「印なしは印なしの置き場だけ」にすると、3つのうち2つに印を付けた時点で
-    残り1つの行き先も決まってしまい、全部に印を付けたのと同じ面になってしまう) */
+   A は A の置き場、B は B の置き場へ。印の無い荷物は印の無い置き場へ。
+   印の無いものは万能札にしない。印なしが1つだけなら行き先は1通りに決まるので、
+   見た目が静かになるだけで、全部に印を付けた面と同じになる。だから印なしは稀に出す */
 const NUMS='123456789';
 const GOALS='abcdefghi';
 const marks = {
@@ -300,15 +296,10 @@ const marks = {
     return out;
   },
   solved(p, st){
-    const goalSet=new Set(p.goals);
-    const slotAt=new Map();                     // 印つきの置き場 → その印
-    p.slot.forEach((g,k)=>slotAt.set(g,k));
-    for(const b of st.free) if(!goalSet.has(b)) return false;   // 印なしはどの置き場でもよい
+    const open=new Set(p.open);
+    for(const b of st.free) if(!open.has(b)) return false;   // 印なしは印なしの置き場へ
     for(let k=0;k<st.num.length;k++){
-      const b=st.num[k];
-      if(!goalSet.has(b)) return false;
-      const n=slotAt.get(b);
-      if(n!==undefined && n!==k) return false;  // 印つきどうしで食い違っている
+      if(st.num[k]!==p.slot[k]) return false;               // A は A、B は B
     }
     return true;
   },
