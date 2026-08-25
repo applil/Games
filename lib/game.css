@@ -416,7 +416,8 @@ body.debug .debugbar{display:flex}
 body.mod .debugbar{display:flex}
 body.edit .debugbar{display:flex}
 body.edit #btnUndo, body.edit #btnHint, body.edit #btnWipe{display:none}
-body:not(.edit) #btnCheck, body:not(.edit) #btnEditExport, body:not(.edit) #btnEditReset{display:none}
+body:not(.edit) #btnCheck, body:not(.edit) #btnEditExport, body:not(.edit) #btnEditReset, body:not(.edit) #btnEditExit{display:none}
+body:not(.debug) #btnEditEnter, body.edit #btnEditEnter{display:none}
 /* 塗るものを選ぶ列 */
 .palette{display:none;flex:0 0 auto;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:8px}
 body.edit .palette{display:flex}
@@ -425,13 +426,15 @@ body.edit .palette{display:flex}
   font:inherit;font-size:12px;font-weight:700;color:var(--ink-soft);padding:6px 12px;
 }
 .palette button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+body:not(.rule-marks) .pal-mark{display:none}
+body:not(.rule-water) .pal-water{display:none}
 body.edit .cell{cursor:pointer}
 body.mod #btnUndo, body.mod #btnHint, body.mod #btnWipe{display:none}
 body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
 body:not(.debug) #btnMark, body.mod #btnMark, body.edit #btnMark{display:none}
 body:not(.debug) #btnFresh, body:not(.debug) #btnSkin, body:not(.debug) #btnSoundTest{display:none}
 body:not(.debug) #btnEffort, body.mod #btnEffort, body.edit #btnEffort{display:none}
-body:not(.debug) #btnPack, body.mod #btnPack, body.edit #btnPack{display:none}
+body:not(.debug) #btnPack, body.mod #btnPack{display:none}
 /* 全局面の表が要る機能は、ふつうのルールでしか正しく動かない */
 body.no-table #btnHint{display:none}
 

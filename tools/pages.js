@@ -60,6 +60,7 @@ function page(g){
 <body>
 <script>window.GAME={pack:${g.pack?`'${g.pack}'`:'null'}, asset:'${asset}'};</script>
 <script src="${eng}"></script>
+<script src="${asset}rules.js"></script>
 <script src="${lib}game.js"></script>
 </body>
 </html>
