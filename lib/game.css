@@ -216,7 +216,7 @@ h1{
   background:var(--water,#7fc7e8);
   box-shadow:inset 0 -2px 4px rgba(255,255,255,.45), inset 0 2px 4px rgba(0,0,0,.10);
 }
-.cell.box.on{background:var(--done-soft)}
+.cell.box.on, .cell.on{background:var(--done-soft)}
 /* 印あわせで、置き場に乗ってはいるが合っていない荷物。
    色が消えると置き場だと分からなくなるので、赤で「ここじゃない」と出す */
 .cell.box.miss{background:var(--miss-soft,#f7bcb6)}
