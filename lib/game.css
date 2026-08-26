@@ -252,7 +252,7 @@ h1{
    だから最後まで同じ速さで進んで、ぶつかった瞬間に止まる(linear)。
    終わりを緩めると「勝手に止まった」ように見えてしまう。
    かかる時間は距離に合わせて lib/game.js の glide が入れる */
-.cell .fig.glide{transition:transform .28s linear}
+.cell .fig.glide{transition:transform .11s linear}
 /* 蟻。同僚は少し色を落とす。輪や矢印は出さない。動くときに道を見せる */
 .cell.mate .fig{opacity:.72;filter:grayscale(.25)}
 /* 同僚が今押そうとしている荷物。動いているあいだだけ付ける */
