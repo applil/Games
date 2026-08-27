@@ -436,10 +436,12 @@ const duo = {
      ・その向きに押せなくなったら、どちらかに回り込んで別の向きから押す
      ・主人公に自分の荷物を取られたら、それ以外で一番近い荷物を探す
      ・主人公がいま押している荷物には触らない
+     ・やることが無くなったら止まっている
+
+   蟻はこちらの1手につき1マス押す。押す位置までは、何マス離れていても歩いていく
+   (盤を広くしてあるのは、どれが一番近い荷物かを目で分かりやすくするため)。
 
    こちらで決めた細かいところ(違っていたら直す):
-     ・蟻は1手に1マスずつ歩く。押す位置に着いた次の手で押す
-       (遠くから一瞬で押しに来ると、盤を広くしたときに追えなくなるため)
      ・「一番近い」は、押す位置までの歩数。壁・荷物・ほかの蟻・主人公は通れない
      ・同じ歩数で選べるときは 上・下・左・右 の順、それも同じなら盤の左上に近い荷物
      ・回り込む先は、まず左右(いまの向きと直角)の近いほう。
@@ -447,8 +449,7 @@ const duo = {
      ・1つの荷物に取り付けるのは1匹だけ。左上に近い蟻から先に決める
      ・「主人公が押している荷物」は、直前の1手で主人公が押した荷物のこと
 
-   局面には、荷物の位置に加えて「蟻それぞれの居場所・取り付いている荷物・押す向き」が入る。
-   向きは盤に矢印で出しているので、遊ぶ人からも見える */
+   局面には、荷物の位置に加えて「蟻それぞれの居場所・取り付いている荷物・押す向き」が入る */
 const ants = {
   name:'ants',
   parse: b=>parseBoard(b, (p, rows)=>{
@@ -529,28 +530,12 @@ const ants = {
       if(!pick){ me.claim=-1; me.dir=-1; return null; }         // この荷物はもう押せない
       me.dir=pick.k;
     }
+    // 押す位置まで歩いて、1マス押す
     const dir=D[me.dir], stand=b-dir, to=b+dir;
-
-    // 押す位置にいれば押す。いなければ1マスだけ近づく
-    if(me.at===stand){
-      boxes[boxes.indexOf(b)]=to;
-      me.at=b;                                           // 荷物のいた場所へ入る
-      me.claim=to;                                       // 執着はそのまま、位置だけ更新
-      return {push:true, ant:stand, box:b, dir, to};
-    }
-    const back=this.walk(p, blocked, stand);             // 立ち位置からの歩数
-    let go=-1, gd=Infinity, gk=9;
-    for(let k=0;k<4;k++){
-      const n=me.at+D[k];
-      if(n<0||n>=grid.length||grid[n]||blocked.has(n)) continue;
-      const d=back.get(n);
-      if(d===undefined) continue;
-      if(d<gd || (d===gd && k<gk)){ gd=d; gk=k; go=n; }
-    }
-    if(go<0) return null;                                // 行き止まり。動かない
-    const from=me.at;
-    me.at=go;
-    return {push:false, from, to:go, dir:D[gk]};
+    boxes[boxes.indexOf(b)]=to;
+    me.at=b;                                             // 荷物のいた場所へ入る
+    me.claim=to;                                         // 執着はそのまま、位置だけ更新
+    return {ant:stand, box:b, dir, to};
   },
   start(p){
     const blocked=new Set(p.boxes.concat(p.ants));
