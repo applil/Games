@@ -254,6 +254,14 @@ h1{
    かかる時間は距離に合わせて lib/game.js の glide が入れる */
 .cell .fig.glide{transition:transform .11s linear}
 /* 蟻。同僚は少し色を落とす。輪や矢印は出さない。動くときに道を見せる */
+/* 蟻。同僚が「いまどちらへ押すつもりか」を小さく出す。
+   向きは覚えていて次の手にも効くので、見えていないと先が読めない */
+.cell .antaim{
+  position:absolute;right:2px;bottom:0;z-index:3;
+  font-size:calc(var(--cell)*0.34);font-weight:800;line-height:1;
+  color:var(--ink-soft);text-shadow:0 0 2px var(--card),0 0 3px var(--card);
+  pointer-events:none;
+}
 .cell.mate .fig{opacity:.72;filter:grayscale(.25)}
 /* 同僚が今押そうとしている荷物。動いているあいだだけ付ける */
 .cell.antbox{box-shadow:inset 0 0 0 3px #c4893a}

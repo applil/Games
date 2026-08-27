@@ -428,6 +428,27 @@ const duo = {
 
    局面は「ダンボールの位置・蟻の位置・自機の行ける範囲」の3つ。
    蟻どうしに区別はないので、蟻は並べ替えて持つ */
+/* 蟻。盤の上に同僚の蟻(&)がいて、こちらが1つ押すと、同僚も1手ずつ動く。
+
+   本人が決めたこと(2026-08-24):
+     ・はじめは、自分から一番近い荷物に取り付き、取り付いた向きのまま押す
+     ・一度押しはじめたら、その荷物に執着する(近くに別の荷物が来ても乗り換えない)
+     ・その向きに押せなくなったら、どちらかに回り込んで別の向きから押す
+     ・主人公に自分の荷物を取られたら、それ以外で一番近い荷物を探す
+     ・主人公がいま押している荷物には触らない
+
+   こちらで決めた細かいところ(違っていたら直す):
+     ・蟻は1手に1マスずつ歩く。押す位置に着いた次の手で押す
+       (遠くから一瞬で押しに来ると、盤を広くしたときに追えなくなるため)
+     ・「一番近い」は、押す位置までの歩数。壁・荷物・ほかの蟻・主人公は通れない
+     ・同じ歩数で選べるときは 上・下・左・右 の順、それも同じなら盤の左上に近い荷物
+     ・回り込む先は、まず左右(いまの向きと直角)の近いほう。
+       どちらも無理なら反対側。それも無理なら、その荷物を手放す
+     ・1つの荷物に取り付けるのは1匹だけ。左上に近い蟻から先に決める
+     ・「主人公が押している荷物」は、直前の1手で主人公が押した荷物のこと
+
+   局面には、荷物の位置に加えて「蟻それぞれの居場所・取り付いている荷物・押す向き」が入る。
+   向きは盤に矢印で出しているので、遊ぶ人からも見える */
 const ants = {
   name:'ants',
   parse: b=>parseBoard(b, (p, rows)=>{
@@ -439,6 +460,7 @@ const ants = {
     }
     p.ants.sort((a,b)=>a-b);
   }),
+  dirs(p){ return [-p.w, p.w, -1, 1]; },     // 上・下・左・右。この順が同点のときの優先順
   // from から各マスまでの歩数。壁と blocked は通れない
   walk(p, blocked, from){
     const {grid,w}=p;
@@ -455,44 +477,92 @@ const ants = {
     }
     return dist;
   },
-  /* 蟻を1匹動かす。動いたら {ant, box, dir, to} を、動けなければ null を返す。
-     盤の中身(boxes / ants)はその場で書き換える */
-  step(p, boxes, ants, player, who){
+  /* 蟻を1匹進める。盤の中身(boxes / ants)はその場で書き換える。
+     taboo は「主人公が直前に押した荷物」の、いまの位置 */
+  step(p, boxes, ants, player, taboo, who){
     const {grid,w}=p;
+    const D=this.dirs(p);
     const me=ants[who];
-    // 通れないもの。ダンボール・ほかの蟻・自機
     const blocked=new Set(boxes);
-    ants.forEach((a,i)=>{ if(i!==who) blocked.add(a); });
+    ants.forEach((a,i)=>{ if(i!==who) blocked.add(a.at); });
     blocked.add(player);
-    const dist=this.walk(p, blocked, me);
-    // 押せる手を全部だし、「歩く距離が短い順、そのあと 上下左右の順」で選ぶ
-    let best=null;
-    for(const b of boxes){
-      for(let k=0;k<4;k++){
-        const dir=[-w,w,-1,1][k];
-        const stand=b-dir, to=b+dir;
-        if(!dist.has(stand)) continue;                     // そこまで歩けない
-        if(grid[to]||blocked.has(to)||to===b) continue;     // 押した先がふさがっている
-        const d=dist.get(stand);
-        // 短い順 → 上下左右の順 → 盤の左上に近い荷物の順。
-        // 最後まで決めておかないと、荷物を持っている順番で答えが変わってしまう
-        if(!best || d<best.d || (d===best.d && (k<best.k || (k===best.k && b<best.box))))
-          best={d, k, box:b, dir, stand, to};
+
+    // 取られた荷物・主人公がいま押している荷物は手放す
+    if(me.claim>=0 && (boxes.indexOf(me.claim)<0 || me.claim===taboo)){ me.claim=-1; me.dir=-1; }
+
+    const dist=this.walk(p, blocked, me.at);
+    const taken=new Set();
+    ants.forEach((a,i)=>{ if(i!==who && a.claim>=0) taken.add(a.claim); });
+
+    // まだ取り付いていなければ、一番近い荷物を選ぶ
+    if(me.claim<0){
+      let best=null;
+      for(const b of boxes){
+        if(b===taboo || taken.has(b)) continue;
+        for(let k=0;k<4;k++){
+          const dir=D[k], stand=b-dir, to=b+dir;
+          if(!dist.has(stand)) continue;                 // そこまで歩けない
+          if(grid[to]||blocked.has(to)) continue;        // 押した先がふさがっている
+          const d=dist.get(stand);
+          if(!best || d<best.d || (d===best.d && (k<best.k || (k===best.k && b<best.box))))
+            best={d, k, box:b};
+        }
       }
+      if(!best) return null;                             // 触れる荷物が無い。動かない
+      me.claim=best.box; me.dir=best.k;
     }
-    if(!best) return null;
-    boxes[boxes.indexOf(best.box)]=best.to;
-    ants[who]=best.box;                                     // ダンボールがいた場所へ入る
-    return {ant:me, box:best.box, dir:best.dir, to:best.to};
+
+    // いまの向きで押せるか。だめなら回り込む先を決める
+    const b=me.claim;
+    const ok=k=>{
+      const dir=D[k], stand=b-dir, to=b+dir;
+      if(grid[to]||blocked.has(to)) return -1;
+      if(!dist.has(stand)) return -1;
+      return dist.get(stand);
+    };
+    if(ok(me.dir)<0){
+      const side = (me.dir===0||me.dir===1) ? [2,3] : [0,1];   // いまの向きと直角の2つ
+      const back = me.dir^1;                                   // 反対側
+      let pick=null;
+      for(const k of side){ const d=ok(k); if(d>=0 && (!pick || d<pick.d)) pick={k,d}; }
+      if(!pick){ const d=ok(back); if(d>=0) pick={k:back,d}; }
+      if(!pick){ me.claim=-1; me.dir=-1; return null; }         // この荷物はもう押せない
+      me.dir=pick.k;
+    }
+    const dir=D[me.dir], stand=b-dir, to=b+dir;
+
+    // 押す位置にいれば押す。いなければ1マスだけ近づく
+    if(me.at===stand){
+      boxes[boxes.indexOf(b)]=to;
+      me.at=b;                                           // 荷物のいた場所へ入る
+      me.claim=to;                                       // 執着はそのまま、位置だけ更新
+      return {push:true, ant:stand, box:b, dir, to};
+    }
+    const back=this.walk(p, blocked, stand);             // 立ち位置からの歩数
+    let go=-1, gd=Infinity, gk=9;
+    for(let k=0;k<4;k++){
+      const n=me.at+D[k];
+      if(n<0||n>=grid.length||grid[n]||blocked.has(n)) continue;
+      const d=back.get(n);
+      if(d===undefined) continue;
+      if(d<gd || (d===gd && k<gk)){ gd=d; gk=k; go=n; }
+    }
+    if(go<0) return null;                                // 行き止まり。動かない
+    const from=me.at;
+    me.at=go;
+    return {push:false, from, to:go, dir:D[gk]};
   },
   start(p){
     const blocked=new Set(p.boxes.concat(p.ants));
     const r=regionRep(p.grid,p.w,blocked,p.player);
-    return {boxes:p.boxes.slice(), ants:p.ants.slice(), rep:r.rep, cells:r.cells};
+    return {boxes:p.boxes.slice(),
+            ants:p.ants.map(a=>({at:a, claim:-1, dir:-1})),
+            rep:r.rep, cells:r.cells};
   },
   moves(p, st){
     const {grid,w}=p;
-    const boxSet=new Set(st.boxes), antSet=new Set(st.ants);
+    const boxSet=new Set(st.boxes);
+    const antSet=new Set(st.ants.map(a=>a.at));
     const out=[];
     for(const b of st.boxes){
       for(const dir of [1,-1,w,-w]){
@@ -500,17 +570,20 @@ const ants = {
         if(grid[from]||boxSet.has(from)||antSet.has(from)) continue;
         if(grid[to]||boxSet.has(to)||antSet.has(to)) continue;
         if(!st.cells.has(from)) continue;
-        const nb=st.boxes.slice(), na=st.ants.slice();
+        const nb=st.boxes.slice();
         nb[nb.indexOf(b)]=to;
-        const me=b;                                        // 自機はダンボールがいた場所へ
-        // 同僚が、左上に近いものから1つずつ押す
+        const na=st.ants.map(a=>({at:a.at, claim:a.claim, dir:a.dir}));
+        // 取り付いていた荷物が動いたら、執着先の位置も動かす
+        for(const a of na) if(a.claim===b) a.claim=to;
+        const me=b;                                      // 主人公は荷物のいた場所へ
         const acts=[];
         for(let i=0;i<na.length;i++){
-          const a=ants.step(p, nb, na, me, i);
+          const a=ants.step(p, nb, na, me, to, i);
           if(a) acts.push(a);
         }
-        nb.sort((x,y)=>x-y); na.sort((x,y)=>x-y);
-        const blocked=new Set(nb.concat(na));
+        nb.sort((x,y)=>x-y);
+        na.sort((x,y)=>x.at-y.at);
+        const blocked=new Set(nb.concat(na.map(a=>a.at)));
         const r=regionRep(grid,w,blocked,me);
         out.push({box:b, dir, to, acts, st:{boxes:nb, ants:na, rep:r.rep, cells:r.cells}});
       }
@@ -521,7 +594,8 @@ const ants = {
     const g=new Set(p.goals);
     return st.boxes.every(b=>g.has(b));
   },
-  key: st=>st.boxes.join(',')+'|'+st.ants.join(',')+'|'+st.rep,
+  key: st=>st.boxes.join(',')+'|'
+        +st.ants.map(a=>a.at+':'+a.claim+':'+a.dir).join(',')+'|'+st.rep,
 };
 
 const RULES={plain, water, holes, slide, marks, roll, duo, ants};
