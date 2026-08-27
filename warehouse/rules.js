@@ -368,7 +368,8 @@ const duo = {
   // from から行ける範囲。荷物と、番でないミツバチが壁
   region(p, boxes, off, from){
     const {grid,w}=p;
-    const blocked=new Set(boxes); blocked.add(off);
+    const blocked=new Set(boxes);
+    for(const o of off) blocked.add(o);
     const cells=new Set([from]);
     const q=[from];
     let rep=from;
@@ -385,31 +386,43 @@ const duo = {
     return {rep, cells};
   },
   start(p){
-    const [a,b]=p.players;
-    const r=duo.region(p, p.boxes, b, a);
-    return {boxes:p.boxes.slice(), off:b, rep:r.rep, cells:r.cells};
+    const bees=p.players.slice();
+    const r=duo.region(p, p.boxes, bees.filter((_,i)=>i!==0), bees[0]);
+    return {boxes:p.boxes.slice(), bees, turn:0, rep:r.rep, cells:r.cells};
   },
   moves(p, st){
     const {grid,w}=p;
     const boxSet=new Set(st.boxes);
+    const wait=new Set(st.bees.filter((_,i)=>i!==st.turn));   // 番でないミツバチ=壁
     const out=[];
     for(const b of st.boxes){
       for(const dir of [1,-1,w,-w]){
         const from=b-dir, to=b+dir;
-        if(!st.cells.has(from)) continue;                    // そこに立てない
-        if(grid[to]||boxSet.has(to)||to===st.off) continue;  // 相方には押し込めない
+        if(!st.cells.has(from)) continue;                     // そこに立てない
+        if(grid[to]||boxSet.has(to)||wait.has(to)) continue;  // 待っている子には押し込めない
         const nb=st.boxes.slice();
         nb[nb.indexOf(b)]=to;
         nb.sort((x,y)=>x-y);
-        // 押したミツバチは荷物のいた場所へ移り、そこで壁になる。次は相方の番
-        const r=duo.region(p, nb, b, st.off);
-        out.push({box:b, dir, to, st:{boxes:nb, off:b, rep:r.rep, cells:r.cells}});
+        // 押したミツバチは荷物のいた場所へ移り、そこで壁になる。次は並び順で次の子
+        const nbees=st.bees.slice();
+        nbees[st.turn]=b;
+        const nturn=(st.turn+1)%nbees.length;
+        const r=duo.region(p, nb, nbees.filter((_,i)=>i!==nturn), nbees[nturn]);
+        out.push({box:b, dir, to,
+                  st:{boxes:nb, bees:nbees, turn:nturn, rep:r.rep, cells:r.cells}});
       }
     }
     return out;
   },
   solved: plain.solved,
-  key: st=>st.boxes.join(',')+'|'+st.off+'|'+st.rep,
+  /* 2匹のときは、どちらが番かを見分けなくてよい(2匹に区別がないので、
+     入れ替えても同じ場面)。3匹以上は回る順番が効くので、番号と番を鍵に入れる */
+  key(st){
+    const b=st.boxes.join(',');
+    if(st.bees.length<=2)
+      return b+'|'+st.bees.filter((_,i)=>i!==st.turn).join(',')+'|'+st.rep;
+    return b+'|'+st.bees.map((x,i)=>i===st.turn?st.rep:x).join(',')+'|'+st.turn;
+  },
 };
 
 /* 蟻。盤の上に同僚の蟻(&)がいて、こちらが1つ押すと、同僚も1つずつ押してしまう。

@@ -81,7 +81,10 @@ function solution(board){
       const wall=n=>{
         if(puzzle.grid[n]) return true;
         if(boxes.includes(n)) return true;
-        if(typeof mate!=='undefined' && mate>=0 && n===mate) return true;
+        // 春。番でないミツバチは壁
+        if(typeof bees!=='undefined' && bees.length && typeof turn!=='undefined'){
+          for(let i=0;i<bees.length;i++) if(i!==turn && bees[i]===n) return true;
+        }
         if(typeof coants!=='undefined' && coants.some && coants.some(a=>a.at===n)) return true;
         return false;
       };
