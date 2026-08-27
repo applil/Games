@@ -441,10 +441,14 @@ const duo = {
    蟻はこちらの1手につき1マス押す。押す位置までは、何マス離れていても歩いていく
    (盤を広くしてあるのは、どれが一番近い荷物かを目で分かりやすくするため)。
 
+     ・荷物に接するまでの道は、曲がる回数がいちばん少ないものを選ぶ。
+       接したときに進んでいた向きが、そのまま押す向きになる
+
    こちらで決めた細かいところ(違っていたら直す):
      ・「一番近い」は、押す位置までの歩数。壁・荷物・ほかの蟻・主人公は通れない
-     ・同じ歩数で選べるときは 上・下・左・右 の順、それも同じなら盤の左上に近い荷物
-     ・回り込む先は、まず左右(いまの向きと直角)の近いほう。
+     ・同じ歩数の荷物が2つあれば、盤の左上に近いほう
+     ・曲がる回数が同じ道が2つあれば、接する向きが 上・下・左・右 の順
+     ・回り込む先は、まず左右(いまの向きと直角)で曲がりの少ないほう。
        どちらも無理なら反対側。それも無理なら、その荷物を手放す
      ・1つの荷物に取り付けるのは1匹だけ。左上に近い蟻から先に決める
      ・「主人公が押している荷物」は、直前の1手で主人公が押した荷物のこと
@@ -462,6 +466,37 @@ const ants = {
     p.ants.sort((a,b)=>a-b);
   }),
   dirs(p){ return [-p.w, p.w, -1, 1]; },     // 上・下・左・右。この順が同点のときの優先順
+  /* 曲がる回数がいちばん少ない道を測る。
+     返すのは「そのマスへ、その向きで入るまでに何回曲がったか」。
+     まっすぐ進むのは0、向きを変えるのが1。最初の1歩はどの向きでも0。
+     押す向きは「接したときに進んでいた向き」なので、ここが押す向きを決める。
+     曲がり0か1の枝しかないので、前に入れるか後ろに入れるかの列(0-1BFS)で足りる */
+  bends(p, blocked, from){
+    const {grid,w}=p, D=[-w,w,-1,1];
+    const N=grid.length;
+    const cost=new Int32Array(N*4).fill(-1);
+    const prev=new Int32Array(N*4).fill(-1);
+    const dq=new Array(N*8); let head=N*4, tail=N*4;   // 真ん中から前後に伸ばす
+    for(let k=0;k<4;k++){
+      const n=from+D[k];
+      if(n<0||n>=N||grid[n]||blocked.has(n)) continue;
+      const id=n*4+k;
+      if(cost[id]<0){ cost[id]=0; dq[tail++]=id; }
+    }
+    while(head<tail){
+      const id=dq[head++];
+      const c=id>>2, k=id&3, t=cost[id];
+      for(let j=0;j<4;j++){
+        const n=c+D[j];
+        if(n<0||n>=N||grid[n]||blocked.has(n)) continue;
+        const nid=n*4+j, nt=t+(j===k?0:1);
+        if(cost[nid]>=0 && cost[nid]<=nt) continue;
+        cost[nid]=nt; prev[nid]=id;
+        if(j===k) dq[--head]=nid; else dq[tail++]=nid;
+      }
+    }
+    return {cost, prev};
+  },
   // from から各マスまでの歩数。壁と blocked は通れない
   walk(p, blocked, from){
     const {grid,w}=p;
@@ -495,19 +530,33 @@ const ants = {
     const taken=new Set();
     ants.forEach((a,i)=>{ if(i!==who && a.claim>=0) taken.add(a.claim); });
 
-    // まだ取り付いていなければ、一番近い荷物を選ぶ
+    const bend=this.bends(p, blocked, me.at);
+    // その向きで押しにいけるか。行けるなら曲がる回数を返す
+    const ok=(b,k)=>{
+      const dir=D[k], stand=b-dir, to=b+dir;
+      if(grid[to]||blocked.has(to)) return -1;
+      if(stand===me.at) return 0;                        // もう接している
+      if(!dist.has(stand)) return -1;
+      return bend.cost[stand*4+k] >= 0 ? bend.cost[stand*4+k] : -1;
+    };
+
+    // まだ取り付いていなければ、一番近い荷物を選ぶ。
+    // どの向きから接するかは、曲がる回数がいちばん少ない道で決まる
     if(me.claim<0){
       let best=null;
       for(const b of boxes){
         if(b===taboo || taken.has(b)) continue;
+        let near=Infinity, turn=null;
         for(let k=0;k<4;k++){
-          const dir=D[k], stand=b-dir, to=b+dir;
-          if(!dist.has(stand)) continue;                 // そこまで歩けない
-          if(grid[to]||blocked.has(to)) continue;        // 押した先がふさがっている
-          const d=dist.get(stand);
-          if(!best || d<best.d || (d===best.d && (k<best.k || (k===best.k && b<best.box))))
-            best={d, k, box:b};
+          const stand=b-D[k];
+          if(dist.has(stand)) near=Math.min(near, dist.get(stand));
+          const t=ok(b,k);
+          if(t<0) continue;
+          if(!turn || t<turn.t || (t===turn.t && k<turn.k)) turn={t,k};
         }
+        if(!turn) continue;                              // 押せる向きが無い
+        if(!best || near<best.near || (near===best.near && b<best.box))
+          best={near, box:b, k:turn.k};
       }
       if(!best) return null;                             // 触れる荷物が無い。動かない
       me.claim=best.box; me.dir=best.k;
@@ -515,18 +564,11 @@ const ants = {
 
     // いまの向きで押せるか。だめなら回り込む先を決める
     const b=me.claim;
-    const ok=k=>{
-      const dir=D[k], stand=b-dir, to=b+dir;
-      if(grid[to]||blocked.has(to)) return -1;
-      if(!dist.has(stand)) return -1;
-      return dist.get(stand);
-    };
-    if(ok(me.dir)<0){
+    if(ok(b,me.dir)<0){
       const side = (me.dir===0||me.dir===1) ? [2,3] : [0,1];   // いまの向きと直角の2つ
-      const back = me.dir^1;                                   // 反対側
       let pick=null;
-      for(const k of side){ const d=ok(k); if(d>=0 && (!pick || d<pick.d)) pick={k,d}; }
-      if(!pick){ const d=ok(back); if(d>=0) pick={k:back,d}; }
+      for(const k of side){ const t=ok(b,k); if(t>=0 && (!pick || t<pick.t)) pick={k,t}; }
+      if(!pick){ const t=ok(b, me.dir^1); if(t>=0) pick={k:me.dir^1,t}; }
       if(!pick){ me.claim=-1; me.dir=-1; return null; }         // この荷物はもう押せない
       me.dir=pick.k;
     }
