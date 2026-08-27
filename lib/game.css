@@ -443,6 +443,8 @@ body.edit .palette{display:flex}
 .palette button.on{background:var(--ink);border-color:var(--ink);color:#fff}
 body:not(.rule-marks) .pal-mark{display:none}
 body:not(.rule-water) .pal-water{display:none}
+body:not(.rule-ants) .pal-ant{display:none}
+body:not(.rule-duo) .pal-duo{display:none}
 body.edit .cell{cursor:pointer}
 body.mod #btnUndo, body.mod #btnHint, body.mod #btnWipe{display:none}
 body:not(.mod) #btnBadExport,body:not(.mod) #btnBadWipe{display:none}
