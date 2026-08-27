@@ -156,6 +156,25 @@ function makeBoard(){
     if(k>=cells.length) return null;
     const [qy,qx]=cells[k++]; g[qy][qx]='@';
   }
+  // 印あわせ。荷物と置き場のうち何個かに印(1〜9 / a〜i)を付ける。
+  // 印を付ける数は毎回変える。全部に付く面も、一部だけの面も出る
+  if(RULE==='marks'){
+    const nm = 1 + Math.floor(rng()*n);                 // 何個に印を付けるか
+    const idx=[...Array(n).keys()];
+    for(let i=idx.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+    const perm=idx.slice(0,nm);                          // 置き場のどれに、どの印を付けるか
+    let bi=0, gi=0;
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      if(g[y][x]==='$'){ const k=bi++; if(k<nm) g[y][x]='123456789'[k]; }
+    }
+    // 置き場は、印の付いた荷物と1対1になるように選ぶ
+    const goals=[];
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(g[y][x]==='.') goals.push([y,x]);
+    for(let k=0;k<nm;k++){
+      const [gy,gx]=goals[perm[k]];
+      g[gy][gx]='abcdefghi'[k];
+    }
+  }
   // 蟻は、同僚を1〜2匹置く
   if(RULE==='ants'){
     const many=1+Math.floor(rng()*2);
