@@ -33,6 +33,7 @@ const [SZ_LO,SZ_HI]=(process.env.SIZE||'6,9').split(',').map(Number);
 const WATER=+(process.env.WATER||0.12);
 const DUP=+(process.env.DUP||0.7);
 const MATTERS=process.env.MATTERS!=='0';   // 0 にすると「ふつうと同じ答え」も残す
+const BEES=+(process.env.BEES||2);         // 春。ミツバチの数
 
 const rule=RULES[RULE];
 if(!rule){ console.error('知らないルール: '+RULE+' (あるのは '+Object.keys(RULES).join(', ')+')'); process.exit(1); }
@@ -50,7 +51,7 @@ const pick=a=>a[Math.floor(rng()*a.length)];
 function solve(board, cap){
   const p=rule.parse(board);
   if(!p.boxes.length || p.boxes.length!==p.goals.length || p.player<0) return null;
-  if(RULE==='duo' && (!p.players || p.players.length!==2)) return null;
+  if(RULE==='duo' && (!p.players || p.players.length!==BEES)) return null;
   if(RULE==='ants' && (!p.ants || !p.ants.length)) return null;
   let layer=[rule.start(p)];
   const seen=new Set([rule.key(layer[0])]);
@@ -146,15 +147,17 @@ function makeBoard(){
   const cells=room.slice();
   for(let i=cells.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [cells[i],cells[j]]=[cells[j],cells[i]]; }
   const n=NB_LO+Math.floor(rng()*(NB_HI-NB_LO+1));
-  if(cells.length < n*2+1+2+(RULE==='duo'?1:0)+(RULE==='ants'?2:0)) return null;
+  if(cells.length < n*2+1+2+(RULE==='duo'?BEES-1:0)+(RULE==='ants'?2:0)) return null;
   let k=0;
   for(let i=0;i<n;i++){ const [y,x]=cells[k++]; g[y][x]='$'; }
   for(let i=0;i<n;i++){ const [y,x]=cells[k++]; g[y][x]='.'; }
   const [py,px]=cells[k++]; g[py][px]='@';
-  // 春はミツバチが2匹。2匹目も床に置く
+  // 春はミツバチが複数。BEES で何匹かを決める(既定2匹)
   if(RULE==='duo'){
-    if(k>=cells.length) return null;
-    const [qy,qx]=cells[k++]; g[qy][qx]='@';
+    for(let i=1;i<BEES;i++){
+      if(k>=cells.length) return null;
+      const [qy,qx]=cells[k++]; g[qy][qx]='@';
+    }
   }
   // 印あわせ。荷物と置き場のうち何個かに印(1〜9 / a〜i)を付ける。
   // 印を付ける数は毎回変える。全部に付く面も、一部だけの面も出る
