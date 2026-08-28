@@ -449,6 +449,7 @@ const duo = {
      ・その向きに押せなくなったら、どちらかに回り込んで別の向きから押す
      ・主人公に自分の荷物を取られたら、それ以外で一番近い荷物を探す
      ・主人公がいま押している荷物には触らない
+     ・置き場に載っている荷物には触らない(せっかく収めたものを動かさない)
      ・やることが無くなったら止まっている
 
    蟻はこちらの1手につき1マス押す。押す位置までは、何マス離れていても歩いていく
@@ -538,8 +539,11 @@ const ants = {
     ants.forEach((a,i)=>{ if(i!==who) blocked.add(a.at); });
     blocked.add(player);
 
-    // 取られた荷物・主人公がいま押している荷物は手放す
-    if(me.claim>=0 && (boxes.indexOf(me.claim)<0 || me.claim===taboo)){ me.claim=-1; me.dir=-1; }
+    // 取られた荷物・主人公がいま押している荷物・置き場に収まった荷物は手放す
+    const done=new Set(p.goals);
+    if(me.claim>=0 && (boxes.indexOf(me.claim)<0 || me.claim===taboo || done.has(me.claim))){
+      me.claim=-1; me.dir=-1;
+    }
 
     const dist=this.walk(p, blocked, me.at);
     const taken=new Set();
@@ -562,7 +566,7 @@ const ants = {
     if(me.claim<0){
       let best=null;
       for(const b of boxes){
-        if(b===taboo || taken.has(b)) continue;
+        if(b===taboo || taken.has(b) || done.has(b)) continue;   // 収まった荷物は触らない
         let near=Infinity, turn=null;
         for(let k=0;k<4;k++){
           const stand=b-D[k];
