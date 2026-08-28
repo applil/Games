@@ -11,7 +11,10 @@
  * 環境変数で条件を変えられる:
  *   MIN_PUSH / MAX_PUSH … 手数の範囲
  *   NBOX                … 荷物の数(例 2,4)
- *   SIZE                … 盤の大きさ(例 6,9)
+ *   SIZE                … 盤の大きさ。外枠を含む(例 6,9)
+ *   MIN_SIDE            … 内側(壁を除いた中身)の長いほうの辺の下限(例 9)。
+ *                         SIZE は縦横を別々に引くので、範囲を広げると
+ *                         小さい盤も混ざる。「広い面だけ」を狙うときに使う
  *   WATER               … 水にするマスの割合(夏だけ。例 0.12)
  *   DUP                 … 手順の重なりの上限(既定 0.7)
  */
@@ -30,6 +33,7 @@ const MIN_PUSH=+(process.env.MIN_PUSH||3);
 const MAX_PUSH=+(process.env.MAX_PUSH||30);
 const [NB_LO,NB_HI]=(process.env.NBOX||'2,4').split(',').map(Number);
 const [SZ_LO,SZ_HI]=(process.env.SIZE||'6,9').split(',').map(Number);
+const MIN_SIDE=+(process.env.MIN_SIDE||0);   // 内側の長辺の下限(0 なら見ない)
 const WATER=+(process.env.WATER||0.12);
 const DUP=+(process.env.DUP||0.7);
 const MATTERS=process.env.MATTERS!=='0';   // 0 にすると「ふつうと同じ答え」も残す
@@ -124,6 +128,9 @@ const overlap=(A,B)=>{
 function makeBoard(){
   const W=SZ_LO+Math.floor(rng()*(SZ_HI-SZ_LO+1));
   const H=SZ_LO+Math.floor(rng()*(SZ_HI-SZ_LO+1));
+  // 縦横を別々に引くので、範囲を広げると小さい盤も混ざる。
+  // 広い面だけを狙うときは、ここで内側の長辺を見て捨てる
+  if(MIN_SIDE && Math.max(W,H)-2 < MIN_SIDE) return null;
   const g=[];
   for(let y=0;y<H;y++){ const r=[];
     for(let x=0;x<W;x++) r.push((y===0||x===0||y===H-1||x===W-1) ? '#' : (rng()<0.18?'#':' '));
