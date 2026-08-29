@@ -26,6 +26,10 @@ const PW=process.env.PW || (()=>{
 const {chromium}=require(PW);
 const dir=process.argv[2]||'ant';
 const HOW=+(process.argv[3]||10);
+// 演出は蟻が1マス歩くのに320ms、1押しに440msかかる。2匹が長く歩くと数秒になる。
+// 「詰まった」と「ただ長い」を分けるため、待ちは十分に長くとって、
+// 実際にかかった最長の時間も出す
+const LIMIT=+(process.env.LIMIT||30000);
 const HOST=process.env.HOST||'http://localhost:8791';
 const CHROME=process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
@@ -39,14 +43,18 @@ const CHROME=process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/
   await p.goto(HOST+'/'+dir+'/?debug=1');
   await p.waitForFunction(()=>document.querySelectorAll('.board .cell').length>0,null,{timeout:20000});
 
-  const out=await p.evaluate(async(HOW)=>{
+  const out=await p.evaluate(async(arg)=>{
+    const {HOW, LIMIT}=arg;
     const rep=[];
+    let worst=0, worstAt='';
     const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     const busy=()=>(typeof antBusy!=='undefined') && antBusy;
-    // antBusy が戻るのを待つ。戻らなければ詰まり
-    const settle=async(limit=6000)=>{
+    // antBusy が戻るのを待つ。戻らなければ詰まり。かかった時間も控える
+    const settle=async(where)=>{
       const t0=Date.now();
-      while(busy() && Date.now()-t0<limit) await sleep(50);
+      while(busy() && Date.now()-t0<LIMIT) await sleep(25);
+      const dt=Date.now()-t0;
+      if(dt>worst){ worst=dt; worstAt=where||''; }
       return !busy();
     };
     const state=()=>({player, boxes:boxes.slice().join(','), finished,
@@ -62,7 +70,7 @@ const CHROME=process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/
       for(let k=0;k<24 && !finished;k++){
         const d=DIRS[Math.floor(rnd()*4)];
         move(d);
-        if(!await settle()){
+        if(!await settle('第'+(i+1)+'面 '+d)){
           rep.push({面:i+1, 場面:'ふつうに押したあと '+d, ...state()});
           break;
         }
@@ -70,7 +78,7 @@ const CHROME=process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/
         if(k%7===3){
           move(DIRS[Math.floor(rnd()*4)]);      // 演出中の入力
           undo();                                // 演出中の取り消し
-          if(!await settle()){
+          if(!await settle('第'+(i+1)+'面 演出中の割り込み')){
             rep.push({面:i+1, 場面:'演出中に押す/戻す', ...state()});
             break;
           }
@@ -82,7 +90,7 @@ const CHROME=process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/
           await sleep(60);
           window.dispatchEvent(new Event('pageshow'));
           document.dispatchEvent(new Event('visibilitychange'));
-          if(!await settle()){
+          if(!await settle('第'+(i+1)+'面 裏へ回して戻す')){
             rep.push({面:i+1, 場面:'裏へ回して戻したあと', ...state()});
             break;
           }
@@ -97,10 +105,12 @@ const CHROME=process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/
       finished=false;
       document.getElementById('overlay').classList.remove('show');
     }
-    return rep;
-  }, HOW);
+    return {rep, worst, worstAt};
+  }, {HOW, LIMIT});
 
-  console.log(out.length ? JSON.stringify(out,null,1) : '詰まりは見つからなかった');
+  console.log(out.rep.length ? JSON.stringify(out.rep,null,1) : '詰まりは見つからなかった');
+  console.log('入力が止まっていた最長の時間: '+(out.worst/1000).toFixed(2)+'秒'
+              +(out.worstAt?'  ('+out.worstAt+')':''));
   if(errs.length) console.log('画面のエラー:\n'+errs.slice(0,10).join('\n'));
   else console.log('画面のエラー: なし');
   await b.close();

@@ -485,7 +485,7 @@ const ants = {
   /* 曲がる回数がいちばん少ない道を測る。
      返すのは「そのマスへ、その向きで入るまでに何回曲がったか」。
      まっすぐ進むのは0、向きを変えるのが1。最初の1歩はどの向きでも0。
-     押す向きは「接したときに進んでいた向き」なので、ここが押す向きを決める。
+     使うときは bendTo で向きをまとめる(押す向きとは切り離してある)。
      曲がり0か1の枝しかないので、前に入れるか後ろに入れるかの列(0-1BFS)で足りる */
   bends(p, blocked, from){
     const {grid,w}=p, D=[-w,w,-1,1];
@@ -512,6 +512,16 @@ const ants = {
       }
     }
     return {cost, prev};
+  },
+  /* そのマスに着くまでの曲がり回数。着いたときの向きは問わない。
+     「接したときに進んでいた向きが、そのまま押す向きになる」はやめた
+     (2026-08-28 本人の指示)。押す位置に立ったら、その場で向きを変えて押す。
+     前は向きまで揃える必要があったので、押す位置に着いているのに
+     いったん脇へ出て入り直す、という歩き方をしていた */
+  bendTo(bend, cell){
+    let t=-1;
+    for(let q=0;q<4;q++){ const c=bend.cost[cell*4+q]; if(c>=0 && (t<0||c<t)) t=c; }
+    return t;
   },
   // from から各マスまでの歩数。壁と blocked は通れない
   walk(p, blocked, from){
@@ -554,9 +564,9 @@ const ants = {
     const ok=(b,k)=>{
       const dir=D[k], stand=b-dir, to=b+dir;
       if(grid[to]||blocked.has(to)) return -1;
-      if(stand===me.at) return 0;                        // もう接している。曲がり0・距離0
+      if(stand===me.at) return 0;                        // もう立っている。曲がり0・距離0
       if(!dist.has(stand)) return -1;
-      const t=bend.cost[stand*4+k];
+      const t=this.bendTo(bend, stand);                  // 着いたときの向きは問わない
       if(t<0) return -1;
       return t*1000 + dist.get(stand);                   // 曲がり優先、同じなら短いほう
     };
