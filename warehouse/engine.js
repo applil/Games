@@ -109,7 +109,11 @@ function regionsOf(grid,w,boxes){
 /* ================= 解ける状態の完全列挙 =================
    完成状態から「引き」で到達できる状態 = そこから押して完成させられる状態。
    ビーム無しの全探索なので、得られる集合と手数は厳密。 */
-function solvableStates(grid,w,goals,cap){
+/* deadline(時刻ms)を渡すと、そこを過ぎたところで諦めて null を返す。
+   Worker が使えない端末では、この関数を画面と同じ線で回すことになる。
+   時間を切らないと、そのあいだ画面ごと止まって何も受け付けなくなる
+   (第800面で 220,929状態・5.1秒。iPhone ならその数倍) */
+function solvableStates(grid,w,goals,cap,deadline){
   const dist=new Map();
   const goalBoxes=goals.slice().sort((a,b)=>a-b);
   let frontier=[];
@@ -118,12 +122,15 @@ function solvableStates(grid,w,goals,cap){
     dist.set(k,0);
     frontier.push({boxes:goalBoxes, rep:r.rep, cells:r.cells});
   }
-  let d=0;
+  let d=0, seen=0;
   while(frontier.length){
     if(dist.size>cap) return null;      // 大きすぎる盤面は捨てる
     const next=[];
     d++;
     for(const st of frontier){
+      // 時間を切られているときは、ときどき時計を見る。
+      // 毎回見ると、時計を読むほうが計算より重くなる
+      if(deadline && (++seen & 255)===0 && Date.now()>deadline) return null;
       const boxSet=new Set(st.boxes);
       for(const b of st.boxes){
         for(const dir of [1,-1,w,-w]){
