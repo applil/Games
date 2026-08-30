@@ -81,6 +81,11 @@ function solution(board){
       const wall=n=>{
         if(puzzle.grid[n]) return true;
         if(boxes.includes(n)) return true;
+        // リス。空いた穴は落ちるので通れない。埋めた穴は地面と同じ。
+        // これを見ていなかったので、穴を通り抜ける道を組み立てて
+        // 「歩いた先が違う」になっていた(25面中3面)
+        if(typeof RULE!=='undefined' && RULE==='holes'
+           && goalSet.has(n) && !filled.has(n)) return true;
         // 春。番でないミツバチは壁
         if(typeof bees!=='undefined' && bees.length && typeof turn!=='undefined'){
           for(let i=0;i<bees.length;i++) if(i!==turn && bees[i]===n) return true;
