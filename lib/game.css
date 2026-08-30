@@ -8,10 +8,14 @@
   --wall:#3f4c66;
   --wall-top:#55637f;
   --floor:#eef2f9;
-  --goal:#ff9f1c;
-  --goal-soft:#ffe0b0;      /* 荷物が乗っていない置き場 */
-  --done:#2fa46a;
-  --done-soft:#bde8d0;      /* 置き場に乗った荷物 */
+  /* 置き場=橙、収まった=青。緑をやめたのは、赤緑の見分けがつきにくい人に
+     置き場と床と「収まった」の区別がつかなかったため(2026-08-30 本人の指示)。
+     橙と青は、どの色覚でも色みの向きが入れ替わらない */
+  --goal:#a85f06;
+  --goal-soft:#f0b76a;      /* 荷物が乗っていない置き場 */
+  --done:#16527f;
+  --done-soft:#8fb9dc;      /* 置き場に乗った荷物 */
+  --shut:var(--floor);      /* リスの埋めた穴。既定は床と同じ */
   --line:#dce5f2;
   --error:#e5484d;
   --cell:36px;
@@ -25,11 +29,11 @@ body.skin-beetle{
   --wall:#6b4a2a;
   --wall-top:#8b6539;
   --floor:#f0e2c0;
-  /* 砂の床と紛れないよう、置き場ははっきり濃く */
-  --goal:#c96f13;
-  --goal-soft:#efb45a;
-  --done:#5f8a2e;
-  --done-soft:#c2dc8c;
+  /* 砂の床と紛れないよう、置き場ははっきり濃く。橙と青はふつうと同じ */
+  --goal:#a85f06;
+  --goal-soft:#f0b76a;
+  --done:#16527f;
+  --done-soft:#8fb9dc;
   --line:#e0cfa8;
 }
 /* 冬の色。壁は凍った石、床は雪 */
@@ -41,12 +45,12 @@ body.skin-winter{
   --wall:#5b7a96;
   --wall-top:#7a99b3;
   --floor:#e4f1fb;
-  /* 雪の床も薄い水色なので、置き場はもっと濃い水色に。
-     収まった氷は青。水色と青で、色みの向きを変えて見分ける */
-  --goal:#1f8ad6;
-  --goal-soft:#a4d7f9;
-  --done:#1a72d6;
-  --done-soft:#5fa8ee;
+  /* 雪の床・置き場・収まったが全部水色系で、明るさの差だけで見分けていた。
+     置き場を橙にして、色みの向きから離す */
+  --goal:#a85f06;
+  --goal-soft:#f0b76a;
+  --done:#16527f;
+  --done-soft:#8fb9dc;
   --line:#cfe3f0;
 }
 /* 春の色。壁は若葉、床は花びら */
@@ -55,14 +59,17 @@ body.skin-spring{
   --ink-soft:#8a6473;
   --paper:#fdf2f6;
   --card:#fffafc;
-  --wall:#8fb45c;
-  --wall-top:#a8c97a;
+  /* 壁の若葉は少し濃く。薄いと床と近い */
+  --wall:#7a9c4a;
+  --wall-top:#92b364;
   --floor:#fdeef3;
-  /* 花びらの床と紛れないよう、置き場は濃い桃色 */
-  --goal:#d9538a;
-  --goal-soft:#f6bed6;
-  --done:#3f9a6a;
-  --done-soft:#bde6ce;
+  /* 花びらの床と紛れないよう、置き場は濃い桃色(そのまま、少し濃く)。
+     緑だった「収まった」は青へ。青は濃いほうにする。薄い青だと、
+     P型(赤が弱い)で桃色が沈んで青に寄る(実測 ΔE9.6 → 29.4) */
+  --goal:#c9457c;
+  --goal-soft:#eda3c4;
+  --done:#134a73;
+  --done-soft:#4a7fbb;
   --line:#f2dde6;
 }
 /* 夏の色。床は乾いた砂浜、壁は海と濡れた岩。
@@ -78,12 +85,13 @@ body.skin-summer{
   /* すいかが赤と緑なので、置き場はどちらとも重ならない海の色に。
      壁と同系だが、こちらはずっと明るく緑寄り(色相173対187)なので混ざらない。
      収まったら藤色。砂・海・藤の3色で、どのマスも一目で分かる */
-  /* 水を置くようになったので、置き場は水と紛れない暖色に戻す。
-     置き場=橙、収まった=藤、水=青緑。3つとも色みが離れている */
+  /* 置き場は水と紛れない暖色のまま。藤色だった「収まった」は青へ。
+     青は濃いほうにする。薄い青だと、赤緑の型で水(青緑)とほぼ同じ色になる
+     (実測 D型で ΔE1.5 → 27.6) */
   --goal:#e2591f;
   --goal-soft:#f7bb9a;
-  --done:#5b4bc4;
-  --done-soft:#bdb4f2;
+  --done:#134a73;
+  --done-soft:#4a7fbb;
   --water:#63c3d8;
   --line:#e7dbc0;
 }
@@ -96,11 +104,12 @@ body.skin-ant{
   --wall:#7a5c3a;
   --wall-top:#96754c;
   --floor:#efe6d4;
-  /* 地面と紛れないよう、置き場は青緑。収まったら緑 */
-  --goal:#1f7a8c;
-  --goal-soft:#b5dde4;
-  --done:#3f8f4f;
-  --done-soft:#bfe3b8;
+  /* 前は置き場が青緑・収まったが緑で、緑が弱い型ではほぼ同じ色だった。
+     置き場を橙、収まったを青にする */
+  --goal:#a85f06;
+  --goal-soft:#f0b76a;
+  --done:#16527f;
+  --done-soft:#8fb9dc;
   --line:#e2d8c4;
 }
 /* リスの色。壁は苔むした木、床は落ち葉 */
@@ -114,11 +123,13 @@ body.skin-squirrel{
   --floor:#f7f0d2;                 /* 落ち葉の薄い黄色 */
   /* 穴。水たまりと同じく塗りつぶし。上の縁だけ黒に近い */
   --hole:#8a684c;
-  /* 落ち葉の床と紛れないよう、置き場はどんぐり色ではっきりと */
+  /* 置き場は穴なので、色ではなく形で分かる。ここは変えない。
+     埋めた穴だけ、床と同じ色で見えなかったので少し濃くする */
   --goal:#c2661a;
   --goal-soft:#f0b878;
   --done:#37803f;
   --done-soft:#a9d488;
+  --shut:#e8dfb9;
   --line:#d6e3bd;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -187,8 +198,23 @@ h1{
 }
 .cell.wall{background:var(--wall);box-shadow:inset 0 2px 0 var(--wall-top);border-radius:5px}
 .cell.void{background:transparent}
-/* 置き場は色だけで示す。荷物がなければオレンジ、乗ればグリーン */
+/* 置き場は色だけで示していた。それだと色の見分けがつきにくい人には、
+   置き場と床、置き場と「収まった」の区別がつかない(本人の知人の指摘)。
+   色に加えて**形**でも分かるようにする。タイルの外枠のすぐ内側に輪郭を引く。
+     空いている置き場 … 破線
+     荷物が収まった   … 実線
+     印ちがい         … 点線
+   輪の色は、どの着せ替えでも明るさの差が出るように濃い墨にする。
+   ::after は水たまり・穴・埋めた穴が使っているので、こちらは ::before を使う。
+   絵(.fig)は z-index:1 なので、輪はヒヨコや荷物の下に入る */
 .cell.goal{background:var(--goal-soft)}
+.cell.goal::before, .cell.on::before, .cell.box.miss::before{
+  content:'';position:absolute;inset:0;border-radius:4px;z-index:0;
+  box-sizing:border-box;pointer-events:none;
+}
+.cell.goal::before{border:1.5px dashed rgba(0,0,0,.5)}
+.cell.on::before{border:1.5px solid rgba(0,0,0,.5)}
+.cell.box.miss::before{border:1.5px dotted rgba(0,0,0,.6)}
 /* 水たまりと穴は、マス全体ではなく楕円で描く。
    床の色が残るので、盤の地続き感が消えない。絵文字より下に置く(.fig は z-index:1) */
 .cell.water::after, .cell.hole::after, .cell.shut::after{
@@ -212,10 +238,13 @@ h1{
     inset 0 3px 4px rgba(0,0,0,.28),
     inset 0 -2px 4px rgba(255,230,200,.40);
 }
-/* ドングリが入ったあと。色は床と同じにして、へこんでいるだけに見せる */
+/* ドングリが入れたあと。へこんでいるだけに見せる。
+   前は床とまったく同じ色で、言われないと気づかなかったので、
+   塗りだけ少し濃くした(--shut)。**グラデは付けない**
+   (一度ふちにグラデを入れたが、穴が残っているように見えて変だった) */
 .cell.shut::after{
   width:78%;height:62%;
-  background:var(--floor);
+  background:var(--shut);
   box-shadow:
     inset 0 3px 4px -2px rgba(0,0,0,.28),
     0 1px 0 rgba(255,255,255,.6);
@@ -244,8 +273,10 @@ h1{
   color:var(--ink);text-shadow:0 0 2px var(--card),0 0 3px var(--card);
   pointer-events:none;
 }
-/* 置き場の印。場所も大きさも荷物と同じで、色だけ違う */
-.cell .tag.goaltag{color:var(--goal)}
+/* 置き場の印。場所も大きさも荷物と同じ。
+   前は置き場の色にしていたが、薄い地に同系の字で読みにくかった。
+   色に頼るのをここでもやめて、荷物の印と同じ濃い墨にする */
+.cell .tag.goaltag{color:var(--ink)}
 /* 印の位置が絵の形で動かないよう、.fig の大きさを字の大きさで決めておく。
    中身(絵文字)は真ん中に置く。荷物が乗っていない置き場でも同じ大きさになるので、
    印は同じ場所に出る */
@@ -536,8 +567,15 @@ body.no-table #btnHint{display:none}
   display:inline-block;width:15px;height:15px;border-radius:4px;
   vertical-align:-3px;margin:0 4px 0 1px;
 }
+.rules .sw{position:relative}
 .rules .sw.goal{background:var(--goal-soft)}
 .rules .sw.done{background:var(--done-soft)}
+/* 盤の見た目と揃える。文章だけ色で言っていると、輪郭が何なのか分からない */
+.rules .sw.goal::before, .rules .sw.done::before{
+  content:'';position:absolute;inset:0;border-radius:4px;box-sizing:border-box;
+}
+.rules .sw.goal::before{border:1.5px dashed rgba(0,0,0,.5)}
+.rules .sw.done::before{border:1.5px solid rgba(0,0,0,.5)}
 .rules b{color:var(--ink)}
 /* ルール違いのゲームで、ふつうとの違いを先頭に置く一段 */
 .rules p.rulenote{
