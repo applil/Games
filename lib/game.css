@@ -123,6 +123,10 @@ body.skin-squirrel{
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+/* iPhone の下端(ホームバーの帯)の高さ。JS から読んで、その帯で始まった指を
+   受けないようにする(下端からのスワイプはアプリ切り替えの操作なので、
+   こちらで受けると「上へ動かす」が入ってしまう) */
+:root{--safe-bottom:env(safe-area-inset-bottom, 0px)}
 body{
   font-family:'Hiragino Maru Gothic ProN','Zen Maru Gothic','Hiragino Kaku Gothic ProN','Yu Gothic',system-ui,sans-serif;
   color:var(--ink);
@@ -133,7 +137,13 @@ body{
   display:flex;justify-content:center;
 }
 /* 画面のどこでもスワイプで操作するので、ブラウザ側のジェスチャは切っておく */
-.app{width:100%;max-width:430px;padding:10px 14px 12px;display:flex;flex-direction:column;height:100dvh;touch-action:none}
+/* 下は安全域(ホームバーの帯)ぶんを空ける。viewport-fit=cover なので、
+   空けないと十字キーがホームバーの帯まで来てしまい(実測 下端13px)、
+   アプリを切り替えようと下端から上へスワイプしたときに
+   「上へ動かす」が入ってしまう */
+.app{width:100%;max-width:430px;
+     padding:10px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+     display:flex;flex-direction:column;height:100dvh;touch-action:none}
 
 /* タイトルは絶対配置で中央に。左右のボタンの幅に影響されない */
 header{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:0 0 auto;min-height:34px}
