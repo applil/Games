@@ -415,10 +415,24 @@ body.dpad-off .footrow{position:static;padding-top:10px;height:auto;align-items:
 #btnBad.on,#btnBadWin.on{background:#fde7e8;border-color:var(--error);color:var(--error)}
 #btnBadWin{margin-bottom:8px}
 
+/* お知らせは盤の上に重ねる。場所を取らないので、出入りしても盤が伸び縮みしない。
+   盤の下のほうに置いて、いま動いているあたりを隠さないようにする。
+   指は素通しにする(盤の上はスワイプで操作するので、ここで受けてはいけない) */
 .msg{
-  display:none;flex:0 0 auto;background:var(--card);border:1px solid var(--line);
-  border-left:4px solid var(--done);border-radius:12px;
-  padding:8px 10px;font-size:12px;line-height:1.6;margin-top:6px;
+  display:none;position:absolute;left:4px;right:4px;bottom:6px;z-index:4;
+  pointer-events:none;
+  background:rgba(255,255,255,.86);
+  border:1px solid var(--line);border-left:4px solid var(--done);border-radius:12px;
+  padding:8px 10px;font-size:12px;line-height:1.6;
+  box-shadow:0 2px 10px rgba(28,43,70,.14);
+}
+/* 背景をぼかせる端末では、少し薄くして盤が透けて見えるようにする */
+@supports ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+  .msg{
+    background:rgba(255,255,255,.62);
+    -webkit-backdrop-filter:blur(7px) saturate(1.2);
+    backdrop-filter:blur(7px) saturate(1.2);
+  }
 }
 .msg.warn{border-left-color:var(--error)}
 .boardnote{display:none;flex:0 0 auto;text-align:center;font-size:10.5px;color:var(--ink-soft);line-height:1.6;white-space:pre-line;margin-top:6px}
